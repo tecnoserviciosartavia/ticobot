@@ -7,17 +7,12 @@ use App\Http\Controllers\Web\ConciliationController as WebConciliationController
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\PaymentController as WebPaymentController;
 use App\Http\Controllers\Web\ReminderController as WebReminderController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    return auth()->check() 
+        ? redirect()->route('dashboard') 
+        : redirect()->route('login');
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
