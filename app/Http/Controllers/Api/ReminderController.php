@@ -79,8 +79,14 @@ class ReminderController extends Controller
             ]);
         }
 
+        // Normalize scheduled_for to configured send time so all reminders for
+        // the due date are sent at the same hour of the day.
+        $scheduled = Carbon::parse($data['scheduled_for'])
+            ->setTimeFromTimeString(config('reminders.send_time', '09:00'));
+
         $reminder = Reminder::create([
             ...$data,
+            'scheduled_for' => $scheduled,
             'status' => $data['status'] ?? 'pending',
         ]);
 
@@ -118,6 +124,11 @@ class ReminderController extends Controller
             'acknowledged_at' => ['nullable', 'date'],
             'attempts' => ['nullable', 'integer', 'min:0'],
         ]);
+
+        if (isset($data['scheduled_for'])) {
+            $data['scheduled_for'] = Carbon::parse($data['scheduled_for'])
+                ->setTimeFromTimeString(config('reminders.send_time', '09:00'));
+        }
 
         $reminder->update($data);
 

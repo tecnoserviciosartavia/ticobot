@@ -303,11 +303,15 @@ class ReminderController extends Controller
             'due_date' => isset($data['due_date']) ? Carbon::parse($data['due_date'])->toDateString() : null,
         ], fn ($value) => $value !== null && $value !== '');
 
+        // Normalize scheduled_for to application configured reminder send time
+        $scheduled = Carbon::parse($data['scheduled_for'])
+            ->setTimeFromTimeString(config('reminders.send_time', '09:00'));
+
         return [
             'client_id' => (int) $data['client_id'],
             'contract_id' => (int) $data['contract_id'],
             'channel' => $data['channel'],
-            'scheduled_for' => Carbon::parse($data['scheduled_for']),
+            'scheduled_for' => $scheduled,
             'payload' => $payload,
         ];
     }

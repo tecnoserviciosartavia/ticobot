@@ -65,7 +65,14 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    /*
+    |--------------------------------------------------------------------------
+    | Application Timezone
+    |--------------------------------------------------------------------------
+    | Use an environment variable so the timezone can be switched without
+    | changing code. Defaults to UTC when APP_TIMEZONE is not set.
+    */
+    'timezone' => env('APP_TIMEZONE', 'UTC'),
 
     /*
     |--------------------------------------------------------------------------

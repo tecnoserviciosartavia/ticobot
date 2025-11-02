@@ -94,12 +94,20 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                             Detalles del contrato y seguimiento de recordatorios y pagos vinculados.
                         </p>
                     </div>
-                    <Link
-                        href={route('contracts.edit', contract.id)}
-                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
-                    >
-                        Editar
-                    </Link>
+                    <div className="flex gap-2">
+                        <Link
+                            href={route('contracts.index')}
+                            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+                        >
+                            ← Volver
+                        </Link>
+                        <Link
+                            href={route('contracts.edit', contract.id)}
+                            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+                        >
+                            Editar
+                        </Link>
+                    </div>
                 </div>
             }
         >
