@@ -88,6 +88,137 @@ class ContractController extends Controller
         ]);
     }
 
+    public function importForm(): Response
+    {
+        return Inertia::render('Contracts/Import');
+    }
+
+    public function import(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        ]);
+
+        $file = $validated['file'];
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        try {
+            $path = $file->getRealPath();
+            if (! $path || ! is_readable($path)) {
+                return redirect()->back()->withErrors(['file' => 'No se puede leer el archivo subido.']);
+            }
+
+            $extension = strtolower($file->getClientOriginalExtension() ?? '');
+
+            $headers = [];
+            $rows = [];
+
+            if (in_array($extension, ['xlsx', 'xls', 'ods'], true)) {
+                if (! class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
+                    return redirect()->back()->withErrors(['file' => 'La librería para procesar archivos XLSX no está instalada. Ejecuta composer require phpoffice/phpspreadsheet']);
+                }
+
+                $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($path);
+                $spreadsheet = $reader->load($path);
+                $sheet = $spreadsheet->getActiveSheet();
+                $data = $sheet->toArray(null, true, true, true);
+
+                if (count($data) === 0) {
+                    return redirect()->back()->withErrors(['file' => 'El archivo XLSX está vacío.']);
+                }
+
+                $first = array_shift($data);
+                $headers = array_map(function ($h) { return strtolower(trim((string) $h)); }, array_values($first));
+                foreach ($data as $row) {
+                    $rows[] = array_values($row);
+                }
+            } else {
+                $handle = fopen($path, 'r');
+                if ($handle === false) {
+                    return redirect()->back()->withErrors(['file' => 'No se pudo abrir el archivo para lectura.']);
+                }
+
+                $headers = fgetcsv($handle);
+                if (! $headers) {
+                    fclose($handle);
+                    return redirect()->back()->withErrors(['file' => 'El archivo CSV está vacío.']);
+                }
+
+                $headers = array_map(function ($h) { return strtolower(trim((string) $h)); }, $headers);
+
+                while (($row = fgetcsv($handle)) !== false) {
+                    if (count($row) === 1 && trim((string) $row[0]) === '') {
+                        continue;
+                    }
+                    $rows[] = $row;
+                }
+
+                fclose($handle);
+            }
+
+            foreach ($rows as $row) {
+                $data = [];
+                foreach ($row as $idx => $value) {
+                    $key = $headers[$idx] ?? null;
+                    if ($key === null) continue;
+                    $data[$key] = is_string($value) ? trim($value) : $value;
+                }
+
+                // Identify client
+                $client = null;
+                if (! empty($data['client_id'])) {
+                    $client = Client::find((int) $data['client_id']);
+                } elseif (! empty($data['client_email'])) {
+                    $client = Client::where('email', $data['client_email'])->first();
+                }
+
+                if (! $client) {
+                    $skipped++;
+                    continue;
+                }
+
+                $name = $data['name'] ?? null;
+                $amount = isset($data['amount']) ? (float) $data['amount'] : null;
+                if (! $name || $amount === null) {
+                    $skipped++;
+                    continue;
+                }
+
+                $attrs = [
+                    'client_id' => $client->id,
+                    'name' => $name,
+                    'amount' => $amount,
+                    'currency' => strtoupper($data['currency'] ?? 'CRC'),
+                    'billing_cycle' => $data['billing_cycle'] ?? 'monthly',
+                    'next_due_date' => $data['next_due_date'] ?? null,
+                    'grace_period_days' => isset($data['grace_period_days']) ? (int) $data['grace_period_days'] : 0,
+                    'metadata' => $data['notes'] ?? null,
+                ];
+
+                // Try to find existing contract by name + client
+                $existing = Contract::where('client_id', $client->id)->where('name', $attrs['name'])->first();
+                if ($existing) {
+                    $existing->fill($attrs);
+                    if ($existing->isDirty()) { $existing->save(); $updated++; } else { $skipped++; }
+                } else {
+                    // compute next_due_date if empty
+                    if (empty($attrs['next_due_date'])) {
+                        $attrs['next_due_date'] = $this->computeNextDueDate($attrs['billing_cycle']);
+                    }
+                    Contract::create($attrs);
+                    $created++;
+                }
+            }
+
+        } catch (\Throwable $e) {
+            return redirect()->back()->withErrors(['file' => 'Ocurrió un error procesando el archivo: '.$e->getMessage()]);
+        }
+
+        return redirect()->route('contracts.index')->with('success', "Importación completada: {$created} creados, {$updated} actualizados, {$skipped} omitidos.");
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validatedData($request);

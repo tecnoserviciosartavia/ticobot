@@ -215,7 +215,7 @@ class ClientController extends Controller
     public function import(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'file' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/vnd.ms-excel'],
+            'file' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
         ]);
 
         $file = $validated['file'];
@@ -229,31 +229,69 @@ class ClientController extends Controller
                 return redirect()->back()->withErrors(['file' => 'No se puede leer el archivo subido.']);
             }
 
-            $handle = fopen($path, 'r');
-            if ($handle === false) {
-                return redirect()->back()->withErrors(['file' => 'No se pudo abrir el archivo para lectura.']);
-            }
+            $extension = strtolower($file->getClientOriginalExtension() ?? '');
 
-            // Read header row
-            $headers = fgetcsv($handle);
-            if (! $headers) {
-                fclose($handle);
-                return redirect()->back()->withErrors(['file' => 'El archivo CSV está vacío.']);
-            }
+            // Will hold header row and rows
+            $headers = [];
+            $rows = [];
 
-            $headers = array_map(function ($h) {
-                return strtolower(trim((string) $h));
-            }, $headers);
-
-            // Expected columns (any order). Unknown columns are ignored.
-            // name (required), email, phone, status, notes
-
-            while (($row = fgetcsv($handle)) !== false) {
-                if (count($row) === 1 && trim((string) $row[0]) === '') {
-                    // blank line
-                    continue;
+            if (in_array($extension, ['xlsx', 'xls', 'ods'], true)) {
+                // Parse spreadsheet using PhpSpreadsheet
+                if (! class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
+                    return redirect()->back()->withErrors(['file' => 'La librería para procesar archivos XLSX no está instalada. Ejecuta composer require phpoffice/phpspreadsheet']);
                 }
 
+                $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($path);
+                $spreadsheet = $reader->load($path);
+                $sheet = $spreadsheet->getActiveSheet();
+                $data = $sheet->toArray(null, true, true, true);
+
+                if (count($data) === 0) {
+                    return redirect()->back()->withErrors(['file' => 'El archivo XLSX está vacío.']);
+                }
+
+                // First row: headers
+                $first = array_shift($data);
+                // Normalize headers - keys may be 'A','B',.. so cast to values
+                $headers = array_map(function ($h) {
+                    return strtolower(trim((string) $h));
+                }, array_values($first));
+
+                foreach ($data as $row) {
+                    $rows[] = array_values($row);
+                }
+            } else {
+                // CSV processing
+                $handle = fopen($path, 'r');
+                if ($handle === false) {
+                    return redirect()->back()->withErrors(['file' => 'No se pudo abrir el archivo para lectura.']);
+                }
+
+                // Read header row
+                $headers = fgetcsv($handle);
+                if (! $headers) {
+                    fclose($handle);
+                    return redirect()->back()->withErrors(['file' => 'El archivo CSV está vacío.']);
+                }
+
+                $headers = array_map(function ($h) {
+                    return strtolower(trim((string) $h));
+                }, $headers);
+
+                // Read all rows
+                while (($row = fgetcsv($handle)) !== false) {
+                    if (count($row) === 1 && trim((string) $row[0]) === '') {
+                        // blank line
+                        continue;
+                    }
+                    $rows[] = $row;
+                }
+
+                fclose($handle);
+            }
+
+            // Now process $headers and $rows (both CSV and XLSX normalized to arrays)
+            foreach ($rows as $row) {
                 $data = [];
                 foreach ($row as $idx => $value) {
                     $key = $headers[$idx] ?? null;
@@ -299,8 +337,6 @@ class ClientController extends Controller
                     $created++;
                 }
             }
-
-            fclose($handle);
         } catch (\Throwable $e) {
             return redirect()->back()->withErrors(['file' => 'Ocurrió un error procesando el archivo: '.$e->getMessage()]);
         }

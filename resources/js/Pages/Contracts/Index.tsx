@@ -95,12 +95,20 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
                             Controla los contratos activos, ciclos de facturación y vencimientos próximos.
                         </p>
                     </div>
-                    <Link
-                        href={route('contracts.create')}
-                        className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                        Nuevo contrato
-                    </Link>
+                    <div className="flex gap-2">
+                        <Link
+                            href={route('contracts.import')}
+                            className="inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-indigo-600 ring-1 ring-inset ring-indigo-200 shadow-sm transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                            Importar
+                        </Link>
+                        <Link
+                            href={route('contracts.create')}
+                            className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                            Nuevo contrato
+                        </Link>
+                    </div>
                 </div>
             }
         >

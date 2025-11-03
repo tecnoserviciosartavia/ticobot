@@ -21,6 +21,9 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     // Clients import (CSV) - define BEFORE the resource to avoid matching `clients/{client}`
     Route::get('clients/import', [WebClientController::class, 'importForm'])->name('clients.import');
     Route::post('clients/import', [WebClientController::class, 'import'])->name('clients.import.store');
+    // Contracts import (CSV/XLSX) - define BEFORE the resource to avoid matching `contracts/{contract}`
+    Route::get('contracts/import', [WebContractController::class, 'importForm'])->name('contracts.import');
+    Route::post('contracts/import', [WebContractController::class, 'import'])->name('contracts.import.store');
     Route::resource('clients', WebClientController::class)->except(['destroy']);
     Route::resource('contracts', WebContractController::class)->except(['destroy']);
     Route::resource('reminders', WebReminderController::class)->except(['destroy']);
