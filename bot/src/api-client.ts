@@ -1,6 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
+import pRetry from 'p-retry';
 import { config } from './config.js';
 import { AcknowledgePayload, ReminderRecord } from './types.js';
+import { logger } from './logger.js';
 
 class ApiClient {
   private readonly http: AxiosInstance;
@@ -40,10 +42,18 @@ class ApiClient {
   }
 
   async markSent(reminderId: number): Promise<void> {
-    await this.http.patch(`reminders/${reminderId}`, {
-      status: 'sent',
-      sent_at: new Date().toISOString()
-    });
+    await pRetry(async () => {
+      try {
+        await this.http.patch(`reminders/${reminderId}`, {
+          status: 'sent',
+          sent_at: new Date().toISOString()
+        });
+      } catch (err: any) {
+        // Log helpful details for debugging and rethrow to trigger retry
+        logger.warn({ reminderId, err: err?.response?.data ?? err?.message ?? err }, 'Error marcando recordatorio como enviado, reintentando');
+        throw err;
+      }
+    }, { retries: 2 });
   }
 
   async reportWhatsappQr(qr: string): Promise<void> {

@@ -3,6 +3,7 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { Link } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEventHandler } from 'react';
 
 interface ReminderClientOption {
@@ -52,6 +53,25 @@ export default function ReminderForm({
     const selectedClient = clients.find((client) => String(client.id) === String(data.client_id));
     const contractOptions = selectedClient?.contracts ?? [];
 
+    const [search, setSearch] = useState('');
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (!containerRef.current) return;
+            if (!containerRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('click', handleClick);
+        return () => document.removeEventListener('click', handleClick);
+    }, []);
+
+    const filtered = search
+        ? clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
+        : clients.slice(0, 8);
+
     const handleClientChange = (value: string) => {
         onChange('client_id', value);
         onChange('contract_id', '');
@@ -60,23 +80,64 @@ export default function ReminderForm({
     return (
         <form onSubmit={onSubmit} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
+                <div ref={containerRef}>
                     <InputLabel htmlFor="client_id" value="Cliente" />
-                    <select
-                        id="client_id"
-                        name="client_id"
-                        value={data.client_id}
-                        onChange={(event) => handleClientChange(event.target.value)}
-                        required
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    >
-                        <option value="">Seleccione un cliente</option>
-                        {clients.map((client) => (
-                            <option key={client.id} value={client.id}>
-                                {client.name}
-                            </option>
-                        ))}
-                    </select>
+
+                    <div className="relative">
+                        <input
+                            id="client_id"
+                            name="client_id"
+                            type="text"
+                            value={selectedClient ? selectedClient.name : search}
+                            onChange={(e) => {
+                                setSearch(e.target.value);
+                                handleClientChange('');
+                                setOpen(true);
+                            }}
+                            onFocus={() => setOpen(true)}
+                            placeholder="Seleccione un cliente"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            required
+                        />
+
+                        {selectedClient && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSearch('');
+                                    handleClientChange('');
+                                    setOpen(false);
+                                }}
+                                className="absolute right-2 top-2 text-sm text-gray-500 hover:text-gray-700"
+                                aria-label="Eliminar selección"
+                            >
+                                ✕
+                            </button>
+                        )}
+
+                        {open && (
+                            <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white border border-gray-200 shadow-sm">
+                                {filtered.length === 0 && (
+                                    <li className="px-3 py-2 text-sm text-gray-500">No hay resultados</li>
+                                )}
+                                {filtered.map((client) => (
+                                    <li
+                                        key={client.id}
+                                        className="cursor-pointer px-3 py-2 text-sm hover:bg-gray-50"
+                                        onMouseDown={(ev) => ev.preventDefault()}
+                                        onClick={() => {
+                                            handleClientChange(String(client.id));
+                                            setSearch('');
+                                            setOpen(false);
+                                        }}
+                                    >
+                                        {client.name}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
                     <InputError message={errors.client_id} className="mt-2" />
                 </div>
 

@@ -192,6 +192,13 @@ class ReminderController extends Controller
         // Keep previous status to detect transitions
         $previousStatus = $reminder->status;
 
+        // If the client attempted to set 'sent' we will prefer the server time
+        // to avoid timezone/clock skew issues. Normalize sent_at to server
+        // now() when transitioning to 'sent'.
+        if (isset($data['status']) && $data['status'] === 'sent') {
+            $data['sent_at'] = Carbon::now();
+        }
+
         $reminder->update($data);
 
         // If this reminder was just marked as sent and it carries a recurrence
