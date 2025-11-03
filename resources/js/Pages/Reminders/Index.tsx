@@ -33,6 +33,7 @@ type RemindersPageProps = PageProps<{
     filters: {
         status?: string | null;
         channel?: string | null;
+        recurrence?: string | null;
         client_id?: number | null;
         contract_id?: number | null;
         scheduled_from?: string | null;
@@ -42,6 +43,7 @@ type RemindersPageProps = PageProps<{
     channels: string[];
     clients: Array<{ id: number; name: string }>;
     contracts: Array<{ id: number; name: string; client_id?: number | null }>;
+    recurrences: string[];
 }>;
 
 const formatDateTime = (value: string | null) => {
@@ -65,10 +67,11 @@ const formatDateTime = (value: string | null) => {
     return `${date}, ${time}`;
 };
 
-export default function RemindersIndex({ reminders, filters, statuses, channels, clients, contracts }: RemindersPageProps) {
+export default function RemindersIndex({ reminders, filters, statuses, channels, clients, contracts, recurrences }: RemindersPageProps) {
     const { data, setData } = useForm<{
         status: string;
         channel: string;
+        recurrence: string;
         client_id: string;
         contract_id: string;
         scheduled_from: string;
@@ -76,6 +79,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
     }>({
         status: filters.status ?? '',
         channel: filters.channel ?? '',
+        recurrence: filters.recurrence ?? '',
         client_id: filters.client_id ? String(filters.client_id) : '',
         contract_id: filters.contract_id ? String(filters.contract_id) : '',
         scheduled_from: filters.scheduled_from ?? '',
@@ -94,7 +98,6 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
         event.preventDefault();
         router.get(route('reminders.index'), { ...data }, {
             preserveScroll: true,
-            preserveState: true,
             replace: true,
         });
     };
@@ -102,6 +105,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
     const resetFilters = () => {
         setData('status', '');
         setData('channel', '');
+        setData('recurrence', '');
         setData('client_id', '');
         setData('contract_id', '');
         setData('scheduled_from', '');
@@ -126,14 +130,13 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
             }
         >
             <Head title="Recordatorios" />
-
             <div className="py-12">
                 <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
                     <div className="overflow-hidden rounded-lg bg-white shadow">
                         <div className="flex flex-col gap-4 border-b border-gray-200 bg-gray-50 px-6 py-4 md:flex-row md:items-center md:justify-between">
                             <form
                                 onSubmit={submit}
-                                className="grid w-full grid-cols-1 gap-4 md:grid-cols-6 md:items-end"
+                                className="grid w-full grid-cols-1 gap-4 md:grid-cols-7 md:items-end"
                             >
                                 <div>
                                     <label
@@ -157,6 +160,30 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         ))}
                                     </select>
                                 </div>
+
+                                <div>
+                                    <label
+                                        htmlFor="recurrence"
+                                        className="block text-sm font-medium text-gray-700"
+                                    >
+                                        Recurrencia
+                                    </label>
+                                    <select
+                                        id="recurrence"
+                                        name="recurrence"
+                                        value={data.recurrence}
+                                        onChange={(event) => setData('recurrence', event.target.value)}
+                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    >
+                                        <option value="">Todos</option>
+                                        {(recurrences ?? ['weekly', 'biweekly', 'monthly', 'one_time']).map((r) => (
+                                            <option key={r} value={r}>
+                                                {r === 'weekly' ? 'Semanal' : r === 'biweekly' ? 'Quincenal' : r === 'monthly' ? 'Mensual' : 'Un solo pago'}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
 
                                 <div>
                                     <label
@@ -264,7 +291,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                     />
                                 </div>
 
-                                <div className="flex gap-2 md:col-span-6">
+                                    <div className="flex gap-2 md:col-span-7">
                                     <button
                                         type="submit"
                                         className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 md:w-auto"
@@ -301,6 +328,9 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                                             Contrato
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                            Recurrencia
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                                             Canal
@@ -352,6 +382,13 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                                     </div>
                                                 )}
                                             </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                                    {(() => {
+                                                        const r: string | null | undefined = (reminder as any).recurrence;
+                                                        if (!r) return '—';
+                                                        return r === 'weekly' ? 'Semanal' : r === 'biweekly' ? 'Quincenal' : r === 'monthly' ? 'Mensual' : r === 'one_time' ? 'Un solo pago' : r;
+                                                    })()}
+                                                </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
                                                 {reminder.channel}
                                             </td>

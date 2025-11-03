@@ -23,6 +23,7 @@ class ReminderController extends Controller
     {
         $status = trim((string) $request->query('status', ''));
         $channel = trim((string) $request->query('channel', ''));
+        $recurrence = trim((string) $request->query('recurrence', ''));
         $clientId = (int) $request->query('client_id', 0) ?: null;
         $contractId = (int) $request->query('contract_id', 0) ?: null;
         $scheduledFrom = $this->parseDate($request->query('scheduled_from'));
@@ -38,6 +39,14 @@ class ReminderController extends Controller
 
         if ($channel !== '') {
             $query->where('channel', $channel);
+        }
+
+        if ($recurrence !== '') {
+            // Try to match payload->recurrence or fallback to contract.billing_cycle
+            $query->where(function ($q) use ($recurrence) {
+                $q->where('payload->recurrence', $recurrence)
+                  ->orWhereHas('contract', fn ($cq) => $cq->where('billing_cycle', $recurrence));
+            });
         }
 
         if ($clientId) {
@@ -71,6 +80,7 @@ class ReminderController extends Controller
                 'messages_count' => $reminder->messages_count,
                 'client' => $reminder->client?->only(['id', 'name', 'phone']),
                 'contract' => $reminder->contract?->only(['id', 'name', 'amount', 'currency']),
+                'recurrence' => $reminder->payload['recurrence'] ?? $reminder->contract?->billing_cycle ?? null,
             ]);
 
         $statuses = Reminder::query()
@@ -99,6 +109,9 @@ class ReminderController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Supported recurrence options (hard-coded to keep UI consistent)
+        $recurrences = collect(['weekly', 'biweekly', 'monthly', 'one_time']);
+
         return Inertia::render('Reminders/Index', [
             'reminders' => $reminders,
             'filters' => [
@@ -106,6 +119,7 @@ class ReminderController extends Controller
                 'channel' => $channel !== '' ? $channel : null,
                 'client_id' => $clientId,
                 'contract_id' => $contractId,
+                'recurrence' => $recurrence !== '' ? $recurrence : null,
                 'scheduled_from' => $scheduledFrom?->toDateString(),
                 'scheduled_to' => $scheduledTo?->toDateString(),
             ],
@@ -113,6 +127,7 @@ class ReminderController extends Controller
             'channels' => $channels,
             'clients' => $clients,
             'contracts' => $contracts,
+            'recurrences' => $recurrences,
         ]);
     }
 
@@ -260,6 +275,7 @@ class ReminderController extends Controller
                 'message' => $payload['message'] ?? '',
                 'amount' => $payload['amount'] ?? '',
                 'due_date' => $payload['due_date'] ?? '',
+                'recurrence' => $payload['recurrence'] ?? null,
             ],
             'clients' => $clients,
             'channels' => Reminder::query()->select('channel')->distinct()->pluck('channel')->filter()->values(),
@@ -309,7 +325,7 @@ class ReminderController extends Controller
             'contract_id' => ['required', Rule::exists('contracts', 'id')],
             'channel' => ['required', 'string', 'max:50'],
             'scheduled_for' => ['required', 'date'],
-            'monthly' => ['nullable', 'boolean'],
+            'recurrence' => ['nullable', 'string', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'message' => ['nullable', 'string'],
             'amount' => ['nullable', 'string'],
             'due_date' => ['nullable', 'date'],
@@ -322,12 +338,12 @@ class ReminderController extends Controller
         ], fn ($value) => $value !== null && $value !== '');
 
         // Determine scheduled datetime. Preserve the exact datetime/time the
-        // user provided. If marked monthly, flag recurrence so the system
-        // will auto-create the next occurrence after sending.
+        // user provided. If recurrence provided, include it in payload so
+        // the API can auto-create the next occurrence when appropriate.
         $requested = Carbon::parse($data['scheduled_for']);
         $scheduled = $requested;
-        if (!empty($data['monthly'])) {
-            $payload['recurrence'] = 'monthly';
+        if (!empty($data['recurrence'])) {
+            $payload['recurrence'] = $data['recurrence'];
         }
 
         return [

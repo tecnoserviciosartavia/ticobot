@@ -19,6 +19,7 @@ export interface ReminderFormData {
     message: string;
     amount: string;
     due_date: string;
+    recurrence?: string;
 }
 
 interface ReminderFormProps {
@@ -136,6 +137,24 @@ export default function ReminderForm({
                         required
                     />
                     <InputError message={errors.scheduled_for} className="mt-2" />
+                </div>
+
+                <div>
+                    <InputLabel htmlFor="recurrence" value="Recurrencia" />
+                    <select
+                        id="recurrence"
+                        name="recurrence"
+                        value={data.recurrence ?? ''}
+                        onChange={(event) => onChange('recurrence', event.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="">Sin recurrencia (usar contrato)</option>
+                        <option value="weekly">Semanal</option>
+                        <option value="biweekly">Quincenal</option>
+                        <option value="monthly">Mensual</option>
+                        <option value="one_time">Un solo pago</option>
+                    </select>
+                    <InputError message={errors.recurrence} className="mt-2" />
                 </div>
 
                 <div className="md:col-span-2">

@@ -40,6 +40,7 @@ export default function RemindersEdit({ reminder, clients, channels }: Reminders
         message: reminder.message ?? '',
         amount: reminder.amount ?? '',
         due_date: reminder.due_date ?? '',
+        recurrence: (reminder as any).recurrence ?? '',
     });
 
     const statusLabel = reminder.status

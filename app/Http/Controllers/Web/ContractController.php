@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Carbon\Carbon;
 
 class ContractController extends Controller
 {
@@ -90,6 +91,11 @@ class ContractController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validatedData($request);
+
+        // If next_due_date is not provided, compute based on billing_cycle
+        if (empty($data['next_due_date'])) {
+            $data['next_due_date'] = $this->computeNextDueDate($data['billing_cycle']);
+        }
 
         $contract = Contract::create($data);
 
@@ -187,8 +193,8 @@ class ContractController extends Controller
             'client_id' => ['required', Rule::exists('clients', 'id')],
             'name' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0'],
-            'currency' => ['required', 'string', 'size:3'],
-            'billing_cycle' => ['required', 'string', 'max:50'],
+            'currency' => ['required', Rule::in(['CRC', 'USD'])],
+            'billing_cycle' => ['required', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'next_due_date' => ['nullable', 'date'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:60'],
         ]);
@@ -202,5 +208,17 @@ class ContractController extends Controller
             'next_due_date' => $data['next_due_date'] ?? null,
             'grace_period_days' => $data['grace_period_days'] ?? 0,
         ];
+    }
+
+    private function computeNextDueDate(string $billingCycle): string
+    {
+        $today = Carbon::today(config('app.timezone'));
+        return match ($billingCycle) {
+            'weekly' => $today->copy()->addDays(7)->toDateString(),
+            'biweekly' => $today->copy()->addDays(14)->toDateString(),
+            'monthly' => $today->copy()->addMonthNoOverflow()->toDateString(),
+            'one_time' => $today->toDateString(),
+            default => $today->toDateString(),
+        };
     }
 }

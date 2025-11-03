@@ -22,6 +22,7 @@ export default function RemindersCreate({ clients, channels, defaultChannel }: R
         message: '',
         amount: '',
         due_date: '',
+        recurrence: '',
     });
 
     const handleChange = (field: keyof ReminderFormData, value: string) => {

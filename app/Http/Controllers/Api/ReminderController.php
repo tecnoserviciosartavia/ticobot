@@ -86,12 +86,19 @@ class ReminderController extends Controller
         $requested = Carbon::parse($data['scheduled_for']);
         $payload = $data['payload'] ?? [];
 
-        if (!empty($data['monthly']) || isset($payload['recurrence']) && $payload['recurrence'] === 'monthly') {
+        // Default recurrence to contract's cycle if not provided
+        $recurrence = $payload['recurrence'] ?? $contract->billing_cycle ?? null;
+        if (\in_array($recurrence, ['weekly', 'biweekly', 'monthly', 'one_time'], true)) {
+            $payload['recurrence'] = $recurrence;
+        }
+
+        // For monthly we retained smart scheduling based on day/time in current/next month.
+        // For other recurrences, use the provided scheduled datetime as-is.
+        if ($recurrence === 'monthly') {
             // Extract requested day and time
             $day = (int) $requested->day;
             $timeString = $requested->format('H:i:s');
 
-            // compute next occurrence (this month or next) using requested day and time
             $now = Carbon::now();
             $year = $now->year;
             $month = $now->month;
@@ -103,7 +110,6 @@ class ReminderController extends Controller
                 ->setTimeFromTimeString($timeString);
 
             if ($candidate->lessThanOrEqualTo($now)) {
-                // schedule next month
                 $nextMonth = $now->copy()->addMonthNoOverflow();
                 $daysInNext = Carbon::create($nextMonth->year, $nextMonth->month, 1)->daysInMonth;
                 $useDayNext = min(max(1, $day), $daysInNext);
@@ -112,14 +118,8 @@ class ReminderController extends Controller
             }
 
             $scheduled = $candidate;
-
-            // ensure payload marks recurrence so system can auto-create next one
-            $payload['recurrence'] = 'monthly';
         } else {
-            // Use the exact datetime provided by the caller. Do not force the
-            // configured send_time so reminders are scheduled at the user
-            // supplied hour.
-            $scheduled = Carbon::parse($data['scheduled_for']);
+            $scheduled = $requested;
         }
 
     // Ensure payload exists (may have been mutated above)
@@ -194,16 +194,23 @@ class ReminderController extends Controller
 
         $reminder->update($data);
 
-        // If this reminder was just marked as sent and it carries a monthly
-        // recurrence flag, create the next monthly occurrence automatically.
+        // If this reminder was just marked as sent and it carries a recurrence
+        // flag (weekly, biweekly, monthly), create the next occurrence automatically.
         $reminder->refresh();
         if (isset($data['status']) && $data['status'] === 'sent' && $previousStatus !== 'sent') {
-            $recurrence = $reminder->payload['recurrence'] ?? null;
-            if ($recurrence === 'monthly') {
+            $recurrence = $reminder->payload['recurrence']
+                ?? optional($reminder->contract)->billing_cycle
+                ?? null;
+
+            if (\in_array($recurrence, ['weekly', 'biweekly', 'monthly'], true)) {
                 try {
                     $currentScheduled = Carbon::parse($reminder->scheduled_for);
-                    // next occurrence: add month preserving day where possible
-                    $next = $currentScheduled->copy()->addMonthNoOverflow();
+                    $next = match ($recurrence) {
+                        'weekly' => $currentScheduled->copy()->addDays(7),
+                        'biweekly' => $currentScheduled->copy()->addDays(14),
+                        'monthly' => $currentScheduled->copy()->addMonthNoOverflow(),
+                        default => $currentScheduled,
+                    };
 
                     Reminder::create([
                         'contract_id' => $reminder->contract_id,
@@ -211,10 +218,17 @@ class ReminderController extends Controller
                         'channel' => $reminder->channel,
                         'scheduled_for' => $next,
                         'status' => 'pending',
-                        'payload' => $reminder->payload ?? [],
+                        'payload' => array_merge($reminder->payload ?? [], ['recurrence' => $recurrence]),
                     ]);
+
+                    // Also advance contract next_due_date if linked
+                    if ($reminder->contract) {
+                        $reminder->contract->forceFill([
+                            'next_due_date' => $next->toDateString(),
+                        ])->save();
+                    }
                 } catch (\Throwable $e) {
-                    logger()->error('Error creando próximo recordatorio mensual: ' . $e->getMessage());
+                    logger()->error('Error creando próximo recordatorio recurrente: ' . $e->getMessage());
                 }
             }
         }
@@ -269,5 +283,18 @@ class ReminderController extends Controller
         ])->save();
 
         return response()->json($reminder->fresh());
+    }
+
+    /**
+     * Utility to compute next due date based on cycle from a given date.
+     */
+    private function computeNextFrom(Carbon $date, string $cycle): Carbon
+    {
+        return match ($cycle) {
+            'weekly' => $date->copy()->addDays(7),
+            'biweekly' => $date->copy()->addDays(14),
+            'monthly' => $date->copy()->addMonthNoOverflow(),
+            default => $date,
+        };
     }
 }

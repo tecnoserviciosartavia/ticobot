@@ -99,29 +99,73 @@ export default function ContractForm({
 
                 <div>
                     <InputLabel htmlFor="currency" value="Moneda" />
-                    <TextInput
+                    <select
                         id="currency"
                         name="currency"
                         value={data.currency}
-                        onChange={(event) => onChange('currency', event.target.value.toUpperCase())}
-                        className="mt-1 block w-full uppercase"
-                        maxLength={3}
+                        onChange={(event) => onChange('currency', event.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         required
-                    />
+                    >
+                        <option value="CRC">CRC — Colón costarricense</option>
+                        <option value="USD">USD — Dólar estadounidense</option>
+                    </select>
                     <InputError message={errors.currency} className="mt-2" />
                 </div>
 
                 <div>
                     <InputLabel htmlFor="billing_cycle" value="Ciclo de facturación" />
-                    <TextInput
+                    <select
                         id="billing_cycle"
                         name="billing_cycle"
                         value={data.billing_cycle}
-                        onChange={(event) => onChange('billing_cycle', event.target.value)}
-                        className="mt-1 block w-full"
-                        placeholder="monthly, quarterly, annual..."
+                        onChange={(event) => {
+                            const value = event.target.value;
+                            onChange('billing_cycle', value);
+                            // Auto-sugerir fecha si está vacía
+                            if (!data.next_due_date) {
+                                const today = new Date();
+                                const pad = (n: number) => String(n).padStart(2, '0');
+                                const addDays = (d: Date, days: number) => {
+                                    const nd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                                    nd.setDate(nd.getDate() + days);
+                                    return nd;
+                                };
+                                const addMonths = (d: Date, months: number) => {
+                                    // Adjust by month while keeping the day when possible
+                                    const nd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                                    nd.setMonth(nd.getMonth() + months);
+                                    return nd;
+                                };
+                                let suggested: Date = today;
+                                switch (value) {
+                                    case 'weekly':
+                                        suggested = addDays(today, 7);
+                                        break;
+                                    case 'biweekly':
+                                        suggested = addDays(today, 14);
+                                        break;
+                                    case 'monthly':
+                                        suggested = addMonths(today, 1);
+                                        break;
+                                    case 'one_time':
+                                        suggested = today;
+                                        break;
+                                }
+                                const yyyy = suggested.getFullYear();
+                                const mm = pad(suggested.getMonth() + 1);
+                                const dd = pad(suggested.getDate());
+                                onChange('next_due_date', `${yyyy}-${mm}-${dd}`);
+                            }
+                        }}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         required
-                    />
+                    >
+                        <option value="weekly">Semanal</option>
+                        <option value="biweekly">Quincenal</option>
+                        <option value="monthly">Mensual</option>
+                        <option value="one_time">Un solo pago</option>
+                    </select>
                     <InputError message={errors.billing_cycle} className="mt-2" />
                 </div>
 

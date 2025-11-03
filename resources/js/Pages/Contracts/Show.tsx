@@ -143,7 +143,22 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                 </div>
                                 <div className="flex justify-between">
                                     <dt className="text-gray-500">Ciclo</dt>
-                                    <dd className="font-medium text-gray-900">{contract.billing_cycle}</dd>
+                                    <dd className="font-medium text-gray-900">
+                                        {(() => {
+                                            switch (contract.billing_cycle) {
+                                                case 'weekly':
+                                                    return 'Semanal';
+                                                case 'biweekly':
+                                                    return 'Quincenal';
+                                                case 'monthly':
+                                                    return 'Mensual';
+                                                case 'one_time':
+                                                    return 'Un solo pago';
+                                                default:
+                                                    return contract.billing_cycle;
+                                            }
+                                        })()}
+                                    </dd>
                                 </div>
                                 <div className="flex justify-between">
                                     <dt className="text-gray-500">Próximo vencimiento</dt>
