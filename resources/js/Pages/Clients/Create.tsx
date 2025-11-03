@@ -11,7 +11,6 @@ interface CreateClientPageProps extends PageProps {
 export default function CreateClient({ statuses, defaultStatus }: CreateClientPageProps) {
     const form = useForm({
         name: '',
-        legal_id: '',
         email: '',
         phone: '',
         status: defaultStatus ?? 'active',

@@ -18,7 +18,6 @@ class ClientFactory extends Factory
     {
         return [
             'name' => $this->faker->company(),
-            'legal_id' => $this->faker->unique()->numerify('3-###-######'),
             'email' => $this->faker->unique()->companyEmail(),
             'phone' => $this->faker->e164PhoneNumber(),
             'status' => 'active',

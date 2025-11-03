@@ -25,7 +25,6 @@ class ClientController extends Controller
             $query->where(function ($innerQuery) use ($search) {
                 $innerQuery
                     ->where('name', 'like', "%{$search}%")
-                    ->orWhere('legal_id', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%");
             });
@@ -46,7 +45,6 @@ class ClientController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'legal_id' => ['nullable', 'string', 'max:50', 'unique:clients,legal_id'],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'status' => ['required', 'string', 'max:50'],
@@ -76,7 +74,6 @@ class ClientController extends Controller
     {
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'legal_id' => ['nullable', 'string', 'max:50', 'unique:clients,legal_id,'.$client->id],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'status' => ['sometimes', 'required', 'string', 'max:50'],

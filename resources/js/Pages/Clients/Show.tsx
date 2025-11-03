@@ -6,7 +6,7 @@ import { Head, Link } from '@inertiajs/react';
 interface ClientResource {
     id: number;
     name: string;
-    legal_id: string | null;
+    // legal_id removed
     email: string | null;
     phone: string | null;
     status: string;
@@ -160,10 +160,6 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                         <article className="rounded-xl bg-white p-6 shadow">
                             <h3 className="text-base font-semibold text-gray-900">Información de contacto</h3>
                             <dl className="mt-4 space-y-3 text-sm text-gray-700">
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">Identificación</dt>
-                                    <dd className="font-medium text-gray-900">{client.legal_id ?? '—'}</dd>
-                                </div>
                                 <div className="flex justify-between">
                                     <dt className="text-gray-500">Correo</dt>
                                     <dd className="font-medium text-gray-900">{client.email ?? '—'}</dd>

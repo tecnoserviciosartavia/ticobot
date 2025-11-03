@@ -26,7 +26,6 @@ class ClientController extends Controller
             $query->where(function ($innerQuery) use ($search) {
                 $innerQuery
                     ->where('name', 'like', "%{$search}%")
-                    ->orWhere('legal_id', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%");
             });
@@ -43,7 +42,6 @@ class ClientController extends Controller
             ->through(fn (Client $client) => [
                 'id' => $client->id,
                 'name' => $client->name,
-                'legal_id' => $client->legal_id,
                 'email' => $client->email,
                 'phone' => $client->phone,
                 'status' => $client->status,
@@ -154,7 +152,6 @@ class ClientController extends Controller
             'client' => [
                 'id' => $client->id,
                 'name' => $client->name,
-                'legal_id' => $client->legal_id,
                 'email' => $client->email,
                 'phone' => $client->phone,
                 'status' => $client->status,
@@ -192,7 +189,6 @@ class ClientController extends Controller
             'client' => [
                 'id' => $client->id,
                 'name' => $client->name,
-                'legal_id' => $client->legal_id,
                 'email' => $client->email,
                 'phone' => $client->phone,
                 'status' => $client->status,
@@ -250,7 +246,7 @@ class ClientController extends Controller
             }, $headers);
 
             // Expected columns (any order). Unknown columns are ignored.
-            // name (required), email, phone, legal_id, status, notes
+            // name (required), email, phone, status, notes
 
             while (($row = fgetcsv($handle)) !== false) {
                 if (count($row) === 1 && trim((string) $row[0]) === '') {
@@ -277,17 +273,13 @@ class ClientController extends Controller
                     'name' => $name,
                     'email' => $data['email'] ?? null,
                     'phone' => $data['phone'] ?? null,
-                    'legal_id' => $data['legal_id'] ?? null,
                     'status' => $data['status'] ?? 'active',
                     'notes' => $data['notes'] ?? null,
                 ];
 
-                // Find existing by legal_id or email
+                // Find existing by email
                 $existing = null;
-                if (! empty($attrs['legal_id'])) {
-                    $existing = Client::withTrashed()->where('legal_id', $attrs['legal_id'])->first();
-                }
-                if (! $existing && ! empty($attrs['email'])) {
+                if (! empty($attrs['email'])) {
                     $existing = Client::withTrashed()->where('email', $attrs['email'])->first();
                 }
 
@@ -322,7 +314,6 @@ class ClientController extends Controller
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'legal_id' => ['nullable', 'string', 'max:50', Rule::unique('clients', 'legal_id')->ignore($client)],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'status' => ['required', 'string', 'max:50'],

@@ -9,7 +9,6 @@ import { FormEvent } from 'react';
 interface Client {
     id: number;
     name: string;
-    legal_id: string | null;
     email: string | null;
     phone: string | null;
     status: string;
@@ -126,7 +125,7 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
                                         type="search"
                                         value={data.search}
                                         onChange={(event) => setData('search', event.target.value)}
-                                        placeholder="Nombre, identificación, email o teléfono"
+                                        placeholder="Nombre, email o teléfono"
                                         className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                     />
                                 </div>
@@ -206,11 +205,6 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
                                                         {client.name}
                                                     </Link>
                                                 </div>
-                                                {client.legal_id && (
-                                                    <div className="text-sm text-gray-500">
-                                                        {client.legal_id}
-                                                    </div>
-                                                )}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
                                                 <div>{client.email ?? '—'}</div>

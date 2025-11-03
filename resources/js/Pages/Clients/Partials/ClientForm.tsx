@@ -7,7 +7,6 @@ import { FormEventHandler } from 'react';
 
 interface ClientFormData {
     name: string;
-    legal_id: string;
     email: string;
     phone: string;
     status: string;
@@ -59,18 +58,7 @@ export default function ClientForm({
                     <InputError message={errors.name} className="mt-2" />
                 </div>
 
-                <div>
-                    <InputLabel htmlFor="legal_id" value="Identificación legal" />
-                    <TextInput
-                        id="legal_id"
-                        name="legal_id"
-                        value={data.legal_id}
-                        onChange={(event) => onChange('legal_id', event.target.value)}
-                        className="mt-1 block w-full"
-                        placeholder="Opcional"
-                    />
-                    <InputError message={errors.legal_id} className="mt-2" />
-                </div>
+                {/* Removed legal_id field as requested */}
 
                 <div>
                     <InputLabel htmlFor="email" value="Correo electrónico" />

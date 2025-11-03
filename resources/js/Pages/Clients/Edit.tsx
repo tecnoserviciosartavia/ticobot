@@ -6,7 +6,7 @@ import { Head, useForm } from '@inertiajs/react';
 interface ClientResource {
     id: number;
     name: string;
-    legal_id: string | null;
+    // legal_id removed
     email: string | null;
     phone: string | null;
     status: string;
@@ -21,7 +21,6 @@ interface EditClientPageProps extends PageProps {
 export default function EditClient({ client, statuses }: EditClientPageProps) {
     const form = useForm({
         name: client.name ?? '',
-        legal_id: client.legal_id ?? '',
         email: client.email ?? '',
         phone: client.phone ?? '',
         status: client.status ?? 'active',
