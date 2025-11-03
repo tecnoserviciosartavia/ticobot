@@ -78,9 +78,10 @@ class SendTestMessageCommand extends Command
         // Preparar el mensaje
         $messageText = $customMessage ?? "🤖 *Mensaje de Prueba - Ticobot*\n\nHola {$client->name}, este es un mensaje de prueba del sistema automatizado de recordatorios.\n\n✅ Sistema funcionando correctamente.\n\n_Enviado el " . now()->format('d/m/Y H:i') . "_";
 
-        // Crear recordatorio de prueba. Normalizamos la hora al tiempo de envío
-        // configurado para que coincida con el comportamiento real.
-        $scheduledFor = now()->setTimeFromTimeString(config('reminders.send_time', '09:00'));
+    // Crear recordatorio de prueba. Use the current datetime (do not
+    // force the configured send_time) so tests reflect actual scheduling
+    // behavior.
+    $scheduledFor = now();
 
         $reminder = Reminder::create([
             'client_id' => $client->id,

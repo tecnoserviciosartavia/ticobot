@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\ContractController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReminderController;
 use App\Http\Controllers\Api\WhatsAppStatusController;
+use App\Http\Controllers\Api\ContractTypeController;
+use App\Http\Controllers\Api\BotMenuController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -18,6 +20,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('clients', ClientController::class)->names('api.clients');
     Route::apiResource('contracts', ContractController::class)->names('api.contracts');
     Route::apiResource('reminders', ReminderController::class)->names('api.reminders');
+    Route::apiResource('contract-types', ContractTypeController::class)->names('api.contract_types')->except(['show']);
     Route::apiResource('payments', PaymentController::class)->names('api.payments');
     Route::apiResource('conciliations', ConciliationController::class)->names('api.conciliations');
 
@@ -25,5 +28,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('qr', [WhatsAppStatusController::class, 'storeQr'])->name('qr');
         Route::post('ready', [WhatsAppStatusController::class, 'markReady'])->name('ready');
         Route::post('disconnected', [WhatsAppStatusController::class, 'markDisconnected'])->name('disconnected');
+        // Bot menu endpoints
+        Route::get('menu', [BotMenuController::class, 'index'])->name('menu.index');
+        Route::post('menu', [BotMenuController::class, 'store'])->name('menu.store');
+        Route::put('menu/{menu}', [BotMenuController::class, 'update'])->name('menu.update');
+        Route::delete('menu/{menu}', [BotMenuController::class, 'destroy'])->name('menu.destroy');
     });
 });

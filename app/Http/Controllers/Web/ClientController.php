@@ -211,6 +211,113 @@ class ClientController extends Controller
         return redirect()->route('clients.show', $client);
     }
 
+    public function importForm(): Response
+    {
+        return Inertia::render('Clients/Import');
+    }
+
+    public function import(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/vnd.ms-excel'],
+        ]);
+
+        $file = $validated['file'];
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        try {
+            $path = $file->getRealPath();
+            if (! $path || ! is_readable($path)) {
+                return redirect()->back()->withErrors(['file' => 'No se puede leer el archivo subido.']);
+            }
+
+            $handle = fopen($path, 'r');
+            if ($handle === false) {
+                return redirect()->back()->withErrors(['file' => 'No se pudo abrir el archivo para lectura.']);
+            }
+
+            // Read header row
+            $headers = fgetcsv($handle);
+            if (! $headers) {
+                fclose($handle);
+                return redirect()->back()->withErrors(['file' => 'El archivo CSV está vacío.']);
+            }
+
+            $headers = array_map(function ($h) {
+                return strtolower(trim((string) $h));
+            }, $headers);
+
+            // Expected columns (any order). Unknown columns are ignored.
+            // name (required), email, phone, legal_id, status, notes
+
+            while (($row = fgetcsv($handle)) !== false) {
+                if (count($row) === 1 && trim((string) $row[0]) === '') {
+                    // blank line
+                    continue;
+                }
+
+                $data = [];
+                foreach ($row as $idx => $value) {
+                    $key = $headers[$idx] ?? null;
+                    if ($key === null) {
+                        continue;
+                    }
+                    $data[$key] = is_string($value) ? trim($value) : $value;
+                }
+
+                $name = $data['name'] ?? null;
+                if (! $name) {
+                    $skipped++;
+                    continue;
+                }
+
+                $attrs = [
+                    'name' => $name,
+                    'email' => $data['email'] ?? null,
+                    'phone' => $data['phone'] ?? null,
+                    'legal_id' => $data['legal_id'] ?? null,
+                    'status' => $data['status'] ?? 'active',
+                    'notes' => $data['notes'] ?? null,
+                ];
+
+                // Find existing by legal_id or email
+                $existing = null;
+                if (! empty($attrs['legal_id'])) {
+                    $existing = Client::withTrashed()->where('legal_id', $attrs['legal_id'])->first();
+                }
+                if (! $existing && ! empty($attrs['email'])) {
+                    $existing = Client::withTrashed()->where('email', $attrs['email'])->first();
+                }
+
+                if ($existing) {
+                    if ($existing->trashed()) {
+                        $existing->restore();
+                    }
+                    $existing->fill($attrs);
+                    if ($existing->isDirty()) {
+                        $existing->save();
+                        $updated++;
+                    } else {
+                        $skipped++;
+                    }
+                } else {
+                    Client::create($attrs);
+                    $created++;
+                }
+            }
+
+            fclose($handle);
+        } catch (\Throwable $e) {
+            return redirect()->back()->withErrors(['file' => 'Ocurrió un error procesando el archivo: '.$e->getMessage()]);
+        }
+
+        return redirect()
+            ->route('clients.index')
+            ->with('success', "Importación completada: {$created} creados, {$updated} actualizados, {$skipped} omitidos.");
+    }
+
     private function validatedData(Request $request, ?Client $client = null): array
     {
         return $request->validate([

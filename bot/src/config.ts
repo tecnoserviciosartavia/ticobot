@@ -24,6 +24,8 @@ const configSchema = z.object({
   sessionPath: z.string().default('storage/whatsapp-session'),
   defaultCountryCode: z.string().default('506'),
   logLevel: z.string().default('info')
+  ,
+  menuPath: z.string().optional()
 });
 
 const parsed = configSchema.parse({
@@ -35,6 +37,8 @@ const parsed = configSchema.parse({
   sessionPath: process.env.BOT_SESSION_PATH,
   defaultCountryCode: process.env.BOT_DEFAULT_COUNTRY_CODE,
   logLevel: process.env.BOT_LOG_LEVEL
+  ,
+  menuPath: process.env.BOT_MENU_PATH
 });
 
 export type AppConfig = z.infer<typeof configSchema> & {

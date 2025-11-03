@@ -67,6 +67,7 @@ class ReminderController extends Controller
             'client_id' => ['required', 'exists:clients,id'],
             'channel' => ['required', 'string', 'max:50'],
             'scheduled_for' => ['required', 'date'],
+            'monthly' => ['nullable', 'boolean'],
             'status' => ['nullable', 'string', 'max:50'],
             'payload' => ['nullable', 'array'],
         ]);
@@ -79,15 +80,72 @@ class ReminderController extends Controller
             ]);
         }
 
-        // Normalize scheduled_for to configured send time so all reminders for
-        // the due date are sent at the same hour of the day.
-        $scheduled = Carbon::parse($data['scheduled_for'])
-            ->setTimeFromTimeString(config('reminders.send_time', '09:00'));
+        // If this reminder is marked as monthly recurrence, schedule the next
+        // occurrence based only on the day-of-month and time provided by the
+        // form (ignore year/month). Otherwise normalize to configured send time.
+        $requested = Carbon::parse($data['scheduled_for']);
+        $payload = $data['payload'] ?? [];
+
+        if (!empty($data['monthly']) || isset($payload['recurrence']) && $payload['recurrence'] === 'monthly') {
+            // Extract requested day and time
+            $day = (int) $requested->day;
+            $timeString = $requested->format('H:i:s');
+
+            // compute next occurrence (this month or next) using requested day and time
+            $now = Carbon::now();
+            $year = $now->year;
+            $month = $now->month;
+
+            $daysInMonth = Carbon::create($year, $month, 1)->daysInMonth;
+            $useDay = min(max(1, $day), $daysInMonth);
+
+            $candidate = Carbon::create($year, $month, $useDay)
+                ->setTimeFromTimeString($timeString);
+
+            if ($candidate->lessThanOrEqualTo($now)) {
+                // schedule next month
+                $nextMonth = $now->copy()->addMonthNoOverflow();
+                $daysInNext = Carbon::create($nextMonth->year, $nextMonth->month, 1)->daysInMonth;
+                $useDayNext = min(max(1, $day), $daysInNext);
+                $candidate = Carbon::create($nextMonth->year, $nextMonth->month, $useDayNext)
+                    ->setTimeFromTimeString($timeString);
+            }
+
+            $scheduled = $candidate;
+
+            // ensure payload marks recurrence so system can auto-create next one
+            $payload['recurrence'] = 'monthly';
+        } else {
+            // Use the exact datetime provided by the caller. Do not force the
+            // configured send_time so reminders are scheduled at the user
+            // supplied hour.
+            $scheduled = Carbon::parse($data['scheduled_for']);
+        }
+
+    // Ensure payload exists (may have been mutated above)
+    $payload = $payload ?? ($data['payload'] ?? []);
+
+        // If no custom message provided, use contract type default_message (with simple templating)
+        if (empty($payload['message'])) {
+            $contract->load('contractType');
+            $template = $contract->contractType->default_message ?? null;
+            if ($template) {
+                $replacements = [
+                    '{client_name}' => $contract->client?->name ?? '',
+                    '{contract_name}' => $contract->name,
+                    '{amount}' => isset($payload['amount']) ? $payload['amount'] : $contract->amount,
+                    '{due_date}' => isset($payload['due_date']) ? $payload['due_date'] : ($contract->next_due_date?->toDateString() ?? ''),
+                ];
+
+                $payload['message'] = strtr($template, $replacements);
+            }
+        }
 
         $reminder = Reminder::create([
             ...$data,
             'scheduled_for' => $scheduled,
             'status' => $data['status'] ?? 'pending',
+            'payload' => $payload,
         ]);
 
         return response()->json($reminder->load(['client', 'contract']), 201);
@@ -126,11 +184,40 @@ class ReminderController extends Controller
         ]);
 
         if (isset($data['scheduled_for'])) {
-            $data['scheduled_for'] = Carbon::parse($data['scheduled_for'])
-                ->setTimeFromTimeString(config('reminders.send_time', '09:00'));
+            // Preserve the provided scheduled datetime instead of normalizing
+            // to a configured hour.
+            $data['scheduled_for'] = Carbon::parse($data['scheduled_for']);
         }
 
+        // Keep previous status to detect transitions
+        $previousStatus = $reminder->status;
+
         $reminder->update($data);
+
+        // If this reminder was just marked as sent and it carries a monthly
+        // recurrence flag, create the next monthly occurrence automatically.
+        $reminder->refresh();
+        if (isset($data['status']) && $data['status'] === 'sent' && $previousStatus !== 'sent') {
+            $recurrence = $reminder->payload['recurrence'] ?? null;
+            if ($recurrence === 'monthly') {
+                try {
+                    $currentScheduled = Carbon::parse($reminder->scheduled_for);
+                    // next occurrence: add month preserving day where possible
+                    $next = $currentScheduled->copy()->addMonthNoOverflow();
+
+                    Reminder::create([
+                        'contract_id' => $reminder->contract_id,
+                        'client_id' => $reminder->client_id,
+                        'channel' => $reminder->channel,
+                        'scheduled_for' => $next,
+                        'status' => 'pending',
+                        'payload' => $reminder->payload ?? [],
+                    ]);
+                } catch (\Throwable $e) {
+                    logger()->error('Error creando próximo recordatorio mensual: ' . $e->getMessage());
+                }
+            }
+        }
 
         return response()->json($reminder->fresh());
     }

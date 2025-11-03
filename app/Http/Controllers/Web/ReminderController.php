@@ -151,13 +151,30 @@ class ReminderController extends Controller
             ]);
         }
 
+        // Fill default message from contract type when message not provided
+        $payloadData = $payload['payload'] ?? [];
+        if (empty($payloadData['message'])) {
+            $contract->load('contractType');
+            $template = $contract->contractType->default_message ?? null;
+            if ($template) {
+                $replacements = [
+                    '{client_name}' => $contract->client?->name ?? '',
+                    '{contract_name}' => $contract->name,
+                    '{amount}' => $payloadData['amount'] ?? $contract->amount,
+                    '{due_date}' => $payloadData['due_date'] ?? ($contract->next_due_date?->toDateString() ?? ''),
+                ];
+
+                $payloadData['message'] = strtr($template, $replacements);
+            }
+        }
+
         $reminder = Reminder::create([
             'client_id' => $payload['client_id'],
             'contract_id' => $payload['contract_id'],
             'channel' => $payload['channel'],
             'scheduled_for' => $payload['scheduled_for'],
             'status' => 'pending',
-            'payload' => $payload['payload'],
+            'payload' => $payloadData,
         ]);
 
         return redirect()->route('reminders.show', $reminder);
@@ -292,6 +309,7 @@ class ReminderController extends Controller
             'contract_id' => ['required', Rule::exists('contracts', 'id')],
             'channel' => ['required', 'string', 'max:50'],
             'scheduled_for' => ['required', 'date'],
+            'monthly' => ['nullable', 'boolean'],
             'message' => ['nullable', 'string'],
             'amount' => ['nullable', 'string'],
             'due_date' => ['nullable', 'date'],
@@ -303,9 +321,14 @@ class ReminderController extends Controller
             'due_date' => isset($data['due_date']) ? Carbon::parse($data['due_date'])->toDateString() : null,
         ], fn ($value) => $value !== null && $value !== '');
 
-        // Normalize scheduled_for to application configured reminder send time
-        $scheduled = Carbon::parse($data['scheduled_for'])
-            ->setTimeFromTimeString(config('reminders.send_time', '09:00'));
+        // Determine scheduled datetime. Preserve the exact datetime/time the
+        // user provided. If marked monthly, flag recurrence so the system
+        // will auto-create the next occurrence after sending.
+        $requested = Carbon::parse($data['scheduled_for']);
+        $scheduled = $requested;
+        if (!empty($data['monthly'])) {
+            $payload['recurrence'] = 'monthly';
+        }
 
         return [
             'client_id' => (int) $data['client_id'],

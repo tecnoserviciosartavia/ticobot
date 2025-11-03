@@ -21,6 +21,7 @@ class CleanAllCommand extends Command
     protected $signature = 'db:clean:all 
                             {--keep-users : Mantener usuarios}
                             {--keep-clients : Mantener clientes activos}
+                            {--preserve-admin : Mantener al usuario admin (id=1) y sus tokens}
                             {--force : No pedir confirmación}';
 
     /**
@@ -35,8 +36,9 @@ class CleanAllCommand extends Command
      */
     public function handle(): int
     {
-        $keepUsers = $this->option('keep-users');
+    $keepUsers = $this->option('keep-users');
         $keepClients = $this->option('keep-clients');
+    $preserveAdmin = $this->option('preserve-admin');
         $force = $this->option('force');
 
         $this->warn('⚠️  ADVERTENCIA: Esta operación eliminará datos de forma permanente.');
@@ -66,8 +68,16 @@ class CleanAllCommand extends Command
         }
 
         if (! $keepUsers) {
-            $this->cleanTable('personal_access_tokens', null, 'DELETE FROM personal_access_tokens');
-            $this->cleanTable('users', User::class, 'DELETE FROM users WHERE id > 1');
+            if ($preserveAdmin) {
+                // Remove tokens for users except admin (id=1), keep admin user
+                $this->cleanTable('personal_access_tokens', null, 'DELETE FROM personal_access_tokens WHERE tokenable_id IS NULL OR tokenable_id > 1');
+                // Delete users except admin
+                $this->cleanTable('users', User::class, 'DELETE FROM users WHERE id > 1');
+                $this->info('Se preservó al usuario admin (id=1) y sus tokens.');
+            } else {
+                $this->cleanTable('personal_access_tokens', null, 'DELETE FROM personal_access_tokens');
+                $this->cleanTable('users', User::class, 'DELETE FROM users WHERE id > 1');
+            }
         }
 
         // Limpiar cache

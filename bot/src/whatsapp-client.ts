@@ -20,7 +20,8 @@ export class WhatsAppClient {
       authStrategy: new LocalAuth({ dataPath: config.sessionPath }),
       puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        executablePath: '/usr/bin/chromium-browser',
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
       }
     });
   }
@@ -81,7 +82,13 @@ export class WhatsAppClient {
       }
     });
 
-    await this.client.initialize();
+    try {
+      await this.client.initialize();
+    } catch (error) {
+      // log the full error stack to help debugging puppeteer/protocol issues
+      logger.fatal({ error }, 'Error inicializando cliente de WhatsApp');
+      throw error;
+    }
   }
 
   registerInboundHandler(handler: IncomingMessageHandler): void {

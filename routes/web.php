@@ -19,6 +19,9 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::resource('clients', WebClientController::class)->except(['destroy']);
+    // Clients import (CSV)
+    Route::get('clients/import', [WebClientController::class, 'importForm'])->name('clients.import');
+    Route::post('clients/import', [WebClientController::class, 'import'])->name('clients.import.store');
     Route::resource('contracts', WebContractController::class)->except(['destroy']);
     Route::resource('reminders', WebReminderController::class)->except(['destroy']);
     Route::get('/payments', [WebPaymentController::class, 'index'])->name('payments.index');

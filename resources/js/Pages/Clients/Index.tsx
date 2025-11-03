@@ -1,6 +1,7 @@
 import Pagination from '@/Components/Pagination';
 import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { usePage } from '@inertiajs/react';
 import type { PageProps } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
@@ -43,6 +44,9 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
         status: filters.status ?? '',
     });
 
+    const page = usePage();
+    const flashSuccess = (page.props as any)?.flash?.success as string | undefined;
+
     const clientRows = clients?.data ?? [];
     const paginationLinks = clients?.links ?? [];
     const paginationMeta = clients?.meta ?? { from: 0, to: 0, total: 0 };
@@ -77,12 +81,20 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
                             Gestiona los clientes, contratos asociados y su historial de recordatorios.
                         </p>
                     </div>
-                    <Link
-                        href={route('clients.create')}
-                        className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                        Nuevo cliente
-                    </Link>
+                    <div className="flex gap-2">
+                        <Link
+                            href={route('clients.import')}
+                            className="inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-indigo-600 ring-1 ring-inset ring-indigo-200 shadow-sm transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                            Importar CSV
+                        </Link>
+                        <Link
+                            href={route('clients.create')}
+                            className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                            Nuevo cliente
+                        </Link>
+                    </div>
                 </div>
             }
         >
@@ -90,6 +102,11 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
+                    {flashSuccess && (
+                        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                            {flashSuccess}
+                        </div>
+                    )}
                     <div className="overflow-hidden rounded-lg bg-white shadow">
                         <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
                             <form

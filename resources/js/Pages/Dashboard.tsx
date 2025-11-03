@@ -38,13 +38,20 @@ const formatDateTime = (value: string | null) => {
         return '—';
     }
 
-    return new Date(value).toLocaleString('es-CR', {
+    const d = new Date(value);
+    const date = d.toLocaleDateString('es-CR', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
+        timeZone: 'America/Costa_Rica',
+    });
+    const time = d.toLocaleTimeString('es-CR', {
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'America/Costa_Rica',
     });
+
+    return `${date}, ${time}`;
 };
 
 const resolveCurrency = (value: string | null | undefined) => {

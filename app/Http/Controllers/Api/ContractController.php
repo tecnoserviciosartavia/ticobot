@@ -48,6 +48,7 @@ class ContractController extends Controller
         $data = $request->validate([
             'client_id' => ['required', 'exists:clients,id'],
             'name' => ['required', 'string', 'max:255'],
+            'contract_type_id' => ['nullable', 'exists:contract_types,id'],
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', 'string', 'size:3'],
             'billing_cycle' => ['required', 'string', 'max:50'],
@@ -56,7 +57,7 @@ class ContractController extends Controller
             'metadata' => ['nullable', 'array'],
         ]);
 
-        $contract = Contract::create($data);
+    $contract = Contract::create($data);
 
         return response()->json($contract->load('client'), 201);
     }
@@ -82,6 +83,7 @@ class ContractController extends Controller
     {
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'contract_type_id' => ['nullable', 'exists:contract_types,id'],
             'amount' => ['sometimes', 'required', 'numeric', 'min:0'],
             'currency' => ['sometimes', 'required', 'string', 'size:3'],
             'billing_cycle' => ['sometimes', 'required', 'string', 'max:50'],

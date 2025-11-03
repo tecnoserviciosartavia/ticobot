@@ -58,6 +58,11 @@ class ApiClient {
     const payload = reason && reason.trim().length > 0 ? { reason } : {};
     await this.http.post('whatsapp/disconnected', payload);
   }
+
+  async fetchBotMenu(): Promise<Array<{ keyword: string; reply_message: string; options?: any }>> {
+    const response = await this.http.get('whatsapp/menu');
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();

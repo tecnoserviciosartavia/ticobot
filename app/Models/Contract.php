@@ -21,6 +21,7 @@ class Contract extends Model
         'next_due_date',
         'grace_period_days',
         'metadata',
+        'contract_type_id',
     ];
 
     protected $casts = [
@@ -42,5 +43,10 @@ class Contract extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function contractType()
+    {
+        return $this->belongsTo(ContractType::class);
     }
 }
