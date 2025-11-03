@@ -72,6 +72,34 @@ export default function ReminderForm({
         ? clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
         : clients.slice(0, 8);
 
+    const [highlighted, setHighlighted] = useState<number>(-1);
+
+    const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (filtered.length === 0) return;
+            setOpen(true);
+            setHighlighted((h) => (h + 1) % filtered.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (filtered.length === 0) return;
+            setOpen(true);
+            setHighlighted((h) => (h <= 0 ? filtered.length - 1 : h - 1));
+        } else if (e.key === 'Enter') {
+            if (open && highlighted >= 0 && highlighted < filtered.length) {
+                e.preventDefault();
+                const c = filtered[highlighted];
+                handleClientChange(String(c.id));
+                setSearch('');
+                setOpen(false);
+                setHighlighted(-1);
+            }
+        } else if (e.key === 'Escape') {
+            setOpen(false);
+            setHighlighted(-1);
+        }
+    };
+
     const handleClientChange = (value: string) => {
         onChange('client_id', value);
         onChange('contract_id', '');
@@ -95,6 +123,7 @@ export default function ReminderForm({
                                 setOpen(true);
                             }}
                             onFocus={() => setOpen(true)}
+                            onKeyDown={onInputKeyDown}
                             placeholder="Seleccione un cliente"
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             required
@@ -120,15 +149,18 @@ export default function ReminderForm({
                                 {filtered.length === 0 && (
                                     <li className="px-3 py-2 text-sm text-gray-500">No hay resultados</li>
                                 )}
-                                {filtered.map((client) => (
+                                {filtered.map((client, idx) => (
                                     <li
                                         key={client.id}
-                                        className="cursor-pointer px-3 py-2 text-sm hover:bg-gray-50"
+                                        className={`cursor-pointer px-3 py-2 text-sm ${highlighted === idx ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'}`}
+                                        onMouseEnter={() => setHighlighted(idx)}
+                                        onMouseLeave={() => setHighlighted(-1)}
                                         onMouseDown={(ev) => ev.preventDefault()}
                                         onClick={() => {
                                             handleClientChange(String(client.id));
                                             setSearch('');
                                             setOpen(false);
+                                            setHighlighted(-1);
                                         }}
                                     >
                                         {client.name}
