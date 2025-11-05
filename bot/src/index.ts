@@ -5,6 +5,9 @@ import { WhatsAppClient } from './whatsapp-client.js';
 import { apiClient } from './api-client.js';
 import fs from 'fs/promises';
 import path from 'path';
+import http from 'http';
+import { URL } from 'url';
+import axios from 'axios';
 
 const whatsappClient = new WhatsAppClient();
 const processor = new ReminderProcessor(whatsappClient);
@@ -27,6 +30,14 @@ async function main(): Promise<void> {
   // throttle admin notifications per chat to avoid spamming admins
   const adminNotifiedAt = new Map<string, number>();
   const AGENT_NOTIFY_THROTTLE_MS = Number(process.env.AGENT_NOTIFY_THROTTLE_MS || 30 * 60 * 1000); // default 30 minutes
+  // awaiting receipt uploads per chat
+  const awaitingReceipt = new Map<string, boolean>();
+  // pending confirmation for an unsolicited media receipt: store downloaded media until user confirms
+  const pendingConfirmReceipt = new Map<string, { data: string; mimetype: string; filename?: string; text?: string }>();
+  // after we save receipt (and optionally create backend payment) we ask how many months are being paid
+  const awaitingMonths = new Map<string, { receiptId: string; backendReceiptId?: number | null; backendPaymentId?: number | null }>();
+  const RECEIPTS_DIR = path.join(process.cwd(), 'data', 'receipts');
+  const RECEIPTS_INDEX = path.join(RECEIPTS_DIR, 'index.json');
 
   // ----- Admin / timeout / business hours helpers (portadas desde el otro repo) -----
   const TIMEZONE = process.env.TIMEZONE || 'America/Costa_Rica';
@@ -213,11 +224,14 @@ async function main(): Promise<void> {
 
   logger.info({ from: message.from, body: message.body }, 'Mensaje entrante de WhatsApp');
 
-  const body = (message.body ?? '').trim();
-  if (!body) return;
+  const body = String(message.body ?? '').trim();
+  // allow empty textual body if there's media attached (media-only messages)
+  if (!body && !((message as any).hasMedia)) return;
 
-    const lc = body.toLowerCase();
+  const lc = body.toLowerCase();
     const chatId = message.from;
+    const fromUser = String(chatId || '').replace(/@c\.us$/, '');
+    const fromNorm = normalizeCR(fromUser);
 
     // Mantener timeout por chat y detectar admin
     try {
@@ -226,9 +240,134 @@ async function main(): Promise<void> {
       logger.debug({ e }, 'touchTimer fallo');
     }
 
-    const fromUser = chatId.replace(/@c\.us$/, '');
-    const fromNorm = normalizeCR(fromUser);
-    const isAdminUser = isAdminChatId(chatId) || fromNorm === '50672140974';
+  // If we're awaiting a receipt from this chat, handle media uploads first
+    if (awaitingReceipt.get(chatId)) {
+      try {
+        if ((message as any).hasMedia) {
+          const media = await (message as any).downloadMedia();
+          const fname = (media.filename && media.filename.trim()) ? media.filename : `receipt-${chatId.replace(/[^0-9]/g,'')}-${Date.now()}`;
+          // save locally and notify admin
+          const saved = await saveReceipt(chatId, fname, media.data, media.mimetype, body);
+          // Create a backend Payment placeholder (in CRC) so it appears in UI even before months are applied.
+          // We'll attach the PDF if it's already a PDF; otherwise admin will receive the media via WhatsApp.
+          let backendPaymentId: number | null = null;
+          try {
+            // Ensure client exists
+            let client: any = null;
+            try { client = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
+            if (!client) {
+              try { client = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser }); } catch (e) { /* ignore */ }
+            }
+
+            const paymentPayload: any = {
+              client_id: client && client.id ? client.id : undefined,
+              amount: 0,
+              currency: 'CRC',
+              channel: 'whatsapp',
+              status: 'unverified',
+              reference: `bot:${saved.id}`,
+              metadata: { local_receipt_id: saved.id }
+            };
+
+            const pRes = await apiClient.createPayment(paymentPayload);
+            if (pRes && (pRes.id || pRes.payment_id)) {
+              backendPaymentId = pRes.id ?? pRes.payment_id;
+              await updateReceiptEntry(saved.id, { backend_payment_id: backendPaymentId, status: 'created' });
+            } else {
+              await updateReceiptEntry(saved.id, { status: 'created' });
+            }
+
+            // If we have a backend payment, try to attach the file. If it's an image, convert to PDF first.
+            if (backendPaymentId) {
+              try {
+                let attachBuf: Buffer | null = null;
+                let attachName = fname;
+                if (media.mimetype === 'application/pdf') {
+                  attachBuf = Buffer.from(media.data, 'base64');
+                } else if (/^image\//.test(media.mimetype)) {
+                  try {
+                    const imgBuf = Buffer.from(media.data, 'base64');
+                    const pdfBuf = await imageBufferToPdfBuffer(imgBuf, fname + '.pdf');
+                    attachBuf = pdfBuf;
+                    attachName = (fname.endsWith('.pdf') ? fname : (fname + '.pdf'));
+                  } catch (e: any) {
+                    logger.debug({ e }, 'No se pudo convertir imagen a PDF para adjuntar, se omite attach');
+                    attachBuf = null;
+                  }
+                }
+                if (attachBuf) {
+                  const fdMod = await import('form-data');
+                  const FormDataCtor: any = fdMod && (fdMod as any).default ? (fdMod as any).default : fdMod;
+                  const form = new FormDataCtor();
+                  form.append('file', attachBuf, { filename: attachName, contentType: 'application/pdf' });
+                  form.append('received_at', new Date().toISOString());
+                  form.append('metadata', JSON.stringify([]));
+                  const headers = Object.assign({ Authorization: `Bearer ${config.apiToken}`, Accept: 'application/json' }, form.getHeaders());
+                  await axios.post(`${config.apiBaseUrl.replace(/\/$/, '')}/payments/${backendPaymentId}/receipts`, form, { headers });
+                }
+              } catch (e: any) {
+                logger.debug({ e, backendPaymentId, saved }, 'No se pudo adjuntar PDF al payment (se continuará de todas formas)');
+              }
+            }
+          } catch (e: any) {
+            logger.warn({ e, chatId }, 'No se pudo crear payment placeholder en backend');
+          }
+
+          // After saving receipt and creating backend payment placeholder, ask client cuántos meses son
+          awaitingMonths.set(chatId, { receiptId: saved.id, backendPaymentId });
+          await message.reply('Gracias. ¿Cuántos meses estás pagando con este comprobante? Responde con un número, por ejemplo: 1');
+
+          // notify admin and forward media (include backend payment id if available)
+          try {
+            const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
+            const adminChatId = normalizeToChatId(adminPhone);
+            if (adminChatId) {
+              const notifyText = backendPaymentId
+                ? `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id} | backend payment: ${backendPaymentId}`
+                : `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id}`;
+              await whatsappClient.sendText(adminChatId, notifyText);
+              await whatsappClient.sendMedia(adminChatId, media.data, media.mimetype, fname);
+              logger.info({ adminChatId, chatId, file: saved.filepath, backendPaymentId }, 'Enviado comprobante al admin');
+            }
+          } catch (e: any) {
+            logger.warn({ e }, 'Fallo notificando admin sobre comprobante recibido');
+          }
+
+          awaitingReceipt.delete(chatId);
+          await message.reply('✅ Recibimos tu comprobante. Un asesor lo revisará y te contactará si es necesario.');
+          return;
+        } else {
+          await message.reply('Por favor adjunta una foto o PDF del comprobante. Si no deseas continuar escribe "salir".');
+          return;
+        }
+      } catch (e: any) {
+        logger.error({ e }, 'Error procesando comprobante');
+        awaitingReceipt.delete(chatId);
+        await message.reply('❌ Ocurrió un error procesando el comprobante. Intenta de nuevo o escribe "salir" para cancelar.');
+        return;
+      }
+    }
+
+    // If user sent media but we are NOT in awaitingReceipt and NOT in agentMode, offer to register it as comprobante
+    try {
+      if (!(awaitingReceipt.get(chatId)) && !(agentMode.get(chatId)) && ((message as any).hasMedia)) {
+        // download and keep in-memory until user confirms
+        try {
+          const media = await (message as any).downloadMedia();
+          const fname = (media.filename && media.filename.trim()) ? media.filename : `receipt-${chatId.replace(/[^0-9]/g,'')}-${Date.now()}`;
+          pendingConfirmReceipt.set(chatId, { data: media.data, mimetype: media.mimetype, filename: fname, text: body });
+          await message.reply('Veo que enviaste un archivo. ¿Es un comprobante de pago? Responde "si" para registrarlo y notificar a un asesor, o "no" para cancelar.');
+          return;
+        } catch (e: any) {
+          logger.warn({ e, chatId }, 'Error descargando media para confirmación');
+          // continue to normal flow
+        }
+      }
+    } catch (e: any) {
+      logger.debug({ e }, 'Error en flujo de detección de media');
+    }
+
+  const isAdminUser = isAdminChatId(chatId) || fromNorm === '50672140974';
 
     // Si hay un asistente admin en curso y el mensaje NO empieza con '*', procesarlo
     if (isAdminUser && adminFlows.has(chatId) && !lc.startsWith('*')) {
@@ -394,6 +533,260 @@ async function main(): Promise<void> {
       } catch (e: any) {
         adminFlows.delete(chatId);
         await message.reply(`Error en asistente: ${String(e && e.message ? e.message : e)}`);
+        return;
+      }
+    }
+
+    // If user confirms an unsolicited media (pendingConfirmReceipt) with 'si', process it as a receipt
+    if (lc === 'si' && pendingConfirmReceipt.has(chatId)) {
+      const pending = pendingConfirmReceipt.get(chatId)!;
+      try {
+        const saved = await saveReceipt(chatId, pending.filename || `receipt-${Date.now()}.bin`, pending.data, pending.mimetype, pending.text);
+        let backendPaymentId: number | null = null;
+        try {
+          // Ensure client exists
+          let client: any = null;
+          try { client = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
+          if (!client) {
+            try { client = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser }); } catch (e) { /* ignore */ }
+          }
+
+          const paymentPayload: any = {
+            client_id: client && client.id ? client.id : undefined,
+            amount: 0,
+            currency: 'CRC',
+            channel: 'whatsapp',
+            status: 'unverified',
+            reference: `bot:${saved.id}`,
+            metadata: { local_receipt_id: saved.id }
+          };
+
+          const pRes = await apiClient.createPayment(paymentPayload);
+          if (pRes && (pRes.id || pRes.payment_id)) {
+            backendPaymentId = pRes.id ?? pRes.payment_id;
+            await updateReceiptEntry(saved.id, { backend_payment_id: backendPaymentId, status: 'created' });
+          } else {
+            await updateReceiptEntry(saved.id, { status: 'created' });
+          }
+
+          if (backendPaymentId && pending.mimetype === 'application/pdf') {
+            try {
+              const fileBuf = Buffer.from(pending.data, 'base64');
+              const fdMod2 = await import('form-data');
+              const FormDataCtor2: any = fdMod2 && (fdMod2 as any).default ? (fdMod2 as any).default : fdMod2;
+              const form2 = new FormDataCtor2();
+              form2.append('file', fileBuf, { filename: pending.filename, contentType: pending.mimetype });
+              form2.append('received_at', new Date().toISOString());
+              form2.append('metadata', JSON.stringify([]));
+              const headers2 = Object.assign({ Authorization: `Bearer ${config.apiToken}`, Accept: 'application/json' }, form2.getHeaders());
+              await axios.post(`${config.apiBaseUrl.replace(/\/$/, '')}/payments/${backendPaymentId}/receipts`, form2, { headers: headers2 });
+            } catch (e: any) {
+              logger.debug({ e, backendPaymentId, saved }, 'No se pudo adjuntar PDF al payment (confirmación)');
+            }
+          }
+        } catch (e: any) {
+          logger.warn({ e, chatId }, 'No se pudo crear payment placeholder en backend (confirmación)');
+        }
+        // After saving receipt and creating backend payment placeholder, ask client cuántos meses pagó
+        awaitingMonths.set(chatId, { receiptId: saved.id, backendPaymentId });
+        await message.reply('Gracias. ¿Cuántos meses estás pagando con este comprobante? Responde con un número, por ejemplo: 1');
+
+        // notify admin
+        try {
+          const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
+          const adminChatId = normalizeToChatId(adminPhone);
+          if (adminChatId) {
+            const notifyText = backendPaymentId
+              ? `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id} | backend payment: ${backendPaymentId}`
+              : `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id}`;
+            await whatsappClient.sendText(adminChatId, notifyText);
+            await whatsappClient.sendMedia(adminChatId, pending.data, pending.mimetype, pending.filename);
+            logger.info({ adminChatId, chatId, file: saved.filepath, backendPaymentId }, 'Enviado comprobante al admin (confirmación)');
+          }
+        } catch (e: any) {
+          logger.warn({ e }, 'Fallo notificando admin sobre comprobante recibido (confirmación)');
+        }
+
+        pendingConfirmReceipt.delete(chatId);
+        return;
+      } catch (e: any) {
+        pendingConfirmReceipt.delete(chatId);
+        logger.error({ e }, 'Error procesando comprobante confirmado');
+        await message.reply('❌ Ocurrió un error procesando el comprobante. Intenta de nuevo o escribe "salir" para cancelar.');
+        return;
+      }
+    }
+
+    // If user cancels an unsolicited media
+    if (lc === 'no' && pendingConfirmReceipt.has(chatId)) {
+      pendingConfirmReceipt.delete(chatId);
+      await message.reply('He cancelado el registro del archivo. Si necesitas enviar el comprobante usa la opción 6 del menú.');
+      return;
+    }
+
+    // If we're awaiting number of months for a previously uploaded receipt
+  if (awaitingMonths.has(chatId)) {
+  const payload = awaitingMonths.get(chatId)!;
+  const asNum = Number(body.replace(/[^0-9]/g, ''));
+      if (!Number.isNaN(asNum) && asNum > 0) {
+        // try to inform backend about months / create payments for those months
+        let monthlyAmount: number | null = null;
+        try {
+          // Try to fetch subscription info to compute total amount
+          try {
+            // Try to find client and contract to infer monthly amount
+            let clientForAmount: any = null;
+            try { clientForAmount = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
+            if (!clientForAmount) {
+              try { clientForAmount = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser }); } catch (e) { /* ignore */ }
+            }
+            if (clientForAmount && clientForAmount.id) {
+              const contracts = await apiClient.listContracts({ client_id: clientForAmount.id });
+              if (Array.isArray(contracts) && contracts.length) {
+                const c = contracts[0];
+                if (c && (c.amount || c.monto)) {
+                  monthlyAmount = Number(c.amount || c.monto) || null;
+                }
+              }
+            }
+          } catch (e: any) {
+            logger.debug({ e, chatId }, 'No se pudo obtener contrato para calcular monto mensual');
+          }
+
+          // Resolve or create client in backend
+          let client: any = null;
+          try {
+            client = await apiClient.findCustomerByPhone(fromNorm);
+          } catch (e: any) {
+            logger.debug({ e, fromNorm }, 'findCustomerByPhone fallo');
+          }
+          if (!client) {
+            try {
+              client = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser });
+            } catch (e: any) {
+              logger.warn({ e, fromNorm }, 'No se pudo upsertCustomer, continuando sin cliente backend');
+            }
+          }
+
+          // Compute amount
+          const amount = monthlyAmount ? monthlyAmount * asNum : 0;
+
+          // If we previously created a backend payment placeholder, update it instead of creating a new payment
+          let appliedResult: any = null;
+          if (payload.backendPaymentId) {
+            try {
+              const updatePayload: any = {
+                amount: amount,
+                currency: 'CRC',
+                metadata: Object.assign({}, { months: asNum, backend_receipt_id: payload.backendPaymentId, local_receipt_id: payload.receiptId })
+              };
+              appliedResult = await apiClient.updatePayment(payload.backendPaymentId, updatePayload);
+              await updateReceiptEntry(payload.receiptId, { months: asNum, status: 'applied', backend_apply_result: appliedResult, backend_payment_id: appliedResult && (appliedResult.id || appliedResult.payment_id) ? (appliedResult.id ?? appliedResult.payment_id) : payload.backendPaymentId, monthly_amount: monthlyAmount, total_amount: amount });
+            } catch (e: any) {
+              throw e;
+            }
+          } else {
+            const paymentPayload: any = {
+              client_id: client && client.id ? client.id : undefined,
+              amount: amount,
+              currency: 'CRC',
+              channel: 'whatsapp',
+              status: 'unverified',
+              reference: payload.backendReceiptId ? `receipt:${payload.backendReceiptId}` : `bot:${payload.receiptId}`,
+              metadata: { months: asNum, backend_receipt_id: payload.backendReceiptId }
+            };
+            const res = await apiClient.createPayment(paymentPayload);
+            appliedResult = res;
+            await updateReceiptEntry(payload.receiptId, { months: asNum, status: 'applied', backend_apply_result: res, backend_payment_id: res && (res.id || res.payment_id) ? (res.id ?? res.payment_id) : null, monthly_amount: monthlyAmount, total_amount: amount });
+          }
+
+          // notify admin with details
+          try {
+            const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
+            const adminChatId = normalizeToChatId(adminPhone);
+            if (adminChatId) {
+              const txt = `El cliente ${fromUser} (${chatId}) indicó que paga ${asNum} mes(es) para el comprobante ${payload.receiptId}` + (payload.backendReceiptId ? ` (backend receipt ${payload.backendReceiptId})` : '');
+              await whatsappClient.sendText(adminChatId, txt);
+              logger.info({ adminChatId, chatId, months: asNum, receiptId: payload.receiptId }, 'Admin notificado: meses aplicados al comprobante');
+            }
+          } catch (e: any) {
+            logger.warn({ e }, 'No se pudo notificar al admin sobre meses aplicados');
+          }
+
+          awaitingMonths.delete(chatId);
+          await message.reply(`✅ Gracias. He registrado que pagas ${asNum} mes(es). Un asesor validará y conciliará el pago.`);
+          return;
+        } catch (e: any) {
+          // Log detailed error info (include axios response payload when available)
+          const errInfo: any = { message: String(e && e.message ? e.message : e) };
+          try {
+            if (e && e.response) {
+              errInfo.status = e.response.status;
+              errInfo.data = e.response.data;
+            }
+            if (e && e.code) errInfo.code = e.code;
+          } catch (ee) {
+            // ignore
+          }
+          logger.warn({ errInfo, chatId, payload: { phone: fromNorm, months: asNum, backendReceiptId: payload.backendReceiptId } }, 'Error informando al backend sobre meses');
+
+          // Persist error details in the receipt index so admins can inspect later
+          try {
+            await updateReceiptEntry(payload.receiptId, { status: 'apply_failed', apply_error: errInfo, attempted_months: asNum });
+          } catch (ee: any) {
+            logger.debug({ ee }, 'No se pudo actualizar índice con error de aplicación de meses');
+          }
+
+          // Inform the user with a friendlier message and inform that we'll retry once automatically
+          await message.reply('❌ No pude registrar el número de meses en este momento. Intentaré de nuevo automáticamente en unos minutos y, si sigue fallando, un asesor te ayudará. Mientras tanto puedes escribir "salir" para cancelar.');
+
+          // schedule a single retry in the background (non-blocking)
+          try {
+            const retryDelayMs = 60 * 1000; // 1 minute
+            setTimeout(async () => {
+              try {
+                // Retry creating payment in backend
+                let clientRetry: any = null;
+                try { clientRetry = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
+                if (!clientRetry) {
+                  try { clientRetry = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser }); } catch (e) { /* ignore */ }
+                }
+                const amountRetry = monthlyAmount ? monthlyAmount * asNum : 0;
+                const paymentPayloadRetry: any = {
+                  client_id: clientRetry && clientRetry.id ? clientRetry.id : undefined,
+                  amount: amountRetry,
+                  currency: 'CRC',
+                  channel: 'whatsapp',
+                  status: 'unverified',
+                  reference: payload.backendReceiptId ? `receipt:${payload.backendReceiptId}` : `bot:${payload.receiptId}`,
+                  metadata: { months: asNum, backend_receipt_id: payload.backendReceiptId }
+                };
+                const retryRes = await apiClient.createPayment(paymentPayloadRetry);
+                await updateReceiptEntry(payload.receiptId, { status: 'applied', backend_apply_result: retryRes, backend_payment_id: retryRes && (retryRes.id || retryRes.payment_id) ? (retryRes.id ?? retryRes.payment_id) : null, monthly_amount: monthlyAmount, total_amount: amountRetry });
+                // notify admin about successful retry
+                try {
+                  const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
+                  const adminChatId = normalizeToChatId(adminPhone);
+                  if (adminChatId) {
+                    const txt = `Reintento exitoso: aplicados ${asNum} mes(es) para el comprobante ${payload.receiptId} del cliente ${fromUser} (${chatId}).`;
+                    await whatsappClient.sendText(adminChatId, txt);
+                  }
+                } catch (e2: any) {
+                  logger.debug({ e2 }, 'No se pudo notificar al admin tras reintento exitoso');
+                }
+              } catch (e2: any) {
+                logger.warn({ e2, chatId }, 'Reintento fallido aplicando meses');
+                try { await updateReceiptEntry(payload.receiptId, { status: 'apply_failed', apply_error_retry: String(e2 && e2.message ? e2.message : e2) }); } catch (ee) { /* ignore */ }
+              }
+            }, retryDelayMs);
+          } catch (ee) {
+            logger.debug({ ee }, 'No se pudo programar reintento');
+          }
+
+          return;
+        }
+      } else {
+        await message.reply('Por favor responde con un número entero de meses (ej: 1). Escribe "salir" para cancelar.');
         return;
       }
     }
@@ -707,8 +1100,20 @@ async function main(): Promise<void> {
           const replyText = matched.reply_message || matched.text || matched.response || '';
           await message.reply(replyText);
 
-          // Heurística para detectar transferencia a agente (si el reply contiene palabras clave)
+          // Heurística para detectar acciones especiales en el reply
           const lower = String(replyText || '').toLowerCase();
+          // If this option expects a payment receipt (ej: opción 6), enter awaitingReceipt mode
+          const isAwaitingReceipt = (matched.keyword && String(matched.keyword).toLowerCase() === '6') || (matched.key && String(matched.key).toLowerCase() === '6') || /comprobante|recibo|pago|comprobante de pago|enviar comprobante/i.test(lower);
+          if (isAwaitingReceipt) {
+            awaitingReceipt.set(chatId, true);
+            // keep short timeout for receipt upload
+            chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
+            try { touchTimer(chatId); } catch (e) { /* ignore */ }
+            await message.reply('Por favor adjunta una foto o PDF del comprobante ahora. Si deseas cancelar escribe "salir".');
+            return;
+          }
+
+          // Heurística para detectar transferencia a agente (si el reply contiene palabras clave)
           const isAgentTransfer = /transfer|asesor|agente|asesores|te vamos a transferir|transferir|transferencia/i.test(lower);
           if (isAgentTransfer) {
             agentMode.set(chatId, true);
@@ -792,6 +1197,7 @@ async function main(): Promise<void> {
       await message.reply(lines.join('\n'));
       menuShown.set(chatId, true);
       lastMenuItems.set(chatId, menuToUse);
+      // If the selected menu includes option '6' (Enviar comprobante), we will set awaitingReceipt when chosen; handled in menu selection branch
       return;
     } catch (error) {
       logger.error({ error }, 'Error mostrando el menú');
@@ -799,6 +1205,84 @@ async function main(): Promise<void> {
       return;
     }
   });
+
+  // helper: save receipt file and index
+  async function ensureReceiptsDir() {
+    try { await fs.mkdir(RECEIPTS_DIR, { recursive: true }); } catch {}
+    try {
+      await fs.access(RECEIPTS_INDEX);
+    } catch {
+      await fs.writeFile(RECEIPTS_INDEX, JSON.stringify([]), { encoding: 'utf8' });
+    }
+  }
+
+  async function saveReceipt(chatId: string, filename: string, base64Data: string, mime: string, text?: string) {
+    await ensureReceiptsDir();
+    const now = Date.now();
+    const id = `${chatId.replace(/[^0-9]/g,'')}-${now}`;
+    const filepath = path.join(RECEIPTS_DIR, filename);
+    // save file (base64)
+    const buffer = Buffer.from(base64Data, 'base64');
+    await fs.writeFile(filepath, buffer);
+
+    // append to index
+    const raw = await fs.readFile(RECEIPTS_INDEX, { encoding: 'utf8' });
+    const arr = JSON.parse(raw || '[]');
+    const entry = { id, chatId, filename, filepath, mime, text: text || '', ts: now, status: 'pending' } as any;
+    arr.push(entry);
+    await fs.writeFile(RECEIPTS_INDEX, JSON.stringify(arr, null, 2), { encoding: 'utf8' });
+    return { id, filepath, entry };
+  }
+
+  // Convert image buffer (jpg/png) to a single-page PDF buffer
+  async function imageBufferToPdfBuffer(imageBuf: Buffer, filename: string) {
+    // dynamic import to avoid build-time ESM issues
+    const mod = await import('pdfkit');
+    const PDFDocument: any = mod && (mod as any).default ? (mod as any).default : mod;
+    return await new Promise<Buffer>((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ autoFirstPage: false });
+  const chunks: Buffer[] = [];
+  doc.on('data', (chunk: Uint8Array) => chunks.push(Buffer.from(chunk)));
+  doc.on('end', () => resolve(Buffer.concat(chunks)));
+  doc.on('error', (err: any) => reject(err));
+        // add a page sized to the image
+        const img = doc.openImage ? doc.openImage(imageBuf) : undefined;
+        if (img) {
+          doc.addPage({ size: [img.width, img.height] });
+          doc.image(img, 0, 0);
+        } else {
+          // fallback: add A4 and scale image
+          doc.addPage('A4');
+          doc.image(imageBuf, { fit: [500, 700], align: 'center', valign: 'center' });
+        }
+        doc.end();
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  async function updateReceiptEntry(id: string, patch: Record<string, any>) {
+    try {
+      await ensureReceiptsDir();
+      const raw = await fs.readFile(RECEIPTS_INDEX, { encoding: 'utf8' });
+      const arr = JSON.parse(raw || '[]');
+      let changed = false;
+      for (const it of arr) {
+        if (it && it.id === id) {
+          Object.assign(it, patch);
+          changed = true;
+          break;
+        }
+      }
+      if (changed) await fs.writeFile(RECEIPTS_INDEX, JSON.stringify(arr, null, 2), { encoding: 'utf8' });
+      return changed;
+    } catch (e) {
+      logger.warn({ e, id, patch }, 'No se pudo actualizar índice de comprobantes');
+      return false;
+    }
+  }
 
   await whatsappClient.initialize();
 
@@ -876,6 +1360,111 @@ async function main(): Promise<void> {
   } catch (e) {
     logger.debug({ e }, 'No se pudo inicializar admin queue processor');
   }
+
+  // --- small webhook receiver so backend/admin can notify the bot about reconciled receipts
+  function startWebhookServer() {
+    const port = Number(process.env.BOT_WEBHOOK_PORT || 3001);
+    const server = http.createServer(async (req, res) => {
+      try {
+        const u = new URL(req.url || '/', `http://${req.headers.host}`);
+        if (req.method === 'POST' && u.pathname === '/webhook/receipt_reconciled') {
+          let raw = '';
+          for await (const chunk of req) raw += chunk;
+          const payload = raw ? JSON.parse(raw) : {};
+          const backendId = payload.backend_id ?? payload.receipt_id ?? null;
+          const localId = payload.receipt_local_id ?? payload.receipt_id_local ?? null;
+          const pdfBase64 = payload.pdf_base64 ?? null;
+          const pdfUrl = payload.pdf_url ?? null;
+          const pdfPath = payload.pdf_path ?? null;
+
+          if (!backendId && !localId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'backend_id or receipt_local_id required' }));
+            return;
+          }
+
+          // find local receipt entry
+          let indexRaw = '[]';
+          try { indexRaw = await fs.readFile(RECEIPTS_INDEX, { encoding: 'utf8' }); } catch {}
+          const arr = JSON.parse(indexRaw || '[]');
+          const entry = arr.find((r: any) => (localId && r.id === localId) || (backendId && r.backend_id === backendId));
+          if (!entry) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'receipt not found' }));
+            return;
+          }
+
+          // determine PDF base64
+          let base64data: string | null = null;
+          let filename = `reconciled-${entry.id}.pdf`;
+          if (pdfBase64) {
+            base64data = pdfBase64.replace(/^data:application\/(pdf);base64,/, '');
+          } else if (pdfPath) {
+            try {
+              const buff = await fs.readFile(pdfPath);
+              base64data = buff.toString('base64');
+              filename = path.basename(pdfPath);
+            } catch (e) {
+              // ignore
+            }
+          } else if (pdfUrl) {
+            try {
+              const resp = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+              base64data = Buffer.from(resp.data).toString('base64');
+              const urlObj = new URL(pdfUrl);
+              filename = path.basename(urlObj.pathname) || filename;
+            } catch (e) {
+              // ignore
+            }
+          } else if (entry.reconciled_pdf) {
+            try {
+              const buff = await fs.readFile(entry.reconciled_pdf);
+              base64data = buff.toString('base64');
+              filename = path.basename(entry.reconciled_pdf);
+            } catch (e) {
+              // ignore
+            }
+          }
+
+          if (!base64data) {
+            // no pdf available to send
+            await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: false });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, note: 'marked reconciled, no pdf to send' }));
+            return;
+          }
+
+          // send to client via WhatsApp
+          try {
+            const chatId = entry.chatId || entry.chat_id;
+            if (!chatId) throw new Error('chatId missing');
+            await whatsappClient.sendMedia(chatId, base64data, 'application/pdf', filename);
+            await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: true, reconciled_sent_ts: Date.now() });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          } catch (e: any) {
+            logger.warn({ e, entry }, 'Error enviando PDF reconciliado al cliente');
+            await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: false });
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: String(e && e.message ? e.message : e) }));
+            return;
+          }
+        }
+
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'not found' }));
+      } catch (err: any) {
+        logger.warn({ err }, 'Webhook handler error');
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: String(err && err.message ? err.message : err) }));
+      }
+    });
+
+    server.listen(port, () => logger.info({ port }, 'Webhook server listening'));
+  }
+
+  startWebhookServer();
 
   await runBatch();
   const interval = setInterval(runBatch, config.pollIntervalMs);

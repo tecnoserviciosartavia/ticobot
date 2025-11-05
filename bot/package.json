@@ -18,6 +18,7 @@
     "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",
     "whatsapp-web.js": "^1.24.0",
+    "pdfkit": "^0.13.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

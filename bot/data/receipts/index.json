@@ -1,0 +1,75 @@
+[
+  {
+    "id": "50672140974-1762310599550",
+    "chatId": "50672140974@c.us",
+    "filename": "receipt-50672140974-1762310593490",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50672140974-1762310593490",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1762310599550,
+    "status": "pending"
+  },
+  {
+    "id": "50672140974-1762310844187",
+    "chatId": "50672140974@c.us",
+    "filename": "receipt-50672140974-1762310836116",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50672140974-1762310836116",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1762310844187,
+    "status": "pending"
+  },
+  {
+    "id": "50661784023-1762311383947",
+    "chatId": "50661784023@c.us",
+    "filename": "receipt-50661784023-1762311383947.png",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50661784023-1762311383947.png",
+    "mime": "image/png",
+    "text": "Simulated receipt",
+    "ts": 1762311383947,
+    "status": "applied",
+    "backend_id": 1,
+    "months": 3,
+    "monthly_amount": 8000,
+    "total_amount": 24000,
+    "reconciled": true,
+    "reconciled_pdf": "/home/fabian/ticobot/bot/data/receipts/reconciled-50661784023-1762311383947.pdf",
+    "reconciled_sent": true,
+    "reconciled_sent_ts": 1762311565559
+  },
+  {
+    "id": "50661784023-1762312085902",
+    "chatId": "50661784023@c.us",
+    "filename": "receipt-50661784023-1762312080150",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50661784023-1762312080150",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1762312085902,
+    "status": "pending"
+  },
+  {
+    "id": "50672140974-1762314549615",
+    "chatId": "50672140974@c.us",
+    "filename": "receipt-50672140974-1762314545992",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50672140974-1762314545992",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1762314549615,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
+  }
+]

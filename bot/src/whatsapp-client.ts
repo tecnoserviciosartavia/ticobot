@@ -122,6 +122,12 @@ export class WhatsAppClient {
     await this.client.sendMessage(chatId, text);
   }
 
+  // Enviar media (base64) a un chat
+  async sendMedia(chatId: string, base64Data: string, mimeType: string, filename?: string): Promise<void> {
+    const media = new MessageMedia(mimeType, base64Data, filename);
+    await this.client.sendMessage(chatId, media);
+  }
+
   async shutdown(): Promise<void> {
     await this.client.destroy();
   }

@@ -95,6 +95,11 @@ class ApiClient {
     return res.data;
   }
 
+  async listContracts(params?: any) {
+    const res = await this.http.get('contracts', { params: params || {} });
+    return res.data;
+  }
+
   async listPaymentsUpcoming(phone?: string, days?: number) {
     const res = await this.http.get('payments/upcoming', { params: { phone, days } });
     return res.data;
@@ -115,8 +120,47 @@ class ApiClient {
     return res.data;
   }
 
-  async createReceiptForClient(payload: { phone: string }) {
-    const res = await this.http.post('receipts/for-client', payload);
+  async createReceiptForClient(payload: any) {
+    // Try a few candidate endpoints to be tolerant to backend route differences.
+    const candidates = ['receipts/for-client', 'receipts', 'payments/receipts', 'receipts/create'];
+    let lastErr: any = null;
+    for (const ep of candidates) {
+      try {
+        const res = await this.http.post(ep, payload);
+        if (ep !== candidates[0]) {
+          logger.info({ ep, payload }, 'createReceiptForClient used fallback endpoint');
+        }
+        return res.data;
+      } catch (err: any) {
+        lastErr = err;
+        // If 404, try next candidate; otherwise rethrow to let caller handle unexpected errors
+        const status = err && err.response && err.response.status;
+        if (status === 404) {
+          logger.debug({ ep, status, body: err.response && err.response.data }, 'Endpoint no disponible, probando siguiente fallback');
+          continue;
+        }
+        // non-404: rethrow
+        throw err;
+      }
+    }
+    // If we get here, all candidates returned 404 or failed; throw helpful error including last response
+    const info: any = { message: 'No disponible endpoint para createReceiptForClient' };
+    if (lastErr && lastErr.response) {
+      info.status = lastErr.response.status;
+      info.data = lastErr.response.data;
+    }
+    logger.warn(info, 'createReceiptForClient fallo en todos los endpoints candidatos');
+    const e = new Error('createReceiptForClient failed: ' + JSON.stringify(info));
+    throw e;
+  }
+
+  async createPayment(payload: any) {
+    const res = await this.http.post('payments', payload);
+    return res.data;
+  }
+
+  async updatePayment(paymentId: number | string, payload: any) {
+    const res = await this.http.patch(`payments/${paymentId}`, payload);
     return res.data;
   }
 
