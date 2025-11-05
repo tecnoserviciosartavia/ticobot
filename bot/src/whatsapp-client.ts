@@ -20,7 +20,9 @@ export class WhatsAppClient {
       authStrategy: new LocalAuth({ dataPath: config.sessionPath }),
       puppeteer: {
         headless: true,
-        executablePath: '/usr/bin/chromium-browser',
+        // Allow overriding Chromium/Chrome executable via env var BOT_CHROMIUM_PATH
+        // If not provided, puppeteer will use the bundled or system browser.
+        executablePath: process.env.BOT_CHROMIUM_PATH || undefined,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
       }
     });
@@ -113,6 +115,11 @@ export class WhatsAppClient {
         await this.client.sendMessage(chatId, media);
       }
     }
+  }
+
+  // Enviar texto arbitrario a un chat (útil para admin queue u otros usos)
+  async sendText(chatId: string, text: string): Promise<void> {
+    await this.client.sendMessage(chatId, text);
   }
 
   async shutdown(): Promise<void> {

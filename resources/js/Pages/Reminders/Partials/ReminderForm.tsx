@@ -252,16 +252,124 @@ export default function ReminderForm({
 
                 <div className="md:col-span-2">
                     <InputLabel htmlFor="message" value="Mensaje" />
-                    <textarea
-                        id="message"
-                        name="message"
-                        value={data.message}
-                        onChange={(event) => onChange('message', event.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        rows={4}
-                        placeholder="Contenido personalizado que se enviará al cliente"
-                    />
-                    <InputError message={errors.message} className="mt-2" />
+                    <div className="mt-1 flex flex-col">
+                        <div className="mb-2 flex flex-wrap gap-2">
+                            <span className="text-xs text-gray-500">Variables:</span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const token = '{client_name}';
+                                    const el = document.getElementById('message') as HTMLTextAreaElement | null;
+                                    if (el) {
+                                        const start = el.selectionStart || 0;
+                                        const end = el.selectionEnd || 0;
+                                        const val = el.value;
+                                        const next = val.substring(0, start) + token + val.substring(end);
+                                        onChange('message', next);
+                                        // restore cursor after insertion
+                                        setTimeout(() => {
+                                            el.selectionStart = el.selectionEnd = start + token.length;
+                                            el.focus();
+                                        }, 0);
+                                    }
+                                }}
+                                className="inline-flex items-center rounded px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100"
+                            >
+                                {"{client_name}"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const token = '{contract_name}';
+                                    const el = document.getElementById('message') as HTMLTextAreaElement | null;
+                                    if (el) {
+                                        const start = el.selectionStart || 0;
+                                        const end = el.selectionEnd || 0;
+                                        const val = el.value;
+                                        const next = val.substring(0, start) + token + val.substring(end);
+                                        onChange('message', next);
+                                        setTimeout(() => {
+                                            el.selectionStart = el.selectionEnd = start + token.length;
+                                            el.focus();
+                                        }, 0);
+                                    }
+                                }}
+                                className="inline-flex items-center rounded px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100"
+                            >
+                                {"{contract_name}"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const token = '{amount}';
+                                    const el = document.getElementById('message') as HTMLTextAreaElement | null;
+                                    if (el) {
+                                        const start = el.selectionStart || 0;
+                                        const end = el.selectionEnd || 0;
+                                        const val = el.value;
+                                        const next = val.substring(0, start) + token + val.substring(end);
+                                        onChange('message', next);
+                                        setTimeout(() => {
+                                            el.selectionStart = el.selectionEnd = start + token.length;
+                                            el.focus();
+                                        }, 0);
+                                    }
+                                }}
+                                className="inline-flex items-center rounded px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100"
+                            >
+                                {"{amount}"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const token = '{due_date}';
+                                    const el = document.getElementById('message') as HTMLTextAreaElement | null;
+                                    if (el) {
+                                        const start = el.selectionStart || 0;
+                                        const end = el.selectionEnd || 0;
+                                        const val = el.value;
+                                        const next = val.substring(0, start) + token + val.substring(end);
+                                        onChange('message', next);
+                                        setTimeout(() => {
+                                            el.selectionStart = el.selectionEnd = start + token.length;
+                                            el.focus();
+                                        }, 0);
+                                    }
+                                }}
+                                className="inline-flex items-center rounded px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100"
+                            >
+                                {"{due_date}"}
+                            </button>
+                        </div>
+
+                        <textarea
+                            id="message"
+                            name="message"
+                            value={data.message}
+                            onChange={(event) => onChange('message', event.target.value)}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            rows={4}
+                            placeholder="Contenido personalizado que se enviará al cliente"
+                        />
+                        <InputError message={errors.message} className="mt-2" />
+
+                        <div className="mt-3 rounded-md bg-gray-50 p-3 text-sm text-gray-700">
+                            <p className="font-medium">Vista previa (variables reemplazadas):</p>
+                            <pre className="mt-2 whitespace-pre-wrap text-xs">{(() => {
+                                const msg = data.message || '';
+                                const clientName = selectedClient?.name ?? '';
+                                const contract = contractOptions.find((c) => String(c.id) === String(data.contract_id));
+                                const contractName = contract?.name ?? '';
+                                const amount = data.amount || '';
+                                const dueDate = data.due_date || '';
+                                return msg
+                                    .replace(/\{client_name\}/g, clientName)
+                                    .replace(/\{contract_name\}/g, contractName)
+                                    .replace(/\{amount\}/g, amount)
+                                    .replace(/\{due_date\}/g, dueDate) || '—';
+                            })()}</pre>
+                        </div>
+                    </div>
                 </div>
 
                 <div>

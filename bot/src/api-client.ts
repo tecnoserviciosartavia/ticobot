@@ -73,6 +73,67 @@ class ApiClient {
     const response = await this.http.get('whatsapp/menu');
     return response.data;
   }
+
+  // --- Admin / management helper endpoints (asunciones sobre la API) ---
+  async findCustomerByPhone(phone: string) {
+    const res = await this.http.get('clients', { params: { phone } });
+    return res.data && res.data.length ? res.data[0] : null;
+  }
+
+  async upsertCustomer(payload: { phone: string; name?: string; active?: number }) {
+    const res = await this.http.post('clients', payload);
+    return res.data;
+  }
+
+  async createSubscription(payload: any) {
+    const res = await this.http.post('subscriptions', payload);
+    return res.data;
+  }
+
+  async listSubscriptions(phone?: string) {
+    const res = await this.http.get('subscriptions', { params: phone ? { phone } : {} });
+    return res.data;
+  }
+
+  async listPaymentsUpcoming(phone?: string, days?: number) {
+    const res = await this.http.get('payments/upcoming', { params: { phone, days } });
+    return res.data;
+  }
+
+  async listTransactions(phone?: string, limit = 20) {
+    const res = await this.http.get('transactions', { params: { phone, limit } });
+    return res.data;
+  }
+
+  async deleteTransaction(id: number) {
+    const res = await this.http.delete(`transactions/${id}`);
+    return res.data;
+  }
+
+  async listReceiptsByDate(date: string) {
+    const res = await this.http.get('receipts', { params: { date } });
+    return res.data;
+  }
+
+  async createReceiptForClient(payload: { phone: string }) {
+    const res = await this.http.post('receipts/for-client', payload);
+    return res.data;
+  }
+
+  async sendReceipt(receiptId: number) {
+    const res = await this.http.post(`receipts/${receiptId}/send`);
+    return res.data;
+  }
+
+  async deleteCustomer(id: number) {
+    const res = await this.http.delete(`clients/${id}`);
+    return res.data;
+  }
+
+  async deleteSubscriptionsByPhone(phone: string) {
+    const res = await this.http.delete('subscriptions', { params: { phone } });
+    return res.data;
+  }
 }
 
 export const apiClient = new ApiClient();
