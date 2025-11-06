@@ -1098,6 +1098,45 @@ async function main(): Promise<void> {
 
           // Regular selection: reply. If this option transfers to an agent, activate agent mode and PAUSE the bot.
           const replyText = matched.reply_message || matched.text || matched.response || '';
+
+          // Special-case: if the selected option is numeric 5 (o keyword/key '5'),
+          // instruct the user to contact an agent and put the chat into agent mode.
+          const isOptionFive = (typeof asNum === 'number' && asNum === 5)
+            || (matched.keyword && String(matched.keyword).trim() === '5')
+            || (matched.key && String(matched.key).trim() === '5');
+
+          if (isOptionFive) {
+            const agentMsg = 'Para hablar con un asesor, por favor comunícate con nuestro equipo de soporte o escribe "agente" para que te transferamos. Un asesor te contactará a la brevedad.';
+            await message.reply(agentMsg);
+
+            // Activate agent mode and notify admin just like the generic agent transfer flow
+            agentMode.set(chatId, true);
+            chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
+            try { touchTimer(chatId); } catch (e) { /* ignore */ }
+            menuShown.delete(chatId);
+            lastMenuItems.delete(chatId);
+            logger.info({ chatId }, 'Chat puesto en modo agente (opción 5)');
+
+            try {
+              const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
+              const adminChatId = normalizeToChatId(adminPhone);
+              const now = Date.now();
+              const lastNotified = adminNotifiedAt.get(chatId) || 0;
+              if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
+                const notifyText = `Cliente ${fromUser} (${chatId}) solicita atención de un asesor (opción 5). Mensaje: "${String(body).slice(0,200)}"`;
+                await whatsappClient.sendText(adminChatId, notifyText);
+                adminNotifiedAt.set(chatId, now);
+                logger.info({ adminChatId, chatId }, 'Admin notificado sobre solicitud de agente (opción 5)');
+              } else {
+                logger.debug({ chatId, lastNotified, throttleMs: AGENT_NOTIFY_THROTTLE_MS }, 'Omitida notificación admin por throttle (opción 5)');
+              }
+            } catch (e: any) {
+              logger.warn({ e }, 'No se pudo notificar al admin sobre la solicitud de agente (opción 5)');
+            }
+
+            return;
+          }
+
           await message.reply(replyText);
 
           // Heurística para detectar acciones especiales en el reply

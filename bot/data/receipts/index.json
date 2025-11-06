@@ -71,5 +71,30 @@
     },
     "attempted_months": 1,
     "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50661151082-1762398232365",
+    "chatId": "50661151082@c.us",
+    "filename": "receipt-50661151082-1762398222488",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50661151082-1762398222488",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1762398232365,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
   }
 ]
