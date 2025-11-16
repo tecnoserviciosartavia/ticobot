@@ -96,5 +96,255 @@
     },
     "attempted_months": 1,
     "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50670302470-1762403871731",
+    "chatId": "50670302470@c.us",
+    "filename": "receipt-50670302470-1762403853878",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50670302470-1762403853878",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1762403871731,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50670302470-1762449192440",
+    "chatId": "50670302470@c.us",
+    "filename": "receipt-50670302470-1762449184413",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50670302470-1762449184413",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1762449192440,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50683677150-1762472535689",
+    "chatId": "50683677150@c.us",
+    "filename": "receipt-50683677150-1762472511644",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50683677150-1762472511644",
+    "mime": "image/jpeg",
+    "text": "Listo el pago",
+    "ts": 1762472535689,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50662694160-1762538835413",
+    "chatId": "50662694160@c.us",
+    "filename": "receipt-50662694160-1762538826263",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50662694160-1762538826263",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1762538835413,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 5,
+    "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50670302470-1762790885580",
+    "chatId": "50670302470@c.us",
+    "filename": "receipt-50670302470-1762790881141",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50670302470-1762790881141",
+    "mime": "audio/ogg; codecs=opus",
+    "text": "",
+    "ts": 1762790885580,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50684693114-1762932100326",
+    "chatId": "50684693114@c.us",
+    "filename": "receipt-50684693114-1762932084687",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50684693114-1762932084687",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1762932100326,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50662805121-1763132062148",
+    "chatId": "50662805121@c.us",
+    "filename": "receipt-50662805121-1763132009928",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50662805121-1763132009928",
+    "mime": "image/jpeg",
+    "text": "Mi pago de este mes",
+    "ts": 1763132062148,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50662725541-1763256892763",
+    "chatId": "50662725541@c.us",
+    "filename": "receipt-50662725541-1763256882817",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50662725541-1763256882817",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1763256892763,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50672007128-1763257478752",
+    "chatId": "50672007128@c.us",
+    "filename": "receipt-50672007128-1763257466010",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50672007128-1763257466010",
+    "mime": "image/jpeg",
+    "text": "Listo",
+    "ts": 1763257478752,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
+  },
+  {
+    "id": "50671663113-1763258824478",
+    "chatId": "50671663113@c.us",
+    "filename": "receipt-50671663113-1763258814591",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50671663113-1763258814591",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1763258824478,
+    "status": "apply_failed",
+    "apply_error": {
+      "message": "Request failed with status code 422",
+      "status": 422,
+      "data": {
+        "message": "The client id field is required.",
+        "errors": {
+          "client_id": [
+            "The client id field is required."
+          ]
+        }
+      },
+      "code": "ERR_BAD_REQUEST"
+    },
+    "attempted_months": 1,
+    "apply_error_retry": "Request failed with status code 422"
   }
 ]

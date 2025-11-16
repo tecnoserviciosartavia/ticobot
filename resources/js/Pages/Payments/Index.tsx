@@ -3,6 +3,7 @@ import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { FormEvent } from 'react';
 
 interface Payment {
@@ -81,6 +82,20 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
         paid_from: filters.paid_from ?? '',
         paid_to: filters.paid_to ?? '',
     });
+
+    // estado local para controlar cargas por fila
+    const [loadingIds, setLoadingIds] = useState<number[]>([]);
+
+    function setLoading(id: number, value: boolean) {
+        setLoadingIds((prev) => {
+            if (value) return Array.from(new Set([...prev, id]));
+            return prev.filter((x) => x !== id);
+        });
+    }
+
+    function isLoading(id: number) {
+        return loadingIds.includes(id);
+    }
 
     const paymentRows = payments?.data ?? [];
     const paginationLinks = payments?.links ?? [];
@@ -252,6 +267,9 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                                             Fechas
                                         </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                            Acciones
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -291,11 +309,19 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                                 <div>Pagado: {formatDate(payment.paid_at)}</div>
                                                 <div>Registrado: {formatDate(payment.created_at)}</div>
                                             </td>
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                                {/* Mostrar botón solo cuando no esté verificado */}
+                                                {payment.status !== 'verified' && (
+                                                    <ApplyAndConciliateButton paymentId={payment.id} receiptsCount={payment.receipts_count} />
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Componente botón definido abajo en el archivo */}
 
                         <div className="px-6 pb-6">
                             <div className="text-sm text-gray-500">
@@ -307,5 +333,70 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                 </div>
             </div>
         </AuthenticatedLayout>
+    );
+}
+
+// Botón para aplicar y conciliar — componente pequeño para manejar su propio estado de carga
+function ApplyAndConciliateButton({ paymentId, receiptsCount }: { paymentId: number; receiptsCount: number }) {
+    const [loading, setLoading] = useState(false);
+
+    const resolveUrl = () => {
+        try {
+            // intenta usar Ziggy route si está disponible
+            // @ts-ignore
+            if (typeof route === 'function') {
+                try {
+                    const r = route('api.conciliations.store');
+                    if (r) return r;
+                } catch (e) {
+                    // fallthrough
+                }
+            }
+        } catch (e) {
+            // fallthrough
+        }
+
+        // fallback directo
+        return '/api/conciliations';
+    };
+
+    const onClick = () => {
+        // opcionalmente evitar conciliar sin comprobantes
+        if (!receiptsCount || receiptsCount <= 0) {
+            // eslint-disable-next-line no-alert
+            if (!confirm('Este pago no tiene comprobantes adjuntos. ¿Deseas continuar y crear la conciliación de todas formas?')) return;
+        }
+
+        // eslint-disable-next-line no-restricted-globals
+        if (!confirm('¿Aplicar y conciliar este pago? Esta acción marcará el pago como verificado y creará una conciliación.')) return;
+
+        const url = resolveUrl();
+        setLoading(true);
+
+        router.post(url, {
+            payment_id: paymentId,
+            status: 'approved',
+        }, {
+            preserveState: false,
+            onSuccess: () => {
+                router.get(route('payments.index'));
+            },
+            onError: (errors: any) => {
+                // eslint-disable-next-line no-alert
+                alert('Error al conciliar: ' + JSON.stringify(errors));
+            },
+            onFinish: () => setLoading(false),
+        });
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={loading}
+            className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold text-white shadow-sm ${loading ? 'bg-green-300' : 'bg-green-600 hover:bg-green-500'} focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2`}
+        >
+            {loading ? 'Aplicando...' : 'Aplicar y conciliar'}
+        </button>
     );
 }

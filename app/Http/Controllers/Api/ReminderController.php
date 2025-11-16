@@ -122,8 +122,14 @@ class ReminderController extends Controller
             $scheduled = $requested;
         }
 
-    // Ensure payload exists (may have been mutated above)
-    $payload = $payload ?? ($data['payload'] ?? []);
+        // Ensure payload exists (may have been mutated above)
+        $payload = $payload ?? ($data['payload'] ?? []);
+
+        // Ensure the reminder payload carries the contract amount so future
+        // processing doesn't depend on embedding the contract in API responses.
+        if (!isset($payload['amount']) || $payload['amount'] === null) {
+            $payload['amount'] = (string) $contract->amount;
+        }
 
         // If no custom message provided, use contract type default_message (with simple templating)
         if (empty($payload['message'])) {
@@ -219,13 +225,19 @@ class ReminderController extends Controller
                         default => $currentScheduled,
                     };
 
+                    $nextPayload = array_merge($reminder->payload ?? [], ['recurrence' => $recurrence]);
+                    // Ensure next reminder keeps the contract amount
+                    if (!isset($nextPayload['amount']) || $nextPayload['amount'] === null) {
+                        $nextPayload['amount'] = isset($reminder->payload['amount']) ? $reminder->payload['amount'] : optional($reminder->contract)->amount;
+                    }
+
                     Reminder::create([
                         'contract_id' => $reminder->contract_id,
                         'client_id' => $reminder->client_id,
                         'channel' => $reminder->channel,
                         'scheduled_for' => $next,
                         'status' => 'pending',
-                        'payload' => array_merge($reminder->payload ?? [], ['recurrence' => $recurrence]),
+                        'payload' => $nextPayload,
                     ]);
 
                     // Also advance contract next_due_date if linked

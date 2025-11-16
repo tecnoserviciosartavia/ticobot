@@ -18,6 +18,9 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
+    Route::get('/settings', [\App\Http\Controllers\Web\SettingsController::class, 'index'])->name('settings.index');
+    Route::post('/settings', [\App\Http\Controllers\Web\SettingsController::class, 'update'])->name('settings.update');
+
     // Clients import (CSV) - define BEFORE the resource to avoid matching `clients/{client}`
     Route::get('clients/import', [WebClientController::class, 'importForm'])->name('clients.import');
     Route::post('clients/import', [WebClientController::class, 'import'])->name('clients.import.store');

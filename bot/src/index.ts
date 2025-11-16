@@ -1505,6 +1505,38 @@ async function main(): Promise<void> {
 
   startWebhookServer();
 
+  // Load settings from backend API and refresh periodically
+  async function loadSettingsFromApi() {
+    try {
+      const s = await apiClient.getSettings();
+      if (!s) return;
+      // payment contact
+      if (s.payment_contact) {
+        (config as any).paymentContact = String(s.payment_contact);
+      }
+      // bank accounts: accept newline or ; separators
+      if (s.bank_accounts) {
+        (config as any).bankAccounts = String(s.bank_accounts)
+          .split(/\r?\n|;/)
+          .map((x: string) => x.trim())
+          .filter(Boolean);
+      }
+      if (s.service_name) {
+        (config as any).serviceName = String(s.service_name);
+      }
+      if (s.beneficiary_name) {
+        (config as any).beneficiaryName = String(s.beneficiary_name);
+      }
+      logger.info({ loaded: Object.keys(s) }, 'Settings cargadas desde API');
+    } catch (e: any) {
+      logger.warn({ e }, 'No se pudieron cargar settings desde API');
+    }
+  }
+
+  // initial load and refresh every 5 minutes
+  await loadSettingsFromApi();
+  setInterval(loadSettingsFromApi, Number(process.env.BOT_SETTINGS_POLL_MS || 5 * 60 * 1000));
+
   await runBatch();
   const interval = setInterval(runBatch, config.pollIntervalMs);
 

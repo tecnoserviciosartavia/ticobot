@@ -26,6 +26,11 @@ const configSchema = z.object({
   logLevel: z.string().default('info')
   ,
   menuPath: z.string().optional()
+  ,
+  paymentContact: z.string().optional(),
+  bankAccountsRaw: z.string().optional(),
+  beneficiaryName: z.string().optional(),
+  serviceName: z.string().optional()
 });
 
 const parsed = configSchema.parse({
@@ -39,12 +44,21 @@ const parsed = configSchema.parse({
   logLevel: process.env.BOT_LOG_LEVEL
   ,
   menuPath: process.env.BOT_MENU_PATH
+  ,
+  paymentContact: process.env.BOT_PAYMENT_CONTACT,
+  bankAccountsRaw: process.env.BOT_BANK_ACCOUNTS,
+  beneficiaryName: process.env.BOT_BENEFICIARY_NAME,
+  serviceName: process.env.BOT_SERVICE_NAME
 });
 
 export type AppConfig = z.infer<typeof configSchema> & {
   pollIntervalMs: number;
   lookAheadMinutes: number;
   maxBatch: number;
+  bankAccounts: string[];
+  paymentContact?: string;
+  beneficiaryName?: string;
+  serviceName?: string;
 };
 
 export const config: AppConfig = {
@@ -52,4 +66,16 @@ export const config: AppConfig = {
   pollIntervalMs: parsed.pollIntervalMs,
   lookAheadMinutes: parsed.lookAheadMinutes,
   maxBatch: parsed.maxBatch
+  // expose parsed bank accounts as array
+  ,
+  bankAccounts: (parsed as any).bankAccountsRaw
+    ? String((parsed as any).bankAccountsRaw)
+        .split(/\r?\n|;/)
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+    : [],
+  paymentContact: (parsed as any).paymentContact ?? ''
+  ,
+  beneficiaryName: (parsed as any).beneficiaryName ?? '',
+  serviceName: (parsed as any).serviceName ?? ''
 };

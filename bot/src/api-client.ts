@@ -76,12 +76,20 @@ class ApiClient {
 
   // --- Admin / management helper endpoints (asunciones sobre la API) ---
   async findCustomerByPhone(phone: string) {
-    const res = await this.http.get('clients', { params: { phone } });
-    return res.data && res.data.length ? res.data[0] : null;
+    const res = await this.http.get('clients', { params: { search: phone } });
+    const list = res.data && (Array.isArray(res.data) ? res.data : res.data.data ? res.data.data : []) ? (Array.isArray(res.data) ? res.data : res.data.data) : [];
+    // try exact phone match first
+    const exact = list.find((c: any) => String(c.phone || '').replace(/[^0-9]/g, '') === String(phone).replace(/[^0-9]/g, ''));
+    if (exact) return exact;
+    return list && list.length ? list[0] : null;
   }
 
   async upsertCustomer(payload: { phone: string; name?: string; active?: number }) {
-    const res = await this.http.post('clients', payload);
+    // The backend requires 'name' and 'status' for creating clients. Ensure defaults.
+    const body: any = Object.assign({}, payload);
+    if (!body.name) body.name = String(body.phone || '');
+    if (!body.status) body.status = 'active';
+    const res = await this.http.post('clients', body);
     return res.data;
   }
 
@@ -97,6 +105,11 @@ class ApiClient {
 
   async listContracts(params?: any) {
     const res = await this.http.get('contracts', { params: params || {} });
+    return res.data;
+  }
+
+  async getContract(id: number | string) {
+    const res = await this.http.get(`contracts/${id}`);
     return res.data;
   }
 
@@ -157,6 +170,11 @@ class ApiClient {
   async createPayment(payload: any) {
     const res = await this.http.post('payments', payload);
     return res.data;
+  }
+
+  async getSettings() {
+    const res = await this.http.get('settings');
+    return res.data || {};
   }
 
   async updatePayment(paymentId: number | string, payload: any) {

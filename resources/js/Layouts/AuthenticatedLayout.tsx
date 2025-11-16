@@ -64,6 +64,12 @@ export default function Authenticated({
                                 >
                                     Conciliaciones
                                 </NavLink>
+                                <NavLink
+                                    href={route('settings.index')}
+                                    active={route().current('settings.*')}
+                                >
+                                    Configuración
+                                </NavLink>
                             </div>
                         </div>
 
@@ -102,6 +108,9 @@ export default function Authenticated({
                                             href={route('profile.edit')}
                                         >
                                             Profile
+                                        </Dropdown.Link>
+                                        <Dropdown.Link href={route('settings.index')}>
+                                            Configuración
                                         </Dropdown.Link>
                                         <Dropdown.Link
                                             href={route('logout')}
@@ -200,6 +209,12 @@ export default function Authenticated({
                             active={route().current('conciliations.*')}
                         >
                             Conciliaciones
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('settings.index')}
+                            active={route().current('settings.*')}
+                        >
+                            Configuración
                         </ResponsiveNavLink>
                     </div>
 

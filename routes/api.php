@@ -24,6 +24,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('payments', PaymentController::class)->names('api.payments');
     Route::apiResource('conciliations', ConciliationController::class)->names('api.conciliations');
 
+    // Application settings (key/value)
+    Route::get('settings', [\App\Http\Controllers\Api\SettingsController::class, 'index']);
+    Route::get('settings/{key}', [\App\Http\Controllers\Api\SettingsController::class, 'show']);
+    Route::post('settings', [\App\Http\Controllers\Api\SettingsController::class, 'store']);
+    Route::put('settings/{key}', [\App\Http\Controllers\Api\SettingsController::class, 'update']);
+    Route::delete('settings/{key}', [\App\Http\Controllers\Api\SettingsController::class, 'destroy']);
+
     Route::prefix('whatsapp')->name('api.whatsapp.')->group(function (): void {
         Route::post('qr', [WhatsAppStatusController::class, 'storeQr'])->name('qr');
         Route::post('ready', [WhatsAppStatusController::class, 'markReady'])->name('ready');
