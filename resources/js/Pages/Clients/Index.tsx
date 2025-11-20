@@ -100,7 +100,7 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
             <Head title="Clientes" />
 
             <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
+                <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     {flashSuccess && (
                         <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
                             {flashSuccess}

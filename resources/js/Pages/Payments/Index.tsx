@@ -3,8 +3,10 @@ import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { FormEvent } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import axios from 'axios';
 
 interface Payment {
     id: number;
@@ -16,9 +18,16 @@ interface Payment {
     paid_at: string | null;
     receipts_count: number;
     client: { id: number; name: string } | null;
-    contract: { id: number; name: string } | null;
+    contract: { id: number; name: string; amount: number; currency: string } | null;
     reminder: { id: number; status: string } | null;
     created_at: string | null;
+}
+
+interface Contract {
+    id: number;
+    name: string;
+    amount: number;
+    currency: string;
 }
 
 interface Paginated<T> {
@@ -137,7 +146,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
             <Head title="Pagos" />
 
             <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
+                <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     <div className="overflow-hidden rounded-lg bg-white shadow">
                         <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
                             <form
@@ -312,7 +321,11 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
                                                 {/* Mostrar botón solo cuando no esté verificado */}
                                                 {payment.status !== 'verified' && (
-                                                    <ApplyAndConciliateButton paymentId={payment.id} receiptsCount={payment.receipts_count} />
+                                                    <ApplyAndConciliateButton 
+                                                        paymentId={payment.id} 
+                                                        receiptsCount={payment.receipts_count}
+                                                        clientId={payment.client?.id || null}
+                                                    />
                                                 )}
                                             </td>
                                         </tr>
@@ -336,67 +349,225 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
     );
 }
 
-// Botón para aplicar y conciliar — componente pequeño para manejar su propio estado de carga
-function ApplyAndConciliateButton({ paymentId, receiptsCount }: { paymentId: number; receiptsCount: number }) {
+// Botón para aplicar y conciliar — componente con modal para seleccionar contrato y meses
+function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paymentId: number; receiptsCount: number; clientId: number | null }) {
     const [loading, setLoading] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+    const [contracts, setContracts] = useState<Contract[]>([]);
+    const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
+    const [months, setMonths] = useState(1);
+    const [loadingContracts, setLoadingContracts] = useState(false);
 
-    const resolveUrl = () => {
-        try {
-            // intenta usar Ziggy route si está disponible
-            // @ts-ignore
-            if (typeof route === 'function') {
-                try {
-                    const r = route('api.conciliations.store');
-                    if (r) return r;
-                } catch (e) {
-                    // fallthrough
-                }
-            }
-        } catch (e) {
-            // fallthrough
+    const selectedContract = contracts.find(c => c.id === selectedContractId);
+    const calculatedAmount = selectedContract ? selectedContract.amount * months : 0;
+
+    useEffect(() => {
+        if (isOpen && clientId && contracts.length === 0) {
+            loadContracts();
         }
+    }, [isOpen, clientId]);
 
-        // fallback directo
-        return '/api/conciliations';
+    const loadContracts = async () => {
+        if (!clientId) return;
+        
+        setLoadingContracts(true);
+        try {
+            const response = await axios.get(`/payments/client-contracts?client_id=${clientId}`);
+            const clientContracts = response.data || [];
+            setContracts(clientContracts);
+            
+            // Auto-seleccionar el primer contrato si solo hay uno
+            if (clientContracts.length === 1) {
+                setSelectedContractId(clientContracts[0].id);
+            }
+        } catch (error) {
+            console.error('Error cargando contratos:', error);
+            alert('Error al cargar los contratos del cliente');
+        } finally {
+            setLoadingContracts(false);
+        }
     };
 
-    const onClick = () => {
-        // opcionalmente evitar conciliar sin comprobantes
+    const handleOpenModal = () => {
         if (!receiptsCount || receiptsCount <= 0) {
-            // eslint-disable-next-line no-alert
-            if (!confirm('Este pago no tiene comprobantes adjuntos. ¿Deseas continuar y crear la conciliación de todas formas?')) return;
+            if (!confirm('Este pago no tiene comprobantes adjuntos. ¿Deseas continuar y crear la conciliación de todas formas?')) {
+                return;
+            }
+        }
+        setIsOpen(true);
+    };
+
+    const handleConfirm = () => {
+        if (!selectedContractId) {
+            alert('Por favor selecciona un contrato');
+            return;
         }
 
-        // eslint-disable-next-line no-restricted-globals
-        if (!confirm('¿Aplicar y conciliar este pago? Esta acción marcará el pago como verificado y creará una conciliación.')) return;
+        if (months < 1) {
+            alert('Los meses deben ser al menos 1');
+            return;
+        }
 
-        const url = resolveUrl();
         setLoading(true);
 
-        router.post(url, {
+        router.post(route('conciliations.store'), {
             payment_id: paymentId,
             status: 'approved',
+            contract_id: selectedContractId,
+            months: months,
+            calculated_amount: calculatedAmount,
         }, {
             preserveState: false,
             onSuccess: () => {
+                setIsOpen(false);
                 router.get(route('payments.index'));
             },
             onError: (errors: any) => {
-                // eslint-disable-next-line no-alert
                 alert('Error al conciliar: ' + JSON.stringify(errors));
+                setLoading(false);
             },
             onFinish: () => setLoading(false),
         });
     };
 
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={loading}
-            className={`inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold text-white shadow-sm ${loading ? 'bg-green-300' : 'bg-green-600 hover:bg-green-500'} focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2`}
-        >
-            {loading ? 'Aplicando...' : 'Aplicar y conciliar'}
-        </button>
+        <>
+            <button
+                type="button"
+                onClick={handleOpenModal}
+                disabled={loading}
+                className="inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold text-white shadow-sm bg-green-600 hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-green-300"
+            >
+                Aplicar y conciliar
+            </button>
+
+            <Transition appear show={isOpen} as={Fragment}>
+                <Dialog as="div" className="relative z-50" onClose={() => !loading && setIsOpen(false)}>
+                    <Transition.Child
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0"
+                        enterTo="opacity-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                    >
+                        <div className="fixed inset-0 bg-black bg-opacity-25" />
+                    </Transition.Child>
+
+                    <div className="fixed inset-0 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4 text-center">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-300"
+                                enterFrom="opacity-0 scale-95"
+                                enterTo="opacity-100 scale-100"
+                                leave="ease-in duration-200"
+                                leaveFrom="opacity-100 scale-100"
+                                leaveTo="opacity-0 scale-95"
+                            >
+                                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                                    <Dialog.Title
+                                        as="h3"
+                                        className="text-lg font-medium leading-6 text-gray-900 mb-4"
+                                    >
+                                        Aplicar y conciliar pago
+                                    </Dialog.Title>
+
+                                    <div className="mt-4 space-y-4">
+                                        {loadingContracts ? (
+                                            <div className="text-center py-4">
+                                                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+                                                <p className="mt-2 text-sm text-gray-600">Cargando contratos...</p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div>
+                                                    <label htmlFor="contract" className="block text-sm font-medium text-gray-700">
+                                                        Contrato
+                                                    </label>
+                                                    <select
+                                                        id="contract"
+                                                        value={selectedContractId || ''}
+                                                        onChange={(e) => setSelectedContractId(Number(e.target.value))}
+                                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                                        disabled={loading}
+                                                    >
+                                                        <option value="">Selecciona un contrato</option>
+                                                        {contracts.map((contract) => (
+                                                            <option key={contract.id} value={contract.id}>
+                                                                {contract.name} - {contract.currency} {contract.amount.toLocaleString('es-CR')}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label htmlFor="months" className="block text-sm font-medium text-gray-700">
+                                                        Meses a pagar
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        id="months"
+                                                        min="1"
+                                                        value={months}
+                                                        onChange={(e) => setMonths(Math.max(1, parseInt(e.target.value) || 1))}
+                                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                                        disabled={loading}
+                                                    />
+                                                </div>
+
+                                                {selectedContract && (
+                                                    <div className="rounded-md bg-indigo-50 p-4">
+                                                        <div className="flex">
+                                                            <div className="flex-1">
+                                                                <h4 className="text-sm font-medium text-indigo-800">Monto calculado</h4>
+                                                                <div className="mt-1 text-2xl font-bold text-indigo-900">
+                                                                    {selectedContract.currency} {calculatedAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
+                                                                </div>
+                                                                <p className="mt-1 text-xs text-indigo-600">
+                                                                    {selectedContract.currency} {selectedContract.amount.toLocaleString('es-CR')} × {months} {months === 1 ? 'mes' : 'meses'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {contracts.length === 0 && !loadingContracts && (
+                                                    <div className="rounded-md bg-yellow-50 p-4">
+                                                        <p className="text-sm text-yellow-800">
+                                                            Este cliente no tiene contratos activos.
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-6 flex gap-3">
+                                        <button
+                                            type="button"
+                                            className="flex-1 inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+                                            onClick={() => setIsOpen(false)}
+                                            disabled={loading}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="flex-1 inline-flex justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-green-300"
+                                            onClick={handleConfirm}
+                                            disabled={loading || !selectedContractId || contracts.length === 0}
+                                        >
+                                            {loading ? 'Aplicando...' : 'Confirmar y enviar'}
+                                        </button>
+                                    </div>
+                                </Dialog.Panel>
+                            </Transition.Child>
+                        </div>
+                    </div>
+                </Dialog>
+            </Transition>
+        </>
     );
 }

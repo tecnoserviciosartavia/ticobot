@@ -172,6 +172,32 @@ class ContractController extends Controller
                     $client = Client::find((int) $data['client_id']);
                 } elseif (! empty($data['client_email'])) {
                     $client = Client::where('email', $data['client_email'])->first();
+                } else {
+                    // Try by phone numbers: support columns client_phone, phone, telefono, telefonos
+                    $phonesStr = $data['client_phone']
+                        ?? $data['phone']
+                        ?? $data['telefono']
+                        ?? $data['teléfono']
+                        ?? $data['telefonos']
+                        ?? $data['teléfonos']
+                        ?? null;
+                    if ($phonesStr) {
+                        $candidatePhones = $this->extractPhones($phonesStr);
+                        foreach ($candidatePhones as $cand) {
+                            // Exact matches first
+                            $normalized = $this->normalizePhone($cand);
+                            $last8 = substr(preg_replace('/\D+/', '', $normalized), -8);
+                            $potential = Client::query()
+                                ->where(function ($q) use ($normalized, $last8) {
+                                    $q->where('phone', $normalized)
+                                      ->orWhere('phone', 'like', "%{$last8}")
+                                      ->orWhere('phone', 'like', "%{$normalized}");
+                                })
+                                ->orderByDesc('id')
+                                ->first();
+                            if ($potential) { $client = $potential; break; }
+                        }
+                    }
                 }
 
                 if (! $client) {
@@ -179,8 +205,9 @@ class ContractController extends Controller
                     continue;
                 }
 
-                $name = $data['name'] ?? null;
-                $amount = isset($data['amount']) ? (float) $data['amount'] : null;
+                $name = $data['name'] ?? $data['contract_name'] ?? 'Servicio';
+                $amountRaw = $data['amount'] ?? $data['monto'] ?? null;
+                $amount = isset($amountRaw) && $amountRaw !== '' ? (float) $amountRaw : null;
                 if (! $name || $amount === null) {
                     $skipped++;
                     continue;
@@ -190,9 +217,12 @@ class ContractController extends Controller
                     'client_id' => $client->id,
                     'name' => $name,
                     'amount' => $amount,
-                    'currency' => strtoupper($data['currency'] ?? 'CRC'),
+                    'currency' => strtoupper($data['currency'] ?? $data['moneda'] ?? 'CRC'),
                     'billing_cycle' => $data['billing_cycle'] ?? 'monthly',
-                    'next_due_date' => $data['next_due_date'] ?? null,
+                    'next_due_date' => $data['next_due_date']
+                        ?? $data['proxima_fecha']
+                        ?? $data['próxima_fecha']
+                        ?? null,
                     'grace_period_days' => isset($data['grace_period_days']) ? (int) $data['grace_period_days'] : 0,
                     'metadata' => $data['notes'] ?? null,
                 ];
@@ -205,10 +235,22 @@ class ContractController extends Controller
                 } else {
                     // compute next_due_date if empty
                     if (empty($attrs['next_due_date'])) {
-                        $attrs['next_due_date'] = $this->computeNextDueDate($attrs['billing_cycle']);
+                        // Try from day value columns
+                        $dueDay = $data['due_day']
+                            ?? $data['dia_de_corte']
+                            ?? $data['día_de_corte']
+                            ?? $data['dia de corte']
+                            ?? null;
+                        if ($dueDay !== null && is_numeric($dueDay)) {
+                            $attrs['next_due_date'] = $this->computeNextDueDateFromDay((int) $dueDay);
+                        } else {
+                            $attrs['next_due_date'] = $this->computeNextDueDate($attrs['billing_cycle']);
+                        }
                     }
-                    Contract::create($attrs);
+                    $contract = Contract::create($attrs);
                     $created++;
+
+                    // Observer will auto-create reminder, no need for manual creation here
                 }
             }
 
@@ -351,5 +393,48 @@ class ContractController extends Controller
             'one_time' => $today->toDateString(),
             default => $today->toDateString(),
         };
+    }
+
+    private function computeNextDueDateFromDay(int $dayOfMonth): string
+    {
+        $dayOfMonth = max(1, min(31, $dayOfMonth));
+        $today = Carbon::today(config('app.timezone'));
+        // Candidate in current month (no overflow)
+        $candidate = $today->copy()->day(min($dayOfMonth, $today->daysInMonth));
+        if ($candidate->lt($today)) {
+            $nextMonth = $today->copy()->addMonthNoOverflow();
+            $candidate = $nextMonth->copy()->day(min($dayOfMonth, $nextMonth->daysInMonth));
+        }
+        return $candidate->toDateString();
+    }
+
+    private function normalizePhone(string $raw): string
+    {
+        $digits = preg_replace('/\D+/', '', $raw);
+        if ($digits === '') return '';
+        // If already starts with 506 and length 11 treat as CR international without plus
+        if (str_starts_with($digits, '506') && strlen($digits) === 11) {
+            return '+'.$digits;
+        }
+        if (strlen($digits) === 8) {
+            return '+506'.$digits; // assume Costa Rica local
+        }
+        if (strlen($digits) >= 7 && strlen($digits) <= 15) {
+            return '+' . $digits; // fallback generic E.164 style
+        }
+        return '+' . $digits; // still return something
+    }
+
+    private function extractPhones(string $phonesStr): array
+    {
+        $parts = preg_split('/[\s,;|]+/', trim($phonesStr)) ?: [];
+        $out = [];
+        foreach ($parts as $p) {
+            $n = $this->normalizePhone($p);
+            if ($n !== '' && !in_array($n, $out, true)) {
+                $out[] = $n;
+            }
+        }
+        return $out;
     }
 }

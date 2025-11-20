@@ -1,10 +1,11 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
 import type { PageProps } from '@/types';
+import WhatsAppConnectionCard, { WhatsAppStatus } from '@/Pages/Profile/Partials/WhatsAppConnectionCard';
 
-type Props = PageProps<{ settings: Record<string, string> }>;
+type Props = PageProps<{ settings: Record<string, string>; whatsapp?: WhatsAppStatus }>;
 
-export default function SettingsIndex({ settings }: Props) {
+export default function SettingsIndex({ settings, whatsapp }: Props) {
     const form = useForm({
         service_name: settings.service_name ?? '',
         payment_contact: settings.payment_contact ?? '',
@@ -23,6 +24,12 @@ export default function SettingsIndex({ settings }: Props) {
 
             <div className="py-12">
                 <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
+                    {whatsapp && (
+                        <div className="rounded-xl bg-white p-6 shadow mb-6">
+                            <WhatsAppConnectionCard data={whatsapp} />
+                        </div>
+                    )}
+
                     <div className="rounded-xl bg-white p-6 shadow">
                         <form onSubmit={submit} className="space-y-4">
                             <div>

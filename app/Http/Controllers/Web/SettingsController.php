@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Models\Setting;
+use App\Support\WhatsAppStatus;
 
 class SettingsController extends Controller
 {
@@ -17,6 +18,7 @@ class SettingsController extends Controller
 
         return Inertia::render('Settings/General/Index', [
             'settings' => $all,
+            'whatsapp' => WhatsAppStatus::snapshot(),
         ]);
     }
 

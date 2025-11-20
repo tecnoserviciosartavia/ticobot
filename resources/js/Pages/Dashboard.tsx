@@ -90,7 +90,7 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
             <Head title="Dashboard" />
 
             <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
+                <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                         <article className="rounded-xl bg-white p-6 shadow">
                             <h3 className="text-sm font-medium text-gray-500">Clientes</h3>

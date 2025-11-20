@@ -19,7 +19,7 @@ class PaymentController extends Controller
         $paidTo = $this->parseDate($request->query('paid_to'));
 
         $query = Payment::query()
-            ->with(['client:id,name', 'contract:id,name', 'reminder:id,status'])
+            ->with(['client:id,name', 'contract:id,name,amount,currency', 'reminder:id,status'])
             ->withCount('receipts');
 
         if ($status !== '') {
@@ -52,7 +52,7 @@ class PaymentController extends Controller
                 'paid_at' => $payment->paid_at?->toDateString(),
                 'receipts_count' => $payment->receipts_count,
                 'client' => $payment->client?->only(['id', 'name']),
-                'contract' => $payment->contract?->only(['id', 'name']),
+                'contract' => $payment->contract?->only(['id', 'name', 'amount', 'currency']),
                 'reminder' => $payment->reminder?->only(['id', 'status']),
                 'created_at' => $payment->created_at?->toIso8601String(),
             ]);
@@ -97,5 +97,24 @@ class PaymentController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Get contracts for a specific client (used by frontend for payment conciliation)
+     */
+    public function getClientContracts(Request $request)
+    {
+        $clientId = $request->query('client_id');
+        
+        if (!$clientId) {
+            return response()->json(['error' => 'client_id is required'], 400);
+        }
+
+        $contracts = \App\Models\Contract::where('client_id', $clientId)
+            ->select('id', 'name', 'amount', 'currency')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($contracts);
     }
 }

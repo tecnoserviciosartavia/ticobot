@@ -24,7 +24,14 @@ function buildMessage(reminder) {
   const payload = reminder.payload ?? {};
   const lines = [];
   const serviceName = payload.service_name ?? (process.env.BOT_SERVICE_NAME || 'TicoCast');
-  const dueDate = payload.due_date ?? '';
+  
+  // Get due date from payload or contract
+  let dueDate = payload.due_date ?? '';
+  if (!dueDate && reminder.contract?.next_due_date) {
+    const dueDateObj = new Date(reminder.contract.next_due_date);
+    dueDate = dueDateObj.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+  
   const rawAmount = reminder.contract?.amount ?? payload.amount ?? '0';
   const amountNum = Number(String(rawAmount).replace(/[^0-9\.\-]/g, '')) || 0;
   const amountFmt = amountNum ? amountNum.toLocaleString('es-CR') : '0';

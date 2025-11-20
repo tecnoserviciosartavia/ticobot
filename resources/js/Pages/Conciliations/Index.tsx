@@ -124,7 +124,7 @@ export default function ConciliationsIndex({ conciliations, filters, statuses }:
             <Head title="Conciliaciones" />
 
             <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
+                <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     <div className="overflow-hidden rounded-lg bg-white shadow">
                         <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
                             <form onSubmit={submit} className="flex flex-col gap-4 md:flex-row md:items-end">

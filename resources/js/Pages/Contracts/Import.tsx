@@ -30,7 +30,10 @@ export default function ContractsImport(_props: PageProps) {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="text-xl font-semibold leading-tight text-gray-800">Importar contratos</h2>
-                        <p className="text-sm text-gray-500">Sube un archivo CSV o XLSX con las columnas: client_email (o client_id), name, amount, currency, billing_cycle, next_due_date (YYYY-MM-DD opcional), grace_period_days, notes.</p>
+                        <p className="text-sm text-gray-500">
+                            Sube un archivo CSV o XLSX. Columnas soportadas: <strong>phone</strong> (o telefonos), <strong>name</strong>, <strong>amount</strong> (o monto), 
+                            currency (o moneda), billing_cycle, next_due_date (o proxima_fecha), dia_de_corte, reminder_date (opcional), notes.
+                        </p>
                     </div>
                     <Link
                         href={route('contracts.index')}
@@ -95,9 +98,9 @@ export default function ContractsImport(_props: PageProps) {
 
                         <div className="mt-6 rounded-md bg-gray-50 p-4 text-sm text-gray-700">
                             <p className="font-medium">Ejemplo de encabezados:</p>
-                            <pre className="mt-2 overflow-x-auto rounded bg-white p-3 text-xs shadow-inner">client_email,name,amount,currency,billing_cycle,next_due_date,grace_period_days,notes
-juan@example.com,Contrato A,50000,CRC,monthly,2025-12-01,5,Contrato por servicio
-maria@example.com,Contrato B,25000,USD,one_time,,0,</pre>
+                            <pre className="mt-2 overflow-x-auto rounded bg-white p-3 text-xs shadow-inner">phone,name,amount,currency,billing_cycle,dia_de_corte,reminder_date,notes
++50671663113,Streaming Premium,7000,CRC,monthly,15,2025-12-15,Renovación automática
++50688974441,Spotify Duo,2000,CRC,monthly,5,2025-12-05,Plan familiar</pre>
                         </div>
                     </div>
                 </div>

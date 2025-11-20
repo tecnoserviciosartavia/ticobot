@@ -1415,6 +1415,7 @@ async function main(): Promise<void> {
           const pdfBase64 = payload.pdf_base64 ?? null;
           const pdfUrl = payload.pdf_url ?? null;
           const pdfPath = payload.pdf_path ?? null;
+          const message = payload.message ?? null;
 
           if (!backendId && !localId) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1426,7 +1427,10 @@ async function main(): Promise<void> {
           let indexRaw = '[]';
           try { indexRaw = await fs.readFile(RECEIPTS_INDEX, { encoding: 'utf8' }); } catch {}
           const arr = JSON.parse(indexRaw || '[]');
-          const entry = arr.find((r: any) => (localId && r.id === localId) || (backendId && r.backend_id === backendId));
+          const entry = arr.find((r: any) => 
+            (localId && r.id === localId) || 
+            (backendId && (r.backend_id === backendId || r.backend_payment_id === backendId))
+          );
           if (!entry) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, error: 'receipt not found' }));
@@ -1477,7 +1481,15 @@ async function main(): Promise<void> {
           try {
             const chatId = entry.chatId || entry.chat_id;
             if (!chatId) throw new Error('chatId missing');
+            
+            // Enviar el PDF
             await whatsappClient.sendMedia(chatId, base64data, 'application/pdf', filename);
+            
+            // Enviar el mensaje de texto si se proporcionó
+            if (message && message.trim().length > 0) {
+              await whatsappClient.sendText(chatId, message);
+            }
+            
             await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: true, reconciled_sent_ts: Date.now() });
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true }));

@@ -31,7 +31,9 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('contracts', WebContractController::class)->except(['destroy']);
     Route::resource('reminders', WebReminderController::class)->except(['destroy']);
     Route::get('/payments', [WebPaymentController::class, 'index'])->name('payments.index');
+    Route::get('/payments/client-contracts', [WebPaymentController::class, 'getClientContracts'])->name('payments.client-contracts');
     Route::get('/conciliations', [WebConciliationController::class, 'index'])->name('conciliations.index');
+    Route::post('/conciliations', [WebConciliationController::class, 'store'])->name('conciliations.store');
 });
 
 Route::middleware('auth')->group(function () {

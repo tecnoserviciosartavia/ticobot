@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Conciliation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
 class ConciliationController extends Controller
@@ -51,6 +52,17 @@ class ConciliationController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        // DEBUG: registrar incoming payload y usuario para ayudar a depurar problemas desde la UI
+        try {
+            Log::info('conciliation.store.incoming', [
+                'payload' => $request->all(),
+                'user_id' => Auth::id(),
+                'ip' => $request->ip(),
+            ]);
+        } catch (\Throwable $e) {
+            // no bloquear la operación si logging falla
+        }
+
         $data = $request->validate([
             'payment_id' => ['required', 'exists:payments,id'],
             'status' => ['nullable', 'in:pending,in_review,approved,rejected'],
