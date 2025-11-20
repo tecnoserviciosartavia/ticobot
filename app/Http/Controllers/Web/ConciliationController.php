@@ -148,6 +148,11 @@ class ConciliationController extends Controller
                 // Calcular los meses del pago
                 $months = $pdfService->calculateMonthsFromPayment($payment);
 
+                // Reprogramar recordatorios pendientes si el pago cubre múltiples meses
+                if ($months > 1 && $payment->contract_id) {
+                    $this->rescheduleReminders($payment->contract_id, $months);
+                }
+
                 // Generar el PDF
                 $pdfPath = $pdfService->generateConciliationReceipt($payment, $months);
                 
@@ -183,5 +188,48 @@ class ConciliationController extends Controller
         }
 
         return redirect()->route('payments.index')->with('success', 'Conciliación creada exitosamente.');
+    }
+
+    /**
+     * Reprograma recordatorios pendientes cuando se paga por múltiples meses
+     */
+    private function rescheduleReminders(int $contractId, int $monthsPaid): void
+    {
+        // Obtener recordatorios pendientes del contrato
+        $reminders = \App\Models\Reminder::where('contract_id', $contractId)
+            ->where('status', 'pending')
+            ->get();
+
+        foreach ($reminders as $reminder) {
+            $currentScheduled = \Carbon\Carbon::parse($reminder->scheduled_for);
+            
+            // Adelantar la fecha por los meses pagados
+            $newScheduled = $currentScheduled->copy()->addMonths($monthsPaid);
+            
+            $reminder->update([
+                'scheduled_for' => $newScheduled,
+            ]);
+
+            Log::info('Recordatorio reprogramado por pago de múltiples meses', [
+                'reminder_id' => $reminder->id,
+                'contract_id' => $contractId,
+                'months_paid' => $monthsPaid,
+                'old_date' => $currentScheduled->toDateString(),
+                'new_date' => $newScheduled->toDateString(),
+            ]);
+        }
+
+        // También actualizar el next_due_date del contrato
+        $contract = \App\Models\Contract::find($contractId);
+        if ($contract && $contract->next_due_date) {
+            $newDueDate = \Carbon\Carbon::parse($contract->next_due_date)->addMonths($monthsPaid);
+            $contract->update(['next_due_date' => $newDueDate]);
+            
+            Log::info('Contrato actualizado con nueva fecha de vencimiento', [
+                'contract_id' => $contractId,
+                'months_paid' => $monthsPaid,
+                'new_due_date' => $newDueDate->toDateString(),
+            ]);
+        }
     }
 }

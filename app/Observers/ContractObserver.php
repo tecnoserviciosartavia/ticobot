@@ -50,17 +50,45 @@ class ContractObserver
      */
     public function updated(Contract $contract): void
     {
-        // Optionally: Update pending reminders if next_due_date changes
+        // Update pending reminders if next_due_date changes
         if ($contract->wasChanged('next_due_date') && $contract->next_due_date) {
             $newScheduledFor = Carbon::parse($contract->next_due_date)
-                ->subDays(3)
                 ->startOfDay();
 
-            if ($newScheduledFor->isFuture()) {
+            if ($newScheduledFor->isFuture() || $newScheduledFor->isToday()) {
                 // Update pending reminders for this contract
                 Reminder::where('contract_id', $contract->id)
                     ->where('status', 'pending')
                     ->update(['scheduled_for' => $newScheduledFor]);
+            }
+        }
+
+        // Update billing_cycle recurrence in pending reminders
+        if ($contract->wasChanged('billing_cycle')) {
+            $recurrence = match($contract->billing_cycle) {
+                'weekly' => 'weekly',
+                'biweekly' => 'biweekly',
+                'monthly' => 'monthly',
+                'one_time' => 'once',
+                default => 'once',
+            };
+
+            Reminder::where('contract_id', $contract->id)
+                ->where('status', 'pending')
+                ->update(['recurrence' => $recurrence]);
+        }
+
+        // Update payload amount in pending reminders if contract amount changes
+        if ($contract->wasChanged('amount')) {
+            $reminders = Reminder::where('contract_id', $contract->id)
+                ->where('status', 'pending')
+                ->get();
+
+            foreach ($reminders as $reminder) {
+                $payload = $reminder->payload ?? [];
+                $payload['amount'] = (string) $contract->amount;
+                $reminder->payload = $payload;
+                $reminder->save();
             }
         }
     }
