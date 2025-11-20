@@ -11,6 +11,7 @@ export interface ContractSummary {
   amount: string;
   currency: string;
   billing_cycle: string;
+  next_due_date?: string;
 }
 
 export interface ReminderPayload {

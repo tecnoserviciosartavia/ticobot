@@ -16,9 +16,9 @@ class ContractObserver
         // Auto-create reminder when contract is created
         if ($contract->client_id && $contract->next_due_date) {
             $dueDate = Carbon::parse($contract->next_due_date);
-            $scheduledFor = $dueDate->copy()
-                ->subDays(3) // 3 días antes del vencimiento
-                ->startOfDay();
+            
+            // Schedule reminder for the same day as due date (not 3 days before)
+            $scheduledFor = $dueDate->copy()->startOfDay();
 
             // If scheduled date is in the past, schedule for today
             if ($scheduledFor->isPast()) {

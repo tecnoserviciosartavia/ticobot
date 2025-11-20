@@ -21,7 +21,14 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   const clientName = reminder.client?.name ?? '';
   // service name: prefer payload, then config, then fallback
   const serviceName = payload.service_name ?? (config.serviceName || 'TicoCast');
-  const dueDate = payload.due_date ?? '';
+  
+  // Get due date from payload or contract
+  let dueDate = payload.due_date ?? '';
+  if (!dueDate && reminder.contract?.next_due_date) {
+    const dueDateObj = new Date(reminder.contract.next_due_date);
+    dueDate = dueDateObj.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+  
   // amount: prefer contract amount (from contract summary), then payload.amount
   const rawAmount = reminder.contract?.amount ?? payload.amount ?? '0';
   // normalize string like "10000" or "10000.00" or with currency symbols
