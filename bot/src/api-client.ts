@@ -76,12 +76,33 @@ class ApiClient {
 
   // --- Admin / management helper endpoints (asunciones sobre la API) ---
   async findCustomerByPhone(phone: string) {
-    const res = await this.http.get('clients', { params: { search: phone } });
-    const list = res.data && (Array.isArray(res.data) ? res.data : res.data.data ? res.data.data : []) ? (Array.isArray(res.data) ? res.data : res.data.data) : [];
-    // try exact phone match first
-    const exact = list.find((c: any) => String(c.phone || '').replace(/[^0-9]/g, '') === String(phone).replace(/[^0-9]/g, ''));
+    const onlyDigits = (s: string) => String(s || '').replace(/[^0-9]/g, '');
+    const pd = onlyDigits(phone);
+    const last8 = pd.slice(-8);
+
+    // Query by last8 first to hit phones saved con o sin 506 o símbolos
+    const candidates: any[] = [];
+    const pushUnique = (arr: any[], item: any) => {
+      if (!item) return; const id = item.id ?? item.ID ?? JSON.stringify(item);
+      if (!arr.find(x => (x.id ?? x.ID) === id)) arr.push(item);
+    };
+
+    const tryFetch = async (term: string) => {
+      const res = await this.http.get('clients', { params: { search: term, per_page: 50 } });
+      const list = Array.isArray(res.data) ? res.data : (res.data && Array.isArray(res.data.data) ? res.data.data : []);
+      for (const it of list) pushUnique(candidates, it);
+    };
+
+    try { if (last8 && last8.length >= 4) await tryFetch(last8); } catch {}
+    try { await tryFetch(pd); } catch {}
+    try { await tryFetch(phone); } catch {}
+
+    // Prefer exact digits-only match, then endsWith last8, otherwise first
+    const exact = candidates.find(c => onlyDigits(c.phone || '') === pd);
     if (exact) return exact;
-    return list && list.length ? list[0] : null;
+    const ends = candidates.find(c => onlyDigits(c.phone || '').endsWith(last8));
+    if (ends) return ends;
+    return candidates.length ? candidates[0] : null;
   }
 
   async upsertCustomer(payload: { phone: string; name?: string; active?: number }) {
@@ -105,7 +126,10 @@ class ApiClient {
 
   async listContracts(params?: any) {
     const res = await this.http.get('contracts', { params: params || {} });
-    return res.data;
+    const body: any = res.data;
+    if (Array.isArray(body)) return body;
+    if (body && Array.isArray(body.data)) return body.data;
+    return [] as any[];
   }
 
   async getContract(id: number | string) {

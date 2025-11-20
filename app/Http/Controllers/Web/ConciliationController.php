@@ -136,7 +136,7 @@ class ConciliationController extends Controller
             $payment->save();
         }
 
-        // Si la conciliación fue aprobada, generar y enviar el PDF
+        // Si la conciliación fue aprobada, ajustar monto (si falta), generar y enviar el PDF
         if ($conciliation->status === 'approved' && $payment) {
             try {
                 // Recargar el pago con todas las relaciones necesarias
@@ -147,6 +147,31 @@ class ConciliationController extends Controller
 
                 // Calcular los meses del pago
                 $months = $pdfService->calculateMonthsFromPayment($payment);
+
+                // Si el pago aún está en 0, intentar calcularlo con base en el contrato y los meses
+                if ((float) ($payment->amount ?? 0) <= 0) {
+                    $calculated = null;
+                    if ($payment->contract && (float) $payment->contract->amount > 0) {
+                        $calculated = (float) $payment->contract->amount * max(1, (int) $months);
+                    } elseif (is_array($payment->metadata ?? null) && isset($payment->metadata['calculated_amount'])) {
+                        $calculated = (float) $payment->metadata['calculated_amount'];
+                    }
+
+                    if ($calculated !== null && $calculated > 0) {
+                        $before = $payment->amount;
+                        $payment->forceFill(['amount' => $calculated])->save();
+                        try {
+                            Log::info('Conciliation: monto de pago ajustado automáticamente', [
+                                'payment_id' => $payment->id,
+                                'before' => $before,
+                                'after' => $calculated,
+                                'months' => $months,
+                            ]);
+                        } catch (\Throwable $e) {
+                            // ignore logging failure
+                        }
+                    }
+                }
 
                 // Reprogramar recordatorios pendientes si el pago cubre múltiples meses
                 if ($months > 1 && $payment->contract_id) {

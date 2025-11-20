@@ -187,14 +187,24 @@ class ContractController extends Controller
                             // Exact matches first
                             $normalized = $this->normalizePhone($cand);
                             $last8 = substr(preg_replace('/\D+/', '', $normalized), -8);
-                            $potential = Client::query()
+                            $potentialQuery = Client::query()
                                 ->where(function ($q) use ($normalized, $last8) {
                                     $q->where('phone', $normalized)
                                       ->orWhere('phone', 'like', "%{$last8}")
                                       ->orWhere('phone', 'like', "%{$normalized}");
-                                })
-                                ->orderByDesc('id')
-                                ->first();
+                                });
+
+                            // Try digits-only comparison using REGEXP_REPLACE (MySQL 8+) with fallback
+                            try {
+                                $potentialQuery->orWhereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$last8}"]);
+                            } catch (\Throwable $e) {
+                                $potentialQuery->orWhereRaw(
+                                    "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone,' ','') ,'-',''),'(',''),')',''),'+','') LIKE ?",
+                                    ["%{$last8}"]
+                                );
+                            }
+
+                            $potential = $potentialQuery->orderByDesc('id')->first();
                             if ($potential) { $client = $potential; break; }
                         }
                     }

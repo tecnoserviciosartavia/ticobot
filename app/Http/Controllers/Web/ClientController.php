@@ -10,6 +10,7 @@ use App\Models\Reminder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -310,15 +311,53 @@ class ClientController extends Controller
                 $attrs = [
                     'name' => $name,
                     'email' => $data['email'] ?? null,
-                    'phone' => $data['phone'] ?? null,
+                    // Tomamos cualquier encabezado posible para teléfono
+                    'phone' => $data['phone']
+                        ?? $data['telefono']
+                        ?? $data['teléfono']
+                        ?? $data['telefonos']
+                        ?? $data['teléfonos']
+                        ?? null,
                     'status' => $data['status'] ?? 'active',
                     'notes' => $data['notes'] ?? null,
                 ];
 
-                // Find existing by email
+                // Buscar existente por email o por teléfono (normalizado / últimos 8 dígitos)
                 $existing = null;
                 if (! empty($attrs['email'])) {
                     $existing = Client::withTrashed()->where('email', $attrs['email'])->first();
+                }
+
+                if (! $existing && ! empty($attrs['phone'])) {
+                    // Extraer posibles teléfonos del campo recibido
+                    $phonesStr = (string) $attrs['phone'];
+                    $candidates = $this->extractPhones($phonesStr);
+                    foreach ($candidates as $cand) {
+                        $normalized = $this->normalizePhone($cand);
+                        $digits = preg_replace('/\D+/', '', $normalized);
+                        $last8 = substr($digits, -8);
+
+                        // Comparar contra phone tal cual, contra el normalizado y contra los últimos 8 dígitos
+                        $query = Client::withTrashed()->where(function ($q) use ($normalized, $last8) {
+                            $q->where('phone', $normalized)
+                              ->orWhere('phone', 'like', "%{$normalized}")
+                              ->orWhere('phone', 'like', "%{$last8}");
+                        });
+
+                        // También intentamos comparar por dígitos usando REGEXP_REPLACE si está disponible (MySQL 8+)
+                        try {
+                            $query->orWhereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$last8}"]);
+                        } catch (\Throwable $e) {
+                            // Fallback para bases sin REGEXP_REPLACE: quitamos algunos separadores comunes
+                            $query->orWhereRaw(
+                                "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone,' ','') ,'-',''),'(',''),')',''),'+','') LIKE ?",
+                                ["%{$last8}"]
+                            );
+                        }
+
+                        $potential = $query->orderByDesc('id')->first();
+                        if ($potential) { $existing = $potential; break; }
+                    }
                 }
 
                 if ($existing) {
@@ -355,5 +394,34 @@ class ClientController extends Controller
             'status' => ['required', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
         ]);
+    }
+
+    private function normalizePhone(string $raw): string
+    {
+        $digits = preg_replace('/\D+/', '', $raw);
+        if ($digits === '') return '';
+        if (str_starts_with($digits, '506') && strlen($digits) === 11) {
+            return '+' . $digits;
+        }
+        if (strlen($digits) === 8) {
+            return '+506' . $digits;
+        }
+        if (strlen($digits) >= 7 && strlen($digits) <= 15) {
+            return '+' . $digits;
+        }
+        return '+' . $digits;
+    }
+
+    private function extractPhones(string $phonesStr): array
+    {
+        $parts = preg_split('/[\s,;|]+/', trim($phonesStr)) ?: [];
+        $out = [];
+        foreach ($parts as $p) {
+            $n = $this->normalizePhone($p);
+            if ($n !== '' && !in_array($n, $out, true)) {
+                $out[] = $n;
+            }
+        }
+        return $out;
     }
 }

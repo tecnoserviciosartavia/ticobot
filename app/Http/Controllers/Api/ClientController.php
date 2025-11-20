@@ -22,11 +22,25 @@ class ClientController extends Controller
         }
 
         if ($search = $request->string('search')->trim()->toString()) {
-            $query->where(function ($innerQuery) use ($search) {
+            $digits = preg_replace('/\D+/', '', $search);
+            $last8 = $digits ? substr($digits, -8) : null;
+            $query->where(function ($innerQuery) use ($search, $last8) {
                 $innerQuery
                     ->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%");
+
+                if ($last8 && strlen($last8) >= 4) {
+                    // Try digits-only comparison (MySQL 8+ REGEXP_REPLACE) with fallback to REPLACE cascade
+                    try {
+                        $innerQuery->orWhereRaw("REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ?", ["%{$last8}"]);
+                    } catch (\Throwable $e) {
+                        $innerQuery->orWhereRaw(
+                            "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone,' ','') ,'-',''),'(',''),')',''),'+','') LIKE ?",
+                            ["%{$last8}"]
+                        );
+                    }
+                }
             });
         }
 
