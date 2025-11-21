@@ -305,6 +305,32 @@ class ReminderController extends Controller
     }
 
     /**
+     * Obtener recordatorios enviados en un rango de fechas que no tienen pagos verificados
+     */
+    public function sentWithoutPayment(Request $request): JsonResponse
+    {
+        $startDate = $request->input('start_date') 
+            ? Carbon::parse($request->input('start_date'))
+            : Carbon::today()->startOfDay();
+        
+        $endDate = $request->input('end_date')
+            ? Carbon::parse($request->input('end_date'))
+            : Carbon::today()->endOfDay();
+
+        $reminders = Reminder::query()
+            ->where('status', 'sent')
+            ->whereBetween('sent_at', [$startDate, $endDate])
+            ->whereDoesntHave('payments', function ($query) {
+                $query->where('status', 'verified');
+            })
+            ->with(['client', 'contract'])
+            ->orderBy('sent_at')
+            ->get();
+
+        return response()->json($reminders);
+    }
+
+    /**
      * Utility to compute next due date based on cycle from a given date.
      */
     private function computeNextFrom(Carbon $date, string $cycle): Carbon

@@ -220,6 +220,17 @@ class ApiClient {
     const res = await this.http.delete('subscriptions', { params: { phone } });
     return res.data;
   }
+
+  async fetchSentRemindersWithoutPayment(startDate: string, endDate: string): Promise<ReminderRecord[]> {
+    const response = await this.http.get<ReminderRecord[]>('reminders/sent-without-payment', {
+      params: {
+        start_date: startDate,
+        end_date: endDate
+      }
+    });
+
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();
