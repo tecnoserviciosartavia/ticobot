@@ -7,15 +7,23 @@ interface StatusCurrencyRow {
   total_count: number;
 }
 
+interface MonthlyPending {
+  month: string;
+  contracts_total: Record<string, number>;
+  paid_total: Record<string, number>;
+  pending_total: Record<string, number>;
+}
+
 interface Props {
   by_status_currency: Record<string, StatusCurrencyRow[]>;
   totals: Record<string, { amount: number; count: number }>;
   total_months: number;
   daily: Array<{ date: string; verified_amount: number; pending_amount: number }>;
   conciliation_rate: number;
+  monthly_pending: MonthlyPending[];
 }
 
-export default function AccountingIndex({ by_status_currency, totals, total_months, daily, conciliation_rate }: Props) {
+export default function AccountingIndex({ by_status_currency, totals, total_months, daily, conciliation_rate, monthly_pending }: Props) {
   const formatMoney = (v: number) => v.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const statusLabels: Record<string, string> = {
@@ -93,6 +101,44 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
                 </table>
               </div>
             </div>
+
+          {/* Pendiente mensual: Total contratos - Total pagado */}
+          <div className="bg-white shadow rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Pendiente mensual (Total contratos - Total pagado)</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-xs">
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-2 px-3 text-left font-semibold text-gray-600">Mes</th>
+                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Total Contratos</th>
+                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Total Pagado</th>
+                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Pendiente</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthly_pending.map(m => {
+                    const currencies = Object.keys({ ...m.contracts_total, ...m.paid_total, ...m.pending_total });
+                    return currencies.map((currency, idx) => (
+                      <tr key={m.month + currency} className="border-b last:border-b-0 hover:bg-gray-50">
+                        {idx === 0 && (
+                          <td rowSpan={currencies.length} className="py-2 px-3 align-top font-medium text-gray-700">{m.month}</td>
+                        )}
+                        <td className="py-2 px-3 text-right font-mono text-blue-700">
+                          {currency} {formatMoney(m.contracts_total[currency] || 0)}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-green-700">
+                          {currency} {formatMoney(m.paid_total[currency] || 0)}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-semibold text-orange-700">
+                          {currency} {formatMoney(m.pending_total[currency] || 0)}
+                        </td>
+                      </tr>
+                    ));
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </AuthenticatedLayout>

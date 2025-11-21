@@ -1060,6 +1060,38 @@ async function main(): Promise<void> {
       }
     }
 
+    // Handle explicit "agente" request to transfer to human support
+    if (lc === 'agente' || lc === 'asesor' || lc === 'soporte') {
+      await message.reply('Perfecto, te estoy conectando con un asesor. Un miembro de nuestro equipo te atenderá en breve. Por favor espera un momento.');
+      
+      // Activate agent mode
+      agentMode.set(chatId, true);
+      chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
+      try { touchTimer(chatId); } catch (e) { /* ignore */ }
+      menuShown.delete(chatId);
+      lastMenuItems.delete(chatId);
+      logger.info({ chatId, trigger: lc }, 'Chat puesto en modo agente (palabra clave)');
+
+      // Notify admin
+      try {
+        const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
+        const adminChatId = normalizeToChatId(adminPhone);
+        const now = Date.now();
+        const lastNotified = adminNotifiedAt.get(chatId) || 0;
+        if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
+          const notifyText = `🔔 Cliente ${fromUser} (${chatId}) solicitó hablar con un agente.\n\nÚltimo mensaje: "${String(body).slice(0, 200)}"\n\nPor favor responde directamente a este chat para atender al cliente.`;
+          await whatsappClient.sendText(adminChatId, notifyText);
+          adminNotifiedAt.set(chatId, now);
+          logger.info({ adminChatId, chatId }, 'Admin notificado sobre solicitud de agente (palabra clave)');
+        } else {
+          logger.debug({ chatId, lastNotified }, 'Omitida notificación admin por throttle (palabra clave)');
+        }
+      } catch (e: any) {
+        logger.warn({ e }, 'No se pudo notificar al admin sobre solicitud de agente (palabra clave)');
+      }
+      return;
+    }
+
     // If menu is active for this chat (awaiting selection), treat the incoming message as a menu selection
     if (menuShown.get(chatId)) {
       try {
