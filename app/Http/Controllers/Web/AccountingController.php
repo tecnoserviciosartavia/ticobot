@@ -107,23 +107,22 @@ class AccountingController extends Controller
                 ->get()
                 ->mapWithKeys(fn ($row) => [$row->currency => (float) $row->total]);
 
-            // Total pagado verificado en ese mes (por moneda)
+            // Total pagado verificado HASTA ese mes (acumulado)
             $paidByCurrency = Payment::query()
                 ->where('status', 'verified')
-                ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+                ->where('created_at', '<=', $endOfMonth)
                 ->selectRaw('COALESCE(currency, "CRC") as currency, SUM(amount) as total')
                 ->groupBy('currency')
                 ->get()
                 ->mapWithKeys(fn ($row) => [$row->currency => (float) $row->total]);
 
-            // Total pendiente (unverified + in_review) en ese mes (por moneda)
-            $pendingByCurrency = Payment::query()
-                ->whereIn('status', ['unverified', 'in_review'])
-                ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
-                ->selectRaw('COALESCE(currency, "CRC") as currency, SUM(amount) as total')
-                ->groupBy('currency')
-                ->get()
-                ->mapWithKeys(fn ($row) => [$row->currency => (float) $row->total]);
+            // Calcular pendiente por moneda
+            $currencies = $contractsByCurrency->keys()->merge($paidByCurrency->keys())->unique();
+            $pendingByCurrency = $currencies->mapWithKeys(function ($currency) use ($contractsByCurrency, $paidByCurrency) {
+                $contractTotal = $contractsByCurrency->get($currency, 0);
+                $paidTotal = $paidByCurrency->get($currency, 0);
+                return [$currency => $contractTotal - $paidTotal];
+            });
 
             return [
                 'month' => $monthInfo['label'],
