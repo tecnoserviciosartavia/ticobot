@@ -887,5 +887,42 @@
     "reconciled": true,
     "reconciled_sent": true,
     "reconciled_sent_ts": 1763676423754
+  },
+  {
+    "id": "50663810414-1763748292797",
+    "chatId": "50663810414@c.us",
+    "filename": "receipt-50663810414-1763748286633",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50663810414-1763748286633",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1763748292797,
+    "status": "applied",
+    "backend_payment_id": 21,
+    "months": 1,
+    "backend_apply_result": {
+      "id": 21,
+      "client_id": 62,
+      "contract_id": null,
+      "reminder_id": null,
+      "amount": "0.00",
+      "currency": "CRC",
+      "status": "unverified",
+      "channel": "whatsapp",
+      "reference": "bot:50663810414-1763748292797",
+      "paid_at": null,
+      "metadata": {
+        "months": 1,
+        "local_receipt_id": "50663810414-1763748292797",
+        "backend_receipt_id": 21
+      },
+      "created_at": "2025-11-21T18:04:53.000000Z",
+      "updated_at": "2025-11-21T18:04:59.000000Z",
+      "deleted_at": null
+    },
+    "monthly_amount": null,
+    "total_amount": 0,
+    "reconciled": true,
+    "reconciled_sent": true,
+    "reconciled_sent_ts": 1763748439540
   }
 ]

@@ -34,6 +34,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/payments/client-contracts', [WebPaymentController::class, 'getClientContracts'])->name('payments.client-contracts');
     Route::get('/conciliations', [WebConciliationController::class, 'index'])->name('conciliations.index');
     Route::post('/conciliations', [WebConciliationController::class, 'store'])->name('conciliations.store');
+    // Accounting dashboard
+    Route::get('/accounting', \App\Http\Controllers\Web\AccountingController::class . '@index')->name('accounting.index');
 });
 
 Route::middleware('auth')->group(function () {

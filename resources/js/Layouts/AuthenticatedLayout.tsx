@@ -65,6 +65,12 @@ export default function Authenticated({
                                     Conciliaciones
                                 </NavLink>
                                 <NavLink
+                                    href={route('accounting.index')}
+                                    active={route().current('accounting.*')}
+                                >
+                                    Contabilidad
+                                </NavLink>
+                                <NavLink
                                     href={route('settings.index')}
                                     active={route().current('settings.*')}
                                 >
@@ -209,6 +215,12 @@ export default function Authenticated({
                             active={route().current('conciliations.*')}
                         >
                             Conciliaciones
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('accounting.index')}
+                            active={route().current('accounting.*')}
+                        >
+                            Contabilidad
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             href={route('settings.index')}
