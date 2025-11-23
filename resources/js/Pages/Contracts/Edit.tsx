@@ -39,8 +39,8 @@ export default function ContractsEdit({ contract, clients }: ContractsEditProps)
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">Editar contrato</h2>
-                    <p className="text-sm text-gray-500">Actualiza los términos para mantener los recordatorios al día.</p>
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">Editar contrato</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Actualiza los términos para mantener los recordatorios al día.</p>
                 </div>
             }
         >
@@ -48,7 +48,7 @@ export default function ContractsEdit({ contract, clients }: ContractsEditProps)
 
             <div className="py-12">
                 <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
-                    <div className="rounded-xl bg-white p-6 shadow">
+                    <div className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                         <ContractForm
                             data={form.data}
                             errors={form.errors}

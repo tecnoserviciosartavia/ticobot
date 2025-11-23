@@ -120,10 +120,10 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
                         Recordatorios
                     </h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                         Revisa el estado de los recordatorios programados y su seguimiento.
                     </p>
                 </div>
@@ -132,8 +132,8 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
             <Head title="Recordatorios" />
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="overflow-hidden rounded-lg bg-white shadow">
-                        <div className="flex flex-col gap-4 border-b border-gray-200 bg-gray-50 px-6 py-4 md:flex-row md:items-center md:justify-between">
+                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
+                        <div className="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4 md:flex-row md:items-center md:justify-between">
                             <form
                                 onSubmit={submit}
                                 className="grid w-full grid-cols-1 gap-4 md:grid-cols-7 md:items-end"
@@ -141,7 +141,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                 <div>
                                     <label
                                         htmlFor="status"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Estado
                                     </label>
@@ -150,7 +150,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         name="status"
                                         value={data.status}
                                         onChange={(event) => setData('status', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {statuses.map((statusOption) => (
@@ -164,7 +164,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                 <div>
                                     <label
                                         htmlFor="recurrence"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Recurrencia
                                     </label>
@@ -173,7 +173,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         name="recurrence"
                                         value={data.recurrence}
                                         onChange={(event) => setData('recurrence', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {(recurrences ?? ['weekly', 'biweekly', 'monthly', 'one_time']).map((r) => (
@@ -188,7 +188,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                 <div>
                                     <label
                                         htmlFor="channel"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Canal
                                     </label>
@@ -197,7 +197,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         name="channel"
                                         value={data.channel}
                                         onChange={(event) => setData('channel', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {channels.map((channelOption) => (
@@ -211,7 +211,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                 <div>
                                     <label
                                         htmlFor="client_id"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Cliente
                                     </label>
@@ -223,7 +223,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                             setData('client_id', event.target.value);
                                             setData('contract_id', '');
                                         }}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {clients.map((client) => (
@@ -237,7 +237,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                 <div>
                                     <label
                                         htmlFor="contract_id"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Contrato
                                     </label>
@@ -246,7 +246,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         name="contract_id"
                                         value={data.contract_id}
                                         onChange={(event) => setData('contract_id', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {contractOptions.map((contract) => (
@@ -260,7 +260,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                 <div>
                                     <label
                                         htmlFor="scheduled_from"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Programado desde
                                     </label>
@@ -270,14 +270,14 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         type="date"
                                         value={data.scheduled_from}
                                         onChange={(event) => setData('scheduled_from', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     />
                                 </div>
 
                                 <div>
                                     <label
                                         htmlFor="scheduled_to"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Programado hasta
                                     </label>
@@ -287,7 +287,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         type="date"
                                         value={data.scheduled_to}
                                         onChange={(event) => setData('scheduled_to', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     />
                                 </div>
 
@@ -301,7 +301,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                     <button
                                         type="button"
                                         onClick={resetFilters}
-                                        className="inline-flex w-full items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 md:w-auto"
+                                        className="inline-flex w-full items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 md:w-auto"
                                     >
                                         Limpiar
                                     </button>
@@ -318,63 +318,63 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
 
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Programación
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Cliente
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Contrato
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Recurrencia
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Canal
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Estado
                                         </th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Intentos
                                         </th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Mensajes
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Último evento
                                         </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Acciones
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white">
+                                <tbody className="divide-y divide-gray-100 bg-white dark:bg-gray-800">
                                     {reminderRows.map((reminder) => (
-                                        <tr key={reminder.id} className="hover:bg-gray-50">
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                                                <div className="font-medium text-gray-900">
+                                        <tr key={reminder.id} className="hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                                <div className="font-medium text-gray-900 dark:text-gray-100">
                                                     {formatDateTime(reminder.scheduled_for)}
                                                 </div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
                                                     Enviado: {formatDateTime(reminder.sent_at)}
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                                                <div className="font-medium text-gray-900">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                                <div className="font-medium text-gray-900 dark:text-gray-100">
                                                     {reminder.client?.name ?? 'Cliente eliminado'}
                                                 </div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
                                                     {reminder.client?.phone ?? 'Sin teléfono'}
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 <div>{reminder.contract?.name ?? '—'}</div>
                                                 {reminder.contract?.amount && (
-                                                    <div className="text-xs text-gray-500">
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400">
                                                         {new Intl.NumberFormat('es-CR', {
                                                             style: 'currency',
                                                             currency: reminder.contract.currency ?? 'CRC',
@@ -382,26 +382,26 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                                     </div>
                                                 )}
                                             </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                     {(() => {
                                                         const r: string | null | undefined = (reminder as any).recurrence;
                                                         if (!r) return '—';
                                                         return r === 'weekly' ? 'Semanal' : r === 'biweekly' ? 'Quincenal' : r === 'monthly' ? 'Mensual' : r === 'one_time' ? 'Un solo pago' : r;
                                                     })()}
                                                 </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {reminder.channel}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4">
                                                 <StatusBadge status={reminder.status} />
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-700">
+                                            <td className="px-6 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
                                                 {reminder.attempts}
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-700">
+                                            <td className="px-6 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
                                                 {reminder.messages_count}
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                                 {reminder.acknowledged_at
                                                     ? `Respuesta: ${formatDateTime(reminder.acknowledged_at)}`
                                                     : 'Sin respuesta'}
@@ -421,7 +421,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                         </div>
 
                         <div className="px-6 pb-6">
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
                                 Mostrando {paginationMeta.from ?? 0} - {paginationMeta.to ?? 0} de {paginationMeta.total} recordatorios
                             </div>
                             <Pagination links={paginationLinks} />

@@ -924,5 +924,70 @@
     "reconciled": true,
     "reconciled_sent": true,
     "reconciled_sent_ts": 1763748439540
+  },
+  {
+    "id": "50670116071-1763768306459",
+    "chatId": "50670116071@c.us",
+    "filename": "receipt-50670116071-1763768297509",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50670116071-1763768297509",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1763768306459,
+    "status": "applied",
+    "backend_payment_id": 22,
+    "months": 1,
+    "backend_apply_result": {
+      "id": 22,
+      "client_id": 61,
+      "contract_id": null,
+      "reminder_id": null,
+      "amount": "3000.00",
+      "currency": "CRC",
+      "status": "unverified",
+      "channel": "whatsapp",
+      "reference": "bot:50670116071-1763768306459",
+      "paid_at": null,
+      "metadata": {
+        "months": 1,
+        "local_receipt_id": "50670116071-1763768306459",
+        "backend_receipt_id": 22
+      },
+      "created_at": "2025-11-21T23:38:26.000000Z",
+      "updated_at": "2025-11-21T23:38:35.000000Z",
+      "deleted_at": null
+    },
+    "monthly_amount": 3000,
+    "total_amount": 3000,
+    "reconciled": true,
+    "reconciled_sent": true,
+    "reconciled_sent_ts": 1763769034561
+  },
+  {
+    "id": "50672222362-1763774996900",
+    "chatId": "50672222362@c.us",
+    "filename": "receipt-50672222362-1763774985436",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50672222362-1763774985436",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1763774996900,
+    "status": "created",
+    "backend_payment_id": 23,
+    "reconciled": true,
+    "reconciled_sent": true,
+    "reconciled_sent_ts": 1763816088689
+  },
+  {
+    "id": "50684305295-1763815249704",
+    "chatId": "50684305295@c.us",
+    "filename": "receipt-50684305295-1763815226791",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50684305295-1763815226791",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1763815249704,
+    "status": "created",
+    "backend_payment_id": 24,
+    "reconciled": true,
+    "reconciled_sent": true,
+    "reconciled_sent_ts": 1763816098483
   }
 ]

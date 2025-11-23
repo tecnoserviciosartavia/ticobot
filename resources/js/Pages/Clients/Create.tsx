@@ -26,10 +26,10 @@ export default function CreateClient({ statuses, defaultStatus }: CreateClientPa
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
                         Nuevo cliente
                     </h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                         Registra un cliente para programar recordatorios y controlar sus pagos.
                     </p>
                 </div>
@@ -39,7 +39,7 @@ export default function CreateClient({ statuses, defaultStatus }: CreateClientPa
 
             <div className="py-12">
                 <div className="mx-auto max-w-5xl sm:px-6 lg:px-8">
-                    <div className="rounded-xl bg-white p-6 shadow">
+                    <div className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                         <ClientForm
                             data={form.data}
                             errors={form.errors}

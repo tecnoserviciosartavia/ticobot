@@ -38,8 +38,8 @@ export default function RemindersCreate({ clients, channels, defaultChannel }: R
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">Programar recordatorio</h2>
-                    <p className="text-sm text-gray-500">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">Programar recordatorio</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                         Define el mensaje y momento en que el bot enviará el recordatorio al cliente.
                     </p>
                 </div>
@@ -49,7 +49,7 @@ export default function RemindersCreate({ clients, channels, defaultChannel }: R
 
             <div className="py-12">
                 <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
-                    <div className="rounded-xl bg-white p-6 shadow">
+                    <div className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                         <ReminderForm
                             data={form.data}
                             errors={form.errors}

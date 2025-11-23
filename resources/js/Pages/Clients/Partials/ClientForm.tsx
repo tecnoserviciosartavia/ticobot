@@ -94,7 +94,7 @@ export default function ClientForm({
                         name="status"
                         value={data.status}
                         onChange={(event) => onChange('status', event.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                     >
                         {statusOptions.map((status) => (
                             <option key={status} value={status}>
@@ -112,7 +112,7 @@ export default function ClientForm({
                         name="notes"
                         value={data.notes}
                         onChange={(event) => onChange('notes', event.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                         rows={4}
                         placeholder="Información adicional relevante para las gestiones de cobro"
                     />
@@ -120,10 +120,10 @@ export default function ClientForm({
                 </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+            <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
                 <Link
                     href={cancelHref}
-                    className="text-sm font-medium text-gray-600 transition hover:text-gray-800"
+                    className="text-sm font-medium text-gray-600 dark:text-gray-400 transition hover:text-gray-800 dark:text-gray-100"
                     preserveState
                     preserveScroll
                 >

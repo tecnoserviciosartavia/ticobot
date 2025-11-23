@@ -60,10 +60,10 @@ export default function RemindersEdit({ reminder, clients, channels }: Reminders
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
                         Editar recordatorio
                     </h2>
-                    <span className="text-sm text-gray-500 uppercase tracking-wide">
+                    <span className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                         Estado actual: {statusLabel}
                     </span>
                 </div>
@@ -73,7 +73,7 @@ export default function RemindersEdit({ reminder, clients, channels }: Reminders
 
             <div className="py-12">
                 <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
-                    <div className="rounded-xl bg-white p-6 shadow">
+                    <div className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                         <ReminderForm
                             data={form.data}
                             errors={form.errors}

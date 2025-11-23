@@ -29,8 +29,8 @@ export default function ContractsCreate({ clients, defaultCurrency, defaultBilli
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">Nuevo contrato</h2>
-                    <p className="text-sm text-gray-500">Define los parámetros de cobro que el bot utilizará para programar recordatorios.</p>
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">Nuevo contrato</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Define los parámetros de cobro que el bot utilizará para programar recordatorios.</p>
                 </div>
             }
         >
@@ -38,7 +38,7 @@ export default function ContractsCreate({ clients, defaultCurrency, defaultBilli
 
             <div className="py-12">
                 <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
-                    <div className="rounded-xl bg-white p-6 shadow">
+                    <div className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                         <ContractForm
                             data={form.data}
                             errors={form.errors}

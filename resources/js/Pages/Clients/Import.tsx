@@ -30,12 +30,12 @@ export default function ClientsImport(_props: PageProps) {
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800">Importar clientes</h2>
-                        <p className="text-sm text-gray-500">Sube un archivo CSV o XLSX con las columnas: name, email, phone, status, notes.</p>
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">Importar clientes</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Sube un archivo CSV o XLSX con las columnas: name, email, phone, status, notes.</p>
                     </div>
                     <Link
                         href={route('clients.index')}
-                        className="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     >
                         Volver a clientes
                     </Link>
@@ -46,10 +46,10 @@ export default function ClientsImport(_props: PageProps) {
 
             <div className="py-12">
                 <div className="mx-auto max-w-3xl space-y-6 sm:px-6 lg:px-8">
-                    <div className="overflow-hidden rounded-lg bg-white p-6 shadow">
+                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 p-6 shadow">
                         <form onSubmit={submit} className="space-y-4">
                             <div>
-                                <label htmlFor="file" className="block text-sm font-medium text-gray-700">
+                                <label htmlFor="file" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Archivo (CSV o XLSX)
                                 </label>
                                 <input
@@ -58,19 +58,19 @@ export default function ClientsImport(_props: PageProps) {
                                     type="file"
                                     accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
                                     onChange={(e) => setData('file', e.target.files?.[0] ?? null)}
-                                    className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                 />
                                 {errors.file && (
                                     <p className="mt-1 text-sm text-red-600">{errors.file}</p>
                                 )}
-                                <p className="mt-2 text-xs text-gray-500">
+                                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                                     Recomendado: CSV con encabezados o un archivo XLSX. Columnas soportadas: name (obligatorio), email, phone, status, notes. Codificación UTF-8.
                                 </p>
                                 <div className="mt-3 flex items-center gap-2">
                                     <a
                                         href="/samples/clients-sample.xlsx"
                                         download
-                                        className="inline-flex items-center rounded-md border border-gray-300 px-3 py-1 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                                        className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700"
                                     >
                                         Descargar ejemplo Excel (.xlsx)
                                     </a>
@@ -87,7 +87,7 @@ export default function ClientsImport(_props: PageProps) {
                                     {processing ? 'Importando…' : 'Importar'}
                                 </button>
                                 {progress && (
-                                    <span className="text-xs text-gray-500">{progress.percentage}%</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{progress.percentage}%</span>
                                 )}
                                 {message && (
                                     <span className="text-sm text-emerald-700">{message}</span>
@@ -95,9 +95,9 @@ export default function ClientsImport(_props: PageProps) {
                             </div>
                         </form>
 
-                        <div className="mt-6 rounded-md bg-gray-50 p-4 text-sm text-gray-700">
+                        <div className="mt-6 rounded-md bg-gray-50 dark:bg-gray-700/50 p-4 text-sm text-gray-700 dark:text-gray-300">
                             <p className="font-medium">Ejemplo de encabezados:</p>
-                            <pre className="mt-2 overflow-x-auto rounded bg-white p-3 text-xs shadow-inner">name,email,phone,status,notes
+                            <pre className="mt-2 overflow-x-auto rounded bg-white dark:bg-gray-800 p-3 text-xs shadow-inner">name,email,phone,status,notes
 Juan Pérez,juan@example.com,8888-8888,active,Cliente VIP
 María Gómez,maria@example.com,7777-7777,inactive,
 </pre>

@@ -90,15 +90,15 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
             header={
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800">Contratos</h2>
-                        <p className="text-sm text-gray-500">
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">Contratos</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                             Controla los contratos activos, ciclos de facturación y vencimientos próximos.
                         </p>
                     </div>
                     <div className="flex gap-2">
                         <Link
                             href={route('contracts.import')}
-                            className="inline-flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-indigo-600 ring-1 ring-inset ring-indigo-200 shadow-sm transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            className="inline-flex items-center rounded-md bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-indigo-600 ring-1 ring-inset ring-indigo-200 shadow-sm transition hover:bg-indigo-50 dark:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                         >
                             Importar
                         </Link>
@@ -116,11 +116,11 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
 
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="overflow-hidden rounded-lg bg-white shadow">
-                        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
+                        <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
                             <form onSubmit={submit} className="flex flex-col gap-4 md:flex-row md:items-end">
                                 <div className="w-full md:w-64">
-                                    <label htmlFor="client_id" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="client_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Cliente
                                     </label>
                                     <select
@@ -128,7 +128,7 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
                                         name="client_id"
                                         value={data.client_id}
                                         onChange={(event) => setData('client_id', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {clients.map((client) => (
@@ -139,7 +139,7 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
                                     </select>
                                 </div>
                                 <div className="w-full md:w-64">
-                                    <label htmlFor="billing_cycle" className="block text-sm font-medium text-gray-700">
+                                    <label htmlFor="billing_cycle" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Ciclo
                                     </label>
                                     <select
@@ -147,7 +147,7 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
                                         name="billing_cycle"
                                         value={data.billing_cycle}
                                         onChange={(event) => setData('billing_cycle', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {billingCycles.map((cycle) => (
@@ -167,7 +167,7 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
                                     <button
                                         type="button"
                                         onClick={reset}
-                                        className="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                                     >
                                         Limpiar
                                     </button>
@@ -177,39 +177,39 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
 
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Contrato</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Cliente</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Ciclo</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Próximo vencimiento</th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Recordatorios</th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">Pagos</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Contrato</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Cliente</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Ciclo</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Próximo vencimiento</th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Recordatorios</th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Pagos</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white">
+                                <tbody className="divide-y divide-gray-100 bg-white dark:bg-gray-800">
                                     {contractRows.map((contract) => (
-                                        <tr key={contract.id} className="hover:bg-gray-50">
+                                        <tr key={contract.id} className="hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700">
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-indigo-600">
                                                 <Link href={route('contracts.show', contract.id)} className="font-medium hover:text-indigo-500">
                                                     {contract.name}
                                                 </Link>
-                                                <div className="text-xs text-gray-500">{formatCurrency(contract.amount, contract.currency)}</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">{formatCurrency(contract.amount, contract.currency)}</div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {contract.client?.name ?? 'Cliente eliminado'}
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 <div>{contract.billing_cycle}</div>
-                                                <div className="mt-1 text-xs text-gray-500">Actualizado: {formatDate(contract.updated_at)}</div>
+                                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">Actualizado: {formatDate(contract.updated_at)}</div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {formatDate(contract.next_due_date)}
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-700">
+                                            <td className="px-6 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
                                                 {contract.reminders_count}
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-700">
+                                            <td className="px-6 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
                                                 {contract.payments_count}
                                             </td>
                                         </tr>
@@ -219,7 +219,7 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
                         </div>
 
                         <div className="px-6 pb-6">
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
                                 Mostrando {paginationMeta.from ?? 0} - {paginationMeta.to ?? 0} de {paginationMeta.total} contratos
                             </div>
                             <Pagination links={paginationLinks} />

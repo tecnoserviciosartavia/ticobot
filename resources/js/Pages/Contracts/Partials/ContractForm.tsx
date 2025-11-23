@@ -112,7 +112,7 @@ export default function ContractForm({
                             onFocus={() => setOpen(true)}
                             onKeyDown={onInputKeyDown}
                             placeholder="Seleccione"
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                             required
                         />
 
@@ -124,7 +124,7 @@ export default function ContractForm({
                                     onChange('client_id', '');
                                     setOpen(false);
                                 }}
-                                className="absolute right-2 top-2 text-sm text-gray-500 hover:text-gray-700"
+                                className="absolute right-2 top-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300"
                                 aria-label="Eliminar selección"
                             >
                                 ✕
@@ -132,14 +132,14 @@ export default function ContractForm({
                         )}
 
                         {open && (
-                            <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white border border-gray-200 shadow-sm">
+                            <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
                                 {filtered.length === 0 && (
-                                    <li className="px-3 py-2 text-sm text-gray-500">No hay resultados</li>
+                                    <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No hay resultados</li>
                                 )}
                                                 {filtered.map((client, idx) => (
                                                     <li
                                                         key={client.id}
-                                                        className={`cursor-pointer px-3 py-2 text-sm ${highlighted === idx ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'}`}
+                                                        className={`cursor-pointer px-3 py-2 text-sm ${highlighted === idx ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700' : 'hover:bg-gray-50'}`}
                                                         onMouseEnter={() => setHighlighted(idx)}
                                                         onMouseLeave={() => setHighlighted(-1)}
                                                         onMouseDown={(ev) => ev.preventDefault()}
@@ -197,7 +197,7 @@ export default function ContractForm({
                         name="currency"
                         value={data.currency}
                         onChange={(event) => onChange('currency', event.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                         required
                     >
                         <option value="CRC">CRC — Colón costarricense</option>
@@ -251,7 +251,7 @@ export default function ContractForm({
                                 onChange('next_due_date', `${yyyy}-${mm}-${dd}`);
                             }
                         }}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                         required
                     >
                         <option value="weekly">Semanal</option>
@@ -291,10 +291,10 @@ export default function ContractForm({
                 </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+            <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
                 <Link
                     href={cancelHref}
-                    className="text-sm font-medium text-gray-600 transition hover:text-gray-800"
+                    className="text-sm font-medium text-gray-600 dark:text-gray-400 transition hover:text-gray-800 dark:text-gray-100"
                     preserveState
                     preserveScroll
                 >

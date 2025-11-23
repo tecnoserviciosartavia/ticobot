@@ -112,10 +112,10 @@ export default function ConciliationsIndex({ conciliations, filters, statuses }:
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
                         Conciliaciones
                     </h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                         Administra la verificación de pagos y registra observaciones de los comprobantes.
                     </p>
                 </div>
@@ -125,13 +125,13 @@ export default function ConciliationsIndex({ conciliations, filters, statuses }:
 
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="overflow-hidden rounded-lg bg-white shadow">
-                        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
+                        <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
                             <form onSubmit={submit} className="flex flex-col gap-4 md:flex-row md:items-end">
                                 <div className="w-full md:w-60">
                                     <label
                                         htmlFor="status"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Estado
                                     </label>
@@ -140,7 +140,7 @@ export default function ConciliationsIndex({ conciliations, filters, statuses }:
                                         name="status"
                                         value={data.status}
                                         onChange={(event) => setData('status', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {statuses.map((statusOption) => (
@@ -160,7 +160,7 @@ export default function ConciliationsIndex({ conciliations, filters, statuses }:
                                     <button
                                         type="button"
                                         onClick={resetFilters}
-                                        className="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                                     >
                                         Limpiar
                                     </button>
@@ -170,70 +170,70 @@ export default function ConciliationsIndex({ conciliations, filters, statuses }:
 
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Conciliación
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Pago relacionado
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Cliente / Contrato
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Auditor
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Observaciones
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Actualización
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white">
+                                <tbody className="divide-y divide-gray-100 bg-white dark:bg-gray-800">
                                     {conciliationRows.map((conciliation) => (
-                                        <tr key={conciliation.id} className="hover:bg-gray-50">
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                                                <div className="font-medium text-gray-900">
+                                        <tr key={conciliation.id} className="hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                                <div className="font-medium text-gray-900 dark:text-gray-100">
                                                     #{conciliation.id}
                                                 </div>
                                                 <StatusBadge status={conciliation.status} />
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 <div>
                                                     {conciliation.payment?.id ? `Pago #${conciliation.payment.id}` : '—'}
                                                 </div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
                                                     {formatAmount(conciliation.payment?.amount ?? null, conciliation.payment?.currency ?? null)}
                                                 </div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
                                                     Ref: {conciliation.payment?.reference ?? '—'}
                                                 </div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
                                                     Comprobantes: {conciliation.payment?.receipts_count ?? 0}
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 <div>{conciliation.payment?.client?.name ?? 'Cliente eliminado'}</div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
                                                     {conciliation.payment?.contract?.name ?? '—'}
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {conciliation.reviewer?.name ?? '—'}
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-gray-700">
+                                            <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {conciliation.notes ? (
-                                                    <p className="max-w-xs whitespace-pre-line text-sm text-gray-700">
+                                                    <p className="max-w-xs whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">
                                                         {conciliation.notes}
                                                     </p>
                                                 ) : (
                                                     <span className="text-gray-400">Sin notas</span>
                                                 )}
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                                 <div>Actualizado: {formatDateTime(conciliation.updated_at)}</div>
                                                 <div>Verificado: {formatDateTime(conciliation.verified_at)}</div>
                                             </td>
@@ -244,7 +244,7 @@ export default function ConciliationsIndex({ conciliations, filters, statuses }:
                         </div>
 
                         <div className="px-6 pb-6">
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
                                 Mostrando {paginationMeta.from ?? 0} - {paginationMeta.to ?? 0} de {paginationMeta.total} conciliaciones
                             </div>
                             <Pagination links={paginationLinks} />

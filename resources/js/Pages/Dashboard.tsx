@@ -78,10 +78,10 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
                         Panel de control
                     </h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
                         Visión general del estado de cobranza y conciliaciones en curso.
                     </p>
                 </div>
@@ -92,11 +92,11 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                        <article className="rounded-xl bg-white p-6 shadow">
-                            <h3 className="text-sm font-medium text-gray-500">Clientes</h3>
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-400">Clientes</h3>
                             <div className="mt-3 flex items-end gap-4">
-                                <span className="text-3xl font-semibold text-gray-900">{metrics.clients.total}</span>
-                                <span className="text-sm text-gray-500">{metrics.clients.active} activos</span>
+                                <span className="text-3xl font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">{metrics.clients.total}</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">{metrics.clients.active} activos</span>
                             </div>
                             <Link
                                 href={route('clients.index')}
@@ -106,11 +106,11 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
                             </Link>
                         </article>
 
-                        <article className="rounded-xl bg-white p-6 shadow">
-                            <h3 className="text-sm font-medium text-gray-500">Contratos</h3>
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-400">Contratos</h3>
                             <div className="mt-3 flex items-end gap-4">
-                                <span className="text-3xl font-semibold text-gray-900">{metrics.contracts.active}</span>
-                                <span className="text-sm text-gray-500">{metrics.contracts.dueSoon} vencen pronto</span>
+                                <span className="text-3xl font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">{metrics.contracts.active}</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">{metrics.contracts.dueSoon} vencen pronto</span>
                             </div>
                             <Link
                                 href={route('reminders.index')}
@@ -120,38 +120,38 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
                             </Link>
                         </article>
 
-                        <article className="rounded-xl bg-white p-6 shadow">
-                            <h3 className="text-sm font-medium text-gray-500">Recordatorios</h3>
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-400">Recordatorios</h3>
                             <div className="mt-3 grid grid-cols-3 gap-4 text-center">
                                 <div>
-                                    <p className="text-xs text-gray-500">Pendientes</p>
-                                    <p className="mt-1 text-xl font-semibold text-gray-900">{metrics.reminders.pending}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400">Pendientes</p>
+                                    <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">{metrics.reminders.pending}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500">Hoy</p>
-                                    <p className="mt-1 text-xl font-semibold text-gray-900">{metrics.reminders.scheduledToday}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400">Hoy</p>
+                                    <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">{metrics.reminders.scheduledToday}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500">Enviados hoy</p>
-                                    <p className="mt-1 text-xl font-semibold text-gray-900">{metrics.reminders.sentToday}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400">Enviados hoy</p>
+                                    <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">{metrics.reminders.sentToday}</p>
                                 </div>
                             </div>
                         </article>
 
-                        <article className="rounded-xl bg-white p-6 shadow">
-                            <h3 className="text-sm font-medium text-gray-500">Pagos</h3>
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-400">Pagos</h3>
                             <div className="mt-3 grid grid-cols-3 gap-4 text-center">
                                 <div>
-                                    <p className="text-xs text-gray-500">Por conciliar</p>
-                                    <p className="mt-1 text-xl font-semibold text-gray-900">{metrics.payments.unverified}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400">Por conciliar</p>
+                                    <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">{metrics.payments.unverified}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500">Verificados</p>
-                                    <p className="mt-1 text-xl font-semibold text-gray-900">{metrics.payments.verified}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400">Verificados</p>
+                                    <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">{metrics.payments.verified}</p>
                                 </div>
                                 <div>
-                                    <p className="text-xs text-gray-500">Recibidos hoy</p>
-                                    <p className="mt-1 text-xl font-semibold text-gray-900">{metrics.payments.receivedToday}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-400">Recibidos hoy</p>
+                                    <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">{metrics.payments.receivedToday}</p>
                                 </div>
                             </div>
                             <Link
@@ -162,11 +162,11 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
                             </Link>
                         </article>
 
-                        <article className="rounded-xl bg-white p-6 shadow">
-                            <h3 className="text-sm font-medium text-gray-500">Conciliaciones</h3>
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-400">Conciliaciones</h3>
                             <div className="mt-3 flex items-end gap-4">
-                                <span className="text-3xl font-semibold text-gray-900">{metrics.conciliations.pending}</span>
-                                <span className="text-sm text-gray-500">{metrics.conciliations.approved} aprobadas</span>
+                                <span className="text-3xl font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">{metrics.conciliations.pending}</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">{metrics.conciliations.approved} aprobadas</span>
                             </div>
                             <Link
                                 href={route('conciliations.index')}
@@ -178,9 +178,9 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
                     </section>
 
                     <section className="grid gap-6 lg:grid-cols-2">
-                        <article className="rounded-xl bg-white p-6 shadow">
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-gray-900">
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">
                                     Próximos recordatorios
                                 </h3>
                                 <Link
@@ -193,15 +193,15 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
                             <ul className="mt-4 space-y-4">
                                 {recentReminders.length ? (
                                     recentReminders.map((reminder) => (
-                                        <li key={reminder.id} className="flex items-start justify-between rounded-lg border border-gray-100 p-4">
+                                        <li key={reminder.id} className="flex items-start justify-between rounded-lg border border-gray-100 dark:border-gray-700 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 dark:bg-gray-700/50 p-4">
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-900">
+                                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">
                                                     {reminder.client?.name ?? 'Cliente eliminado'}
                                                 </p>
-                                                <p className="text-sm text-gray-500">
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
                                                     {reminder.contract?.name ?? 'Sin contrato'}
                                                 </p>
-                                                <p className="text-xs text-gray-400">
+                                                <p className="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">
                                                     Programado: {formatDateTime(reminder.scheduled_for)}
                                                 </p>
                                             </div>
@@ -209,16 +209,16 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
                                         </li>
                                     ))
                                 ) : (
-                                    <li className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+                                    <li className="rounded-lg border border-dashed border-gray-200 dark:border-gray-700 dark:border-gray-700 p-6 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
                                         No hay recordatorios programados recientemente.
                                     </li>
                                 )}
                             </ul>
                         </article>
 
-                        <article className="rounded-xl bg-white p-6 shadow">
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-gray-900">
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">
                                     Conciliaciones en revisión
                                 </h3>
                                 <Link
@@ -231,18 +231,18 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
                             <ul className="mt-4 space-y-4">
                                 {pendingConciliations.length ? (
                                     pendingConciliations.map((item) => (
-                                        <li key={item.id} className="flex items-start justify-between rounded-lg border border-gray-100 p-4">
+                                        <li key={item.id} className="flex items-start justify-between rounded-lg border border-gray-100 dark:border-gray-700 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 dark:bg-gray-700/50 p-4">
                                             <div>
-                                                <p className="text-sm font-semibold text-gray-900">
+                                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100">
                                                     {item.client?.name ?? 'Cliente eliminado'}
                                                 </p>
-                                                <p className="text-sm text-gray-500">
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
                                                     {item.contract?.name ?? 'Sin contrato asociado'}
                                                 </p>
-                                                <p className="text-xs text-gray-400">
+                                                <p className="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">
                                                     Pago: {formatAmount(item.payment.amount, item.payment.currency)} ({item.payment.reference ?? 'sin ref'})
                                                 </p>
-                                                <p className="text-xs text-gray-400">
+                                                <p className="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400">
                                                     Actualizado: {formatDateTime(item.updated_at)}
                                                 </p>
                                             </div>
@@ -250,7 +250,7 @@ export default function Dashboard({ metrics, recentReminders, pendingConciliatio
                                         </li>
                                     ))
                                 ) : (
-                                    <li className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+                                    <li className="rounded-lg border border-dashed border-gray-200 dark:border-gray-700 dark:border-gray-700 p-6 text-center text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
                                         No hay conciliaciones pendientes.
                                     </li>
                                 )}

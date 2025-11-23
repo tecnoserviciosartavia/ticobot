@@ -33,7 +33,7 @@ export default function Pagination({ links }: PaginationProps) {
                                 className={`inline-flex items-center rounded-md border px-3 py-1 text-sm font-medium transition-colors ${
                                     link.active
                                         ? 'border-indigo-500 bg-indigo-500 text-white'
-                                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50'
                                 }`}
                                 dangerouslySetInnerHTML={{
                                     __html: sanitizeLabel(link.label),

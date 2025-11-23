@@ -74,17 +74,17 @@ export default function WhatsAppConnectionCard({ data, className }: WhatsAppConn
     return (
         <div className={`space-y-4 ${className ?? ''}`}>
             <div>
-                <h3 className="text-lg font-semibold leading-6 text-gray-900">Integración de WhatsApp</h3>
-                <p className="mt-2 text-sm text-gray-600">
+                <h3 className="text-lg font-semibold leading-6 text-gray-900 dark:text-gray-100">Integración de WhatsApp</h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     Escanea el código QR con el dispositivo autorizado para vincular la cuenta de WhatsApp Business.
                     El código se renueva de forma periódica y desaparecerá automáticamente cuando la sesión esté activa.
                 </p>
             </div>
 
-            <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-700">
+            <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 text-sm text-gray-700 dark:text-gray-300">
                 <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900">Estado:</span>
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">Estado:</span>
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
                         {status}
                     </span>
                 </div>
@@ -92,26 +92,26 @@ export default function WhatsAppConnectionCard({ data, className }: WhatsAppConn
                 <dl className="mt-3 space-y-2">
                     {data.generated_at && (
                         <div className="flex items-center justify-between gap-4">
-                            <dt className="text-gray-500">Último QR generado</dt>
-                            <dd className="text-gray-900">{formatDateTime(data.generated_at)}</dd>
+                            <dt className="text-gray-500 dark:text-gray-400">Último QR generado</dt>
+                            <dd className="text-gray-900 dark:text-gray-100">{formatDateTime(data.generated_at)}</dd>
                         </div>
                     )}
                     {data.last_ready_at && (
                         <div className="flex items-center justify-between gap-4">
-                            <dt className="text-gray-500">Última conexión exitosa</dt>
-                            <dd className="text-gray-900">{formatDateTime(data.last_ready_at)}</dd>
+                            <dt className="text-gray-500 dark:text-gray-400">Última conexión exitosa</dt>
+                            <dd className="text-gray-900 dark:text-gray-100">{formatDateTime(data.last_ready_at)}</dd>
                         </div>
                     )}
                     {data.last_disconnect_reason && (
                         <div className="flex items-start justify-between gap-4">
-                            <dt className="text-gray-500">Último error</dt>
-                            <dd className="text-right text-gray-900">{data.last_disconnect_reason}</dd>
+                            <dt className="text-gray-500 dark:text-gray-400">Último error</dt>
+                            <dd className="text-right text-gray-900 dark:text-gray-100">{data.last_disconnect_reason}</dd>
                         </div>
                     )}
                     {data.last_disconnected_at && (
                         <div className="flex items-center justify-between gap-4">
-                            <dt className="text-gray-500">Desconectado por última vez</dt>
-                            <dd className="text-gray-900">{formatDateTime(data.last_disconnected_at)}</dd>
+                            <dt className="text-gray-500 dark:text-gray-400">Desconectado por última vez</dt>
+                            <dd className="text-gray-900 dark:text-gray-100">{formatDateTime(data.last_disconnected_at)}</dd>
                         </div>
                     )}
                 </dl>
@@ -122,9 +122,9 @@ export default function WhatsAppConnectionCard({ data, className }: WhatsAppConn
                     <img
                         src={data.qr}
                         alt="Código QR para vincular WhatsApp"
-                        className="mx-auto h-64 w-64 rounded-lg border border-gray-200 bg-white shadow"
+                        className="mx-auto h-64 w-64 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow"
                     />
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                         Abre WhatsApp &gt; Menú &gt; Dispositivos vinculados &gt; Vincular dispositivo.
                     </p>
                 </div>
@@ -146,7 +146,7 @@ export default function WhatsAppConnectionCard({ data, className }: WhatsAppConn
                 <button
                     type="button"
                     onClick={refresh}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
                     Actualizar estado
                 </button>

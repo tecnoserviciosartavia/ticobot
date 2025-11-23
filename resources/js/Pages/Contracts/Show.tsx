@@ -96,21 +96,21 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800">{contract.name}</h2>
-                        <p className="text-sm text-gray-500">
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">{contract.name}</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                             Detalles del contrato y seguimiento de recordatorios y pagos vinculados.
                         </p>
                     </div>
                     <div className="flex gap-2">
                         <Link
                             href={route('contracts.index')}
-                            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+                            className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700"
                         >
                             ← Volver
                         </Link>
                         <Link
                             href={route('contracts.edit', contract.id)}
-                            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+                            className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700"
                         >
                             Editar
                         </Link>
@@ -122,11 +122,11 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
             <div className="py-12">
                 <div className="mx-auto max-w-6xl space-y-6 sm:px-6 lg:px-8">
                     <section className="grid gap-6 md:grid-cols-2">
-                        <article className="rounded-xl bg-white p-6 shadow">
-                            <h3 className="text-base font-semibold text-gray-900">Información general</h3>
-                            <dl className="mt-4 space-y-3 text-sm text-gray-700">
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Información general</h3>
+                            <dl className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-300">
                                 <div className="flex justify-between">
-                                    <dt className="text-gray-500">Cliente</dt>
+                                    <dt className="text-gray-500 dark:text-gray-400">Cliente</dt>
                                     <dd className="font-medium text-indigo-600">
                                         {contract.client ? (
                                             <Link href={route('clients.show', contract.client.id)} className="hover:text-indigo-500">
@@ -138,12 +138,12 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                     </dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-gray-500">Monto</dt>
-                                    <dd className="font-medium text-gray-900">{formatCurrency(contract.amount, contract.currency)}</dd>
+                                    <dt className="text-gray-500 dark:text-gray-400">Monto</dt>
+                                    <dd className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(contract.amount, contract.currency)}</dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-gray-500">Ciclo</dt>
-                                    <dd className="font-medium text-gray-900">
+                                    <dt className="text-gray-500 dark:text-gray-400">Ciclo</dt>
+                                    <dd className="font-medium text-gray-900 dark:text-gray-100">
                                         {(() => {
                                             switch (contract.billing_cycle) {
                                                 case 'weekly':
@@ -161,33 +161,33 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                     </dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-gray-500">Próximo vencimiento</dt>
-                                    <dd className="font-medium text-gray-900">{formatDate(contract.next_due_date)}</dd>
+                                    <dt className="text-gray-500 dark:text-gray-400">Próximo vencimiento</dt>
+                                    <dd className="font-medium text-gray-900 dark:text-gray-100">{formatDate(contract.next_due_date)}</dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-gray-500">Días de gracia</dt>
-                                    <dd className="font-medium text-gray-900">{contract.grace_period_days}</dd>
+                                    <dt className="text-gray-500 dark:text-gray-400">Días de gracia</dt>
+                                    <dd className="font-medium text-gray-900 dark:text-gray-100">{contract.grace_period_days}</dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-gray-500">Creado</dt>
-                                    <dd className="font-medium text-gray-900">{formatDate(contract.created_at)}</dd>
+                                    <dt className="text-gray-500 dark:text-gray-400">Creado</dt>
+                                    <dd className="font-medium text-gray-900 dark:text-gray-100">{formatDate(contract.created_at)}</dd>
                                 </div>
                             </dl>
                         </article>
-                        <article className="rounded-xl bg-white p-6 shadow">
-                            <h3 className="text-base font-semibold text-gray-900">Contacto del cliente</h3>
-                            <dl className="mt-4 space-y-3 text-sm text-gray-700">
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Contacto del cliente</h3>
+                            <dl className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-300">
                                 <div className="flex justify-between">
-                                    <dt className="text-gray-500">Correo</dt>
-                                    <dd className="font-medium text-gray-900">{contract.client?.email ?? '—'}</dd>
+                                    <dt className="text-gray-500 dark:text-gray-400">Correo</dt>
+                                    <dd className="font-medium text-gray-900 dark:text-gray-100">{contract.client?.email ?? '—'}</dd>
                                 </div>
                                 <div className="flex justify-between">
-                                    <dt className="text-gray-500">Teléfono</dt>
-                                    <dd className="font-medium text-gray-900">{contract.client?.phone ?? '—'}</dd>
+                                    <dt className="text-gray-500 dark:text-gray-400">Teléfono</dt>
+                                    <dd className="font-medium text-gray-900 dark:text-gray-100">{contract.client?.phone ?? '—'}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-gray-500">Metadatos</dt>
-                                    <dd className="mt-1 whitespace-pre-line text-xs text-gray-500">
+                                    <dt className="text-gray-500 dark:text-gray-400">Metadatos</dt>
+                                    <dd className="mt-1 whitespace-pre-line text-xs text-gray-500 dark:text-gray-400">
                                         {contract.metadata ? JSON.stringify(contract.metadata, null, 2) : 'Sin metadatos registrados.'}
                                     </dd>
                                 </div>
@@ -196,9 +196,9 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                     </section>
 
                     <section className="grid gap-6 md:grid-cols-2">
-                        <article className="rounded-xl bg-white p-6 shadow">
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-gray-900">Recordatorios recientes</h3>
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Recordatorios recientes</h3>
                                 <Link href={route('reminders.index', { contract_id: contract.id })} className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
                                     Ver listado
                                 </Link>
@@ -206,27 +206,27 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                             <ul className="mt-4 space-y-3">
                                 {reminders.length ? (
                                     reminders.map((reminder) => (
-                                        <li key={reminder.id} className="flex items-start justify-between rounded-lg border border-gray-200 p-3">
-                                            <div className="text-sm text-gray-700">
-                                                <p className="font-semibold text-gray-900">Programado: {formatDateTime(reminder.scheduled_for)}</p>
-                                                <p className="text-xs text-gray-500">Enviado: {formatDateTime(reminder.sent_at)}</p>
-                                                <p className="text-xs text-gray-500">Respuesta: {formatDateTime(reminder.acknowledged_at)}</p>
-                                                <p className="text-xs text-gray-500">Intentos: {reminder.attempts}</p>
+                                        <li key={reminder.id} className="flex items-start justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                                            <div className="text-sm text-gray-700 dark:text-gray-300">
+                                                <p className="font-semibold text-gray-900 dark:text-gray-100">Programado: {formatDateTime(reminder.scheduled_for)}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">Enviado: {formatDateTime(reminder.sent_at)}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">Respuesta: {formatDateTime(reminder.acknowledged_at)}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">Intentos: {reminder.attempts}</p>
                                             </div>
                                             <StatusBadge status={reminder.status} />
                                         </li>
                                     ))
                                 ) : (
-                                    <li className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-gray-400">
+                                    <li className="rounded-lg border border-dashed border-gray-200 dark:border-gray-700 p-6 text-center text-gray-400">
                                         Sin recordatorios asociados.
                                     </li>
                                 )}
                             </ul>
                         </article>
 
-                        <article className="rounded-xl bg-white p-6 shadow">
+                        <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-base font-semibold text-gray-900">Pagos recientes</h3>
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Pagos recientes</h3>
                                 <Link href={route('payments.index', { contract_id: contract.id })} className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
                                     Ver listado
                                 </Link>
@@ -234,20 +234,20 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                             <ul className="mt-4 space-y-3">
                                 {payments.length ? (
                                     payments.map((payment) => (
-                                        <li key={payment.id} className="rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
+                                        <li key={payment.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-sm text-gray-700 dark:text-gray-300">
                                             <div className="flex items-center justify-between">
-                                                <p className="font-semibold text-gray-900">{formatCurrency(payment.amount, payment.currency)}</p>
+                                                <p className="font-semibold text-gray-900 dark:text-gray-100">{formatCurrency(payment.amount, payment.currency)}</p>
                                                 <StatusBadge status={payment.status} />
                                             </div>
-                                            <p className="text-xs text-gray-500">Pagado: {formatDate(payment.paid_at)}</p>
-                                            <p className="text-xs text-gray-500">Referencia: {payment.reference ?? '—'}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Pagado: {formatDate(payment.paid_at)}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Referencia: {payment.reference ?? '—'}</p>
                                             {payment.conciliation_status && (
-                                                <p className="text-xs text-gray-500">Conciliación: {payment.conciliation_status}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">Conciliación: {payment.conciliation_status}</p>
                                             )}
                                         </li>
                                     ))
                                 ) : (
-                                    <li className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-gray-400">
+                                    <li className="rounded-lg border border-dashed border-gray-200 dark:border-gray-700 p-6 text-center text-gray-400">
                                         Sin pagos asociados.
                                     </li>
                                 )}

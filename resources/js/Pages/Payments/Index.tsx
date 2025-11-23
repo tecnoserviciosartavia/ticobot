@@ -134,10 +134,10 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
                         Pagos
                     </h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                         Controla los pagos recibidos, su verificación y los comprobantes asociados.
                     </p>
                 </div>
@@ -147,8 +147,8 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
 
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="overflow-hidden rounded-lg bg-white shadow">
-                        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
+                        <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
                             <form
                                 onSubmit={submit}
                                 className="grid grid-cols-1 gap-4 md:grid-cols-5 md:items-end"
@@ -156,7 +156,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                 <div>
                                     <label
                                         htmlFor="status"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Estado
                                     </label>
@@ -165,7 +165,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         name="status"
                                         value={data.status}
                                         onChange={(event) => setData('status', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {statuses.map((statusOption) => (
@@ -179,7 +179,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                 <div>
                                     <label
                                         htmlFor="channel"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Canal
                                     </label>
@@ -188,7 +188,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         name="channel"
                                         value={data.channel}
                                         onChange={(event) => setData('channel', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     >
                                         <option value="">Todos</option>
                                         {channels.map((channelOption) => (
@@ -202,7 +202,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                 <div>
                                     <label
                                         htmlFor="paid_from"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Pagado desde
                                     </label>
@@ -212,14 +212,14 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         type="date"
                                         value={data.paid_from}
                                         onChange={(event) => setData('paid_from', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:[color-scheme:dark] shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     />
                                 </div>
 
                                 <div>
                                     <label
                                         htmlFor="paid_to"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                     >
                                         Pagado hasta
                                     </label>
@@ -229,7 +229,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         type="date"
                                         value={data.paid_to}
                                         onChange={(event) => setData('paid_to', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:[color-scheme:dark] shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     />
                                 </div>
 
@@ -243,7 +243,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                     <button
                                         type="button"
                                         onClick={resetFilters}
-                                        className="inline-flex w-full items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        className="inline-flex w-full items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                                     >
                                         Limpiar
                                     </button>
@@ -253,72 +253,72 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
 
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Pago
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Cliente
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Contrato
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Canal
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Estado
                                         </th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Comprobantes
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Fechas
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Acciones
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white">
+                                <tbody className="divide-y divide-gray-100 bg-white dark:bg-gray-800">
                                     {paymentRows.map((payment) => (
-                                        <tr key={payment.id} className="hover:bg-gray-50">
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                                                <div className="font-medium text-gray-900">
+                                        <tr key={payment.id} className="hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                                <div className="font-medium text-gray-900 dark:text-gray-100">
                                                     {formatAmount(payment.amount, payment.currency)}
                                                 </div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">
                                                     Ref: {payment.reference ?? '—'}
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {payment.client?.name ?? 'Cliente eliminado'}
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {payment.contract?.name ?? '—'}
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {payment.channel}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4">
                                                 <div className="flex flex-col gap-1">
                                                     <StatusBadge status={payment.status} />
                                                     {payment.reminder && (
-                                                        <span className="text-xs text-gray-500">
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400">
                                                             Recordatorio #{payment.reminder.id}
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-700">
+                                            <td className="px-6 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
                                                 {payment.receipts_count}
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                                 <div>Pagado: {formatDate(payment.paid_at)}</div>
                                                 <div>Registrado: {formatDate(payment.created_at)}</div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {/* Mostrar botón solo cuando no esté verificado */}
                                                 {payment.status !== 'verified' && (
                                                     <ApplyAndConciliateButton 
@@ -337,7 +337,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                         {/* Componente botón definido abajo en el archivo */}
 
                         <div className="px-6 pb-6">
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
                                 Mostrando {paginationMeta.from ?? 0} - {paginationMeta.to ?? 0} de {paginationMeta.total} pagos
                             </div>
                             <Pagination links={paginationLinks} />
@@ -466,10 +466,10 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
                                     <Dialog.Title
                                         as="h3"
-                                        className="text-lg font-medium leading-6 text-gray-900 mb-4"
+                                        className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4"
                                     >
                                         Aplicar y conciliar pago
                                     </Dialog.Title>
@@ -478,19 +478,19 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                         {loadingContracts ? (
                                             <div className="text-center py-4">
                                                 <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
-                                                <p className="mt-2 text-sm text-gray-600">Cargando contratos...</p>
+                                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Cargando contratos...</p>
                                             </div>
                                         ) : (
                                             <>
                                                 <div>
-                                                    <label htmlFor="contract" className="block text-sm font-medium text-gray-700">
+                                                    <label htmlFor="contract" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                                         Contrato
                                                     </label>
                                                     <select
                                                         id="contract"
                                                         value={selectedContractId || ''}
                                                         onChange={(e) => setSelectedContractId(Number(e.target.value))}
-                                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
                                                         disabled={loading}
                                                     >
                                                         <option value="">Selecciona un contrato</option>
@@ -503,7 +503,7 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                                 </div>
 
                                                 <div>
-                                                    <label htmlFor="months" className="block text-sm font-medium text-gray-700">
+                                                    <label htmlFor="months" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                                         Meses a pagar
                                                     </label>
                                                     <input
@@ -512,13 +512,13 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                                         min="1"
                                                         value={months}
                                                         onChange={(e) => setMonths(Math.max(1, parseInt(e.target.value) || 1))}
-                                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
                                                         disabled={loading}
                                                     />
                                                 </div>
 
                                                 {selectedContract && (
-                                                    <div className="rounded-md bg-indigo-50 p-4">
+                                                    <div className="rounded-md bg-indigo-50 dark:bg-indigo-900/30 p-4">
                                                         <div className="flex">
                                                             <div className="flex-1">
                                                                 <h4 className="text-sm font-medium text-indigo-800">Monto calculado</h4>
@@ -547,7 +547,7 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                     <div className="mt-6 flex gap-3">
                                         <button
                                             type="button"
-                                            className="flex-1 inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+                                            className="flex-1 inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
                                             onClick={() => setIsOpen(false)}
                                             disabled={loading}
                                         >
