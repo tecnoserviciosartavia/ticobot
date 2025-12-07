@@ -40,7 +40,7 @@ async function main(): Promise<void> {
   const RECEIPTS_INDEX = path.join(RECEIPTS_DIR, 'index.json');
 
   // ----- Admin / timeout / business hours helpers (portadas desde el otro repo) -----
-  const TIMEZONE = process.env.TIMEZONE || 'America/Costa_Rica';
+  let TIMEZONE = process.env.TIMEZONE || 'America/Costa_Rica';
 
   function onlyDigits(s?: string) { return String(s || '').replace(/[^0-9]/g, ''); }
   function normalizeCR(s?: string) {
@@ -95,14 +95,20 @@ async function main(): Promise<void> {
     const timer = setTimeout(() => {
       menuShown.delete(chatId);
       lastMenuItems.delete(chatId);
+      agentMode.delete(chatId);  // Limpiar modo agente después del timeout
+      awaitingReceipt.delete(chatId);  // Limpiar espera de comprobante
+      awaitingMonths.delete(chatId);  // Limpiar espera de meses
+      pendingConfirmReceipt.delete(chatId);  // Limpiar confirmación pendiente
       chatTimeoutMs.delete(chatId);
       chatTimers.delete(chatId);
+      logger.info({ chatId, timeoutMs: timeout }, 'Chat timeout: estado limpiado por inactividad');
     }, timeout);
     chatTimers.set(chatId, timer);
   }
 
   // Business hours config (simple default, puede ampliarse desde env si es necesario)
-  const BUSINESS_HOURS: Record<number, { open: string; close: string }> = {
+  // Default business hours (can be overridden by env BOT_BUSINESS_HOURS as JSON or by backend settings.business_hours)
+  let BUSINESS_HOURS: Record<number, { open: string; close: string }> = {
     0: { open: '08:00', close: '19:00' },
     1: { open: '08:00', close: '19:00' },
     2: { open: '08:00', close: '19:00' },
@@ -111,6 +117,19 @@ async function main(): Promise<void> {
     5: { open: '08:00', close: '19:00' },
     6: { open: '08:00', close: '19:00' }
   };
+
+  // Allow override from environment variable BOT_BUSINESS_HOURS (JSON string)
+  try {
+    const envHours = process.env.BOT_BUSINESS_HOURS;
+    if (envHours && envHours.trim().length) {
+      const parsed = JSON.parse(envHours);
+      if (parsed && typeof parsed === 'object') {
+        BUSINESS_HOURS = Object.assign({}, BUSINESS_HOURS, parsed);
+      }
+    }
+  } catch (e) {
+    logger.debug({ e }, 'BOT_BUSINESS_HOURS parse failed, using defaults');
+  }
 
   function hhmmToMinutes(hhmm: string) {
     const [h, m] = hhmm.split(':').map(Number);
@@ -141,6 +160,22 @@ async function main(): Promise<void> {
     const start = hhmmToMinutes(configHours.open);
     const end = hhmmToMinutes(configHours.close);
     return minutes >= start && minutes <= end;
+  }
+
+  function formatBusinessHours(): string {
+    try {
+      const names = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+      const parts: string[] = [];
+      for (let d = 1; d <= 5; d++) {
+        if (BUSINESS_HOURS[d]) parts.push(`${names[d]} ${BUSINESS_HOURS[d].open}-${BUSINESS_HOURS[d].close}`);
+      }
+      // include weekend if differs
+      if (BUSINESS_HOURS[0]) parts.push(`Dom ${BUSINESS_HOURS[0].open}-${BUSINESS_HOURS[0].close}`);
+      if (BUSINESS_HOURS[6]) parts.push(`Sáb ${BUSINESS_HOURS[6].open}-${BUSINESS_HOURS[6].close}`);
+      return parts.join(', ');
+    } catch (e) {
+      return 'Horario no disponible';
+    }
   }
 
   const afterHoursNotified = new Map<string, number>();
@@ -239,6 +274,17 @@ async function main(): Promise<void> {
     } catch (e) {
       logger.debug({ e }, 'touchTimer fallo');
     }
+
+  // If outside business hours, politely inform the user and avoid processing further (admins and agents bypass)
+  try {
+    const isAdminUserEarly = isAdminChatId(chatId) || fromNorm === '50672140974';
+    if (! _isWithinBusinessHours() && !isAdminUserEarly && !agentMode.get(chatId)) {
+      await message.reply(`Hola. Actualmente estamos fuera del horario de atención (${TIMEZONE}). Nuestro horario: ${formatBusinessHours()}. Por favor intenta de nuevo durante el horario de atención.`);
+      return;
+    }
+  } catch (e) {
+    logger.debug({ e }, 'error verificando horario de atención');
+  }
 
   // If we're awaiting a receipt from this chat, handle media uploads first
     if (awaitingReceipt.get(chatId)) {
@@ -1570,6 +1616,32 @@ async function main(): Promise<void> {
       }
       if (s.beneficiary_name) {
         (config as any).beneficiaryName = String(s.beneficiary_name);
+      }
+      // Allow backend to configure business hours and timezone
+      if (s.business_hours) {
+        try {
+          // business_hours can be an object or a JSON string
+          const bh = typeof s.business_hours === 'string' ? JSON.parse(s.business_hours) : s.business_hours;
+          if (bh && typeof bh === 'object') {
+            // normalize keys to numbers 0-6
+            const parsed: Record<number, { open: string; close: string }> = {} as any;
+            for (const k of Object.keys(bh)) {
+              const nk = Number(k);
+              if (!Number.isNaN(nk)) parsed[nk] = bh[k];
+            }
+            BUSINESS_HOURS = Object.assign({}, BUSINESS_HOURS, parsed);
+          }
+        } catch (e) {
+          logger.debug({ e }, 'invalid business_hours in settings');
+        }
+      }
+
+      if (s.bot_timezone || s.timezone) {
+        try {
+          TIMEZONE = String(s.bot_timezone || s.timezone || TIMEZONE);
+        } catch (e) {
+          logger.debug({ e }, 'invalid timezone in settings');
+        }
       }
       logger.info({ loaded: Object.keys(s) }, 'Settings cargadas desde API');
     } catch (e: any) {

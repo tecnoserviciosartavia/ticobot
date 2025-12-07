@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Contract;
 use App\Models\Payment;
+use App\Models\Client;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -64,6 +65,8 @@ class AccountingController extends Controller
         // Cálculo mensual: Total contratos - Total pagado verificado
         $monthlyData = $this->calculateMonthlyPending();
 
+        $clientsUnpaid = $this->clientsUnpaidAfterReminder();
+
         return Inertia::render('Accounting/Index', [
             'by_status_currency' => $byStatusCurrency,
             'totals' => $totals,
@@ -71,7 +74,90 @@ class AccountingController extends Controller
             'daily' => $dailyWindow,
             'conciliation_rate' => $conciliationRate,
             'monthly_pending' => $monthlyData,
+            // Clientes que recibieron recordatorios (sent_at IS NOT NULL)
+            // pero NO tienen pagos verificados (status = 'verified')
+            'clients_unpaid_after_reminder' => $clientsUnpaid['clients'] ?? [],
+            'clients_unpaid_total' => $clientsUnpaid['totals'] ?? [],
         ]);
+    }
+
+    /**
+     * Devuelve lista de clientes que recibieron recordatorios pero no tienen pagos verificados.
+     *
+     * Criterio:
+     * - Existe al menos un Reminder con sent_at not null
+     * - No existe ningún Payment para el cliente con status = 'verified'
+     */
+    private function clientsUnpaidAfterReminder(): array
+    {
+        $clients = Client::query()
+            ->whereHas('reminders', function ($q) {
+                $q->whereNotNull('sent_at');
+            })
+            ->whereDoesntHave('payments', function ($q) {
+                $q->where('status', 'verified');
+            })
+            ->withCount(['reminders as sent_reminders_count' => function ($q) {
+                $q->whereNotNull('sent_at');
+            }])
+            ->with(['reminders' => function ($q) {
+                $q->whereNotNull('sent_at')->orderByDesc('sent_at')->limit(1);
+            }])
+            ->get();
+
+        $clientsData = [];
+        $totals = []; // totals per currency across all clients
+
+        foreach ($clients as $c) {
+            // Contracts sum by currency
+            $contractsByCurrency = $c->contracts()
+                ->selectRaw('COALESCE(currency, "CRC") as currency, SUM(amount) as total')
+                ->groupBy('currency')
+                ->get()
+                ->mapWithKeys(fn ($r) => [$r->currency => (float) $r->total]);
+
+            // Verified payments sum by currency for this client
+            $paidByCurrency = Payment::query()
+                ->where('client_id', $c->id)
+                ->where('status', 'verified')
+                ->selectRaw('COALESCE(currency, "CRC") as currency, SUM(amount) as total')
+                ->groupBy('currency')
+                ->get()
+                ->mapWithKeys(fn ($r) => [$r->currency => (float) $r->total]);
+
+            // Pending = contracts - paid
+            $currencies = $contractsByCurrency->keys()->merge($paidByCurrency->keys())->unique();
+            $pending = $currencies->mapWithKeys(function ($currency) use ($contractsByCurrency, $paidByCurrency) {
+                $contractTotal = $contractsByCurrency->get($currency, 0);
+                $paidTotal = $paidByCurrency->get($currency, 0);
+                return [$currency => max(0, $contractTotal - $paidTotal)];
+            });
+
+            // accumulate totals
+            foreach ($pending as $currency => $amt) {
+                $totals[$currency] = ($totals[$currency] ?? 0) + $amt;
+            }
+
+            $last = $c->reminders->first();
+
+            $clientsData[] = [
+                'id' => $c->id,
+                'name' => $c->name,
+                'email' => $c->email,
+                'phone' => $c->phone,
+                'sent_reminders_count' => $c->sent_reminders_count,
+                'last_sent_at' => $last ? $last->sent_at->toDateTimeString() : null,
+                'last_reminder_id' => $last?->id,
+                'last_reminder_status' => $last?->status,
+                'contracts' => $c->contracts()->select('id', 'name')->get()->map(fn ($ct) => ['id' => $ct->id, 'name' => $ct->name])->values(),
+                'pending_by_currency' => $pending->toArray(),
+            ];
+        }
+
+        return [
+            'clients' => $clientsData,
+            'totals' => $totals,
+        ];
     }
 
     /**

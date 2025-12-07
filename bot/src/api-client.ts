@@ -41,6 +41,18 @@ class ApiClient {
     });
   }
 
+  /**
+   * Revert a reminder previously claimed (queued) back to pending so it can be retried later.
+   */
+  async revertToPending(reminderId: number, attempts?: number): Promise<void> {
+    const payload: any = {
+      status: 'pending',
+      queued_at: null,
+    };
+    if (typeof attempts === 'number') payload.attempts = attempts;
+    await this.http.patch(`reminders/${reminderId}`, payload);
+  }
+
   async markSent(reminderId: number): Promise<void> {
     await pRetry(async () => {
       try {

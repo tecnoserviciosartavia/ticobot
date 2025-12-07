@@ -19,7 +19,7 @@ class PaymentController extends Controller
         $paidTo = $this->parseDate($request->query('paid_to'));
 
         $query = Payment::query()
-            ->with(['client:id,name', 'contract:id,name,amount,currency', 'reminder:id,status'])
+            ->with(['client:id,name', 'contract:id,name,amount,currency', 'reminder:id,status', 'conciliation:id,payment_id'])
             ->withCount('receipts');
 
         if ($status !== '') {
@@ -55,6 +55,7 @@ class PaymentController extends Controller
                 'contract' => $payment->contract?->only(['id', 'name', 'amount', 'currency']),
                 'reminder' => $payment->reminder?->only(['id', 'status']),
                 'created_at' => $payment->created_at?->toIso8601String(),
+                'has_conciliation' => $payment->conciliation !== null,
             ]);
 
         $statuses = Payment::query()
@@ -116,5 +117,25 @@ class PaymentController extends Controller
             ->get();
 
         return response()->json($contracts);
+    }
+
+    /**
+     * Remove the specified payment.
+     * Only allows deletion if payment is not conciliated.
+     */
+    public function destroy(Payment $payment)
+    {
+        // Check if payment has a conciliation
+        if ($payment->conciliation()->exists()) {
+            return back()->with('error', 'No se puede eliminar un pago que ya tiene una conciliación. Primero elimina la conciliación.');
+        }
+
+        // Delete associated receipts first
+        $payment->receipts()->delete();
+
+        // Delete the payment
+        $payment->delete();
+
+        return redirect()->route('payments.index')->with('success', 'Pago eliminado correctamente.');
     }
 }

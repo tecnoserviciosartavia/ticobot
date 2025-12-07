@@ -12,6 +12,11 @@ class Reminder extends Model
     use HasFactory;
     use SoftDeletes;
 
+    /**
+     * Serialize dates as ISO8601 with timezone so frontend parses them correctly.
+     */
+    protected $dateFormat = 'c';
+
     protected $fillable = [
         'contract_id',
         'client_id',

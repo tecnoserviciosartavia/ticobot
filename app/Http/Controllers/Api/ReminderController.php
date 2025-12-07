@@ -83,7 +83,7 @@ class ReminderController extends Controller
         // If this reminder is marked as monthly recurrence, schedule the next
         // occurrence based only on the day-of-month and time provided by the
         // form (ignore year/month). Otherwise normalize to configured send time.
-        $requested = Carbon::parse($data['scheduled_for']);
+        $requested = Carbon::parse($data['scheduled_for'], config('app.timezone'));
         $payload = $data['payload'] ?? [];
 
         // Default recurrence to contract's cycle if not provided
@@ -99,21 +99,21 @@ class ReminderController extends Controller
             $day = (int) $requested->day;
             $timeString = $requested->format('H:i:s');
 
-            $now = Carbon::now();
+            $now = Carbon::now(config('app.timezone'));
             $year = $now->year;
             $month = $now->month;
 
-            $daysInMonth = Carbon::create($year, $month, 1)->daysInMonth;
+            $daysInMonth = Carbon::create($year, $month, 1, 0, 0, 0, config('app.timezone'))->daysInMonth;
             $useDay = min(max(1, $day), $daysInMonth);
 
-            $candidate = Carbon::create($year, $month, $useDay)
+            $candidate = Carbon::create($year, $month, $useDay, 0, 0, 0, config('app.timezone'))
                 ->setTimeFromTimeString($timeString);
 
             if ($candidate->lessThanOrEqualTo($now)) {
                 $nextMonth = $now->copy()->addMonthNoOverflow();
-                $daysInNext = Carbon::create($nextMonth->year, $nextMonth->month, 1)->daysInMonth;
+                $daysInNext = Carbon::create($nextMonth->year, $nextMonth->month, 1, 0, 0, 0, config('app.timezone'))->daysInMonth;
                 $useDayNext = min(max(1, $day), $daysInNext);
-                $candidate = Carbon::create($nextMonth->year, $nextMonth->month, $useDayNext)
+                $candidate = Carbon::create($nextMonth->year, $nextMonth->month, $useDayNext, 0, 0, 0, config('app.timezone'))
                     ->setTimeFromTimeString($timeString);
             }
 
@@ -191,8 +191,8 @@ class ReminderController extends Controller
 
         if (isset($data['scheduled_for'])) {
             // Preserve the provided scheduled datetime instead of normalizing
-            // to a configured hour.
-            $data['scheduled_for'] = Carbon::parse($data['scheduled_for']);
+            // to a configured hour. Parse in app timezone.
+            $data['scheduled_for'] = Carbon::parse($data['scheduled_for'], config('app.timezone'));
         }
 
         // Keep previous status to detect transitions
@@ -202,7 +202,7 @@ class ReminderController extends Controller
         // to avoid timezone/clock skew issues. Normalize sent_at to server
         // now() when transitioning to 'sent'.
         if (isset($data['status']) && $data['status'] === 'sent') {
-            $data['sent_at'] = Carbon::now();
+            $data['sent_at'] = Carbon::now(config('app.timezone'));
         }
 
         $reminder->update($data);
@@ -217,7 +217,7 @@ class ReminderController extends Controller
 
             if (\in_array($recurrence, ['weekly', 'biweekly', 'monthly'], true)) {
                 try {
-                    $currentScheduled = Carbon::parse($reminder->scheduled_for);
+                    $currentScheduled = Carbon::parse($reminder->scheduled_for, config('app.timezone'));
                     $next = match ($recurrence) {
                         'weekly' => $currentScheduled->copy()->addDays(7),
                         'biweekly' => $currentScheduled->copy()->addDays(14),
@@ -310,12 +310,12 @@ class ReminderController extends Controller
     public function sentWithoutPayment(Request $request): JsonResponse
     {
         $startDate = $request->input('start_date') 
-            ? Carbon::parse($request->input('start_date'))
-            : Carbon::today()->startOfDay();
+            ? Carbon::parse($request->input('start_date'), config('app.timezone'))
+            : Carbon::today(config('app.timezone'))->startOfDay();
         
         $endDate = $request->input('end_date')
-            ? Carbon::parse($request->input('end_date'))
-            : Carbon::today()->endOfDay();
+            ? Carbon::parse($request->input('end_date'), config('app.timezone'))
+            : Carbon::today(config('app.timezone'))->endOfDay();
 
         $reminders = Reminder::query()
             ->where('status', 'sent')

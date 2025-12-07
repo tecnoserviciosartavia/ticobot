@@ -208,9 +208,21 @@ class PaymentController extends Controller
 
     /**
      * Remove the specified resource from storage.
+     * Only allows deletion if payment is not conciliated (no conciliation record).
      */
     public function destroy(Payment $payment): JsonResponse
     {
+        // Check if payment has a conciliation
+        if ($payment->conciliation()->exists()) {
+            return response()->json([
+                'message' => 'No se puede eliminar un pago que ya tiene una conciliación. Primero elimina la conciliación.',
+            ], 422);
+        }
+
+        // Delete associated receipts first
+        $payment->receipts()->delete();
+
+        // Delete the payment
         $payment->delete();
 
         return response()->json(status: 204);

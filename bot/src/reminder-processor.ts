@@ -126,6 +126,15 @@ export class ReminderProcessor {
       logger.info({ reminderId: reminder.id }, 'Recordatorio enviado correctamente');
     } catch (error) {
       logger.error({ error, reminderId: reminder.id }, 'No se pudo enviar el recordatorio');
+
+      // Intentar devolver el recordatorio a estado 'pending' para que pueda ser reintentado
+      try {
+        const attempts = typeof reminder.attempts === 'number' ? reminder.attempts : undefined;
+        await apiClient.revertToPending(reminder.id, attempts);
+        logger.info({ reminderId: reminder.id }, 'Recordatorio revertido a pending para reintento futuro');
+      } catch (err) {
+        logger.error({ err, reminderId: reminder.id }, 'Error revirtiendo recordatorio a pending');
+      }
     }
   }
 

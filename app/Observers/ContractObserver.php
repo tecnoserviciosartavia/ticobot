@@ -15,14 +15,15 @@ class ContractObserver
     {
         // Auto-create reminder when contract is created
         if ($contract->client_id && $contract->next_due_date) {
-            $dueDate = Carbon::parse($contract->next_due_date);
+            // Parse in app timezone to avoid UTC midnight issues
+            $dueDate = Carbon::parse($contract->next_due_date, config('app.timezone'));
             
             // Schedule reminder for the same day as due date (not 3 days before)
             $scheduledFor = $dueDate->copy()->startOfDay();
 
             // If scheduled date is in the past, schedule for today
             if ($scheduledFor->isPast()) {
-                $scheduledFor = Carbon::today();
+                $scheduledFor = Carbon::today(config('app.timezone'));
             }
 
             // Map billing_cycle to recurrence
@@ -52,7 +53,7 @@ class ContractObserver
     {
         // Update pending reminders if next_due_date changes
         if ($contract->wasChanged('next_due_date') && $contract->next_due_date) {
-            $newScheduledFor = Carbon::parse($contract->next_due_date)
+            $newScheduledFor = Carbon::parse($contract->next_due_date, config('app.timezone'))
                 ->startOfDay();
 
             if ($newScheduledFor->isFuture() || $newScheduledFor->isToday()) {

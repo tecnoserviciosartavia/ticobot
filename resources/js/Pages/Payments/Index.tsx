@@ -21,6 +21,7 @@ interface Payment {
     contract: { id: number; name: string; amount: number; currency: string } | null;
     reminder: { id: number; status: string } | null;
     created_at: string | null;
+    has_conciliation?: boolean;
 }
 
 interface Contract {
@@ -319,14 +320,20 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                                 <div>Registrado: {formatDate(payment.created_at)}</div>
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                {/* Mostrar botón solo cuando no esté verificado */}
-                                                {payment.status !== 'verified' && (
-                                                    <ApplyAndConciliateButton 
-                                                        paymentId={payment.id} 
-                                                        receiptsCount={payment.receipts_count}
-                                                        clientId={payment.client?.id || null}
-                                                    />
-                                                )}
+                                                <div className="flex gap-2">
+                                                    {/* Mostrar botón de conciliar solo cuando no esté verificado */}
+                                                    {payment.status !== 'verified' && (
+                                                        <ApplyAndConciliateButton 
+                                                            paymentId={payment.id} 
+                                                            receiptsCount={payment.receipts_count}
+                                                            clientId={payment.client?.id || null}
+                                                        />
+                                                    )}
+                                                    {/* Mostrar botón de eliminar solo si no tiene conciliación */}
+                                                    {!payment.has_conciliation && (
+                                                        <DeletePaymentButton paymentId={payment.id} />
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -569,5 +576,41 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                 </Dialog>
             </Transition>
         </>
+    );
+}
+
+// Botón para eliminar pago (solo si no tiene conciliación)
+function DeletePaymentButton({ paymentId }: { paymentId: number }) {
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDelete = () => {
+        if (!confirm('¿Estás seguro de que deseas eliminar este pago? Esta acción no se puede deshacer.')) {
+            return;
+        }
+
+        setIsDeleting(true);
+
+        router.delete(route('payments.destroy', paymentId), {
+            preserveState: false,
+            onSuccess: () => {
+                router.get(route('payments.index'));
+            },
+            onError: (errors: any) => {
+                alert('Error al eliminar: ' + (errors.message || JSON.stringify(errors)));
+                setIsDeleting(false);
+            },
+            onFinish: () => setIsDeleting(false),
+        });
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold text-white shadow-sm bg-red-600 hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-red-300"
+        >
+            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+        </button>
     );
 }
