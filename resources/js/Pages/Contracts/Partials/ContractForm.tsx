@@ -19,6 +19,7 @@ interface ContractFormData {
     billing_cycle: string;
     next_due_date: string;
     grace_period_days: string;
+    notes?: string;
 }
 
 interface ContractFormProps {
@@ -289,6 +290,19 @@ export default function ContractForm({
                     />
                     <InputError message={errors.grace_period_days} className="mt-2" />
                 </div>
+            </div>
+
+            <div>
+                <InputLabel htmlFor="notes" value="Notas" />
+                <textarea
+                    id="notes"
+                    name="notes"
+                    value={(data as any).notes ?? ''}
+                    onChange={(event) => onChange('notes' as any, event.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    rows={4}
+                />
+                <InputError message={errors.notes} className="mt-2" />
             </div>
 
             <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">

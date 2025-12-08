@@ -26,6 +26,7 @@ class ContractFactory extends Factory
             'next_due_date' => $this->faker->dateTimeBetween('+2 days', '+40 days'),
             'grace_period_days' => $this->faker->randomElement([0, 3, 5, 7]),
             'metadata' => [],
+            'notes' => $this->faker->optional()->paragraph(),
         ];
     }
 }

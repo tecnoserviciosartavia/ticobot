@@ -21,6 +21,7 @@ class Contract extends Model
         'next_due_date',
         'grace_period_days',
         'metadata',
+        'notes',
         'contract_type_id',
     ];
 

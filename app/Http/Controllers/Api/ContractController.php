@@ -53,6 +53,7 @@ class ContractController extends Controller
             'currency' => ['required', 'string', 'size:3'],
             'billing_cycle' => ['required', 'string', 'max:50'],
             'next_due_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:31'],
             'metadata' => ['nullable', 'array'],
         ]);
@@ -88,6 +89,7 @@ class ContractController extends Controller
             'currency' => ['sometimes', 'required', 'string', 'size:3'],
             'billing_cycle' => ['sometimes', 'required', 'string', 'max:50'],
             'next_due_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:31'],
             'metadata' => ['nullable', 'array'],
         ]);

@@ -6,6 +6,7 @@ import { Head, useForm } from '@inertiajs/react';
 interface ContractResource {
     id: number;
     client_id: number;
+    notes?: string;
     name: string;
     amount: string;
     currency: string;
@@ -22,6 +23,7 @@ interface ContractsEditProps extends PageProps<{
 export default function ContractsEdit({ contract, clients }: ContractsEditProps) {
     const form = useForm({
         client_id: contract.client_id.toString(),
+        notes: contract.notes ?? '',
         name: contract.name ?? '',
         amount: contract.amount?.toString() ?? '',
         currency: contract.currency ?? 'CRC',

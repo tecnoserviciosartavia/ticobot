@@ -235,6 +235,7 @@ class ContractController extends Controller
                         ?? null,
                     'grace_period_days' => isset($data['grace_period_days']) ? (int) $data['grace_period_days'] : 0,
                     'metadata' => $data['notes'] ?? null,
+                    'notes' => $data['notes'] ?? null,
                 ];
 
                 // Try to find existing contract by name + client
@@ -324,6 +325,7 @@ class ContractController extends Controller
                 'id' => $contract->id,
                 'client' => $contract->client?->only(['id', 'name', 'email', 'phone']),
                 'name' => $contract->name,
+                'notes' => $contract->notes,
                 'amount' => $contract->amount,
                 'currency' => $contract->currency,
                 'billing_cycle' => $contract->billing_cycle,
@@ -349,6 +351,7 @@ class ContractController extends Controller
             'contract' => [
                 'id' => $contract->id,
                 'client_id' => $contract->client_id,
+                'notes' => $contract->notes,
                 'name' => $contract->name,
                 'amount' => $contract->amount,
                 'currency' => $contract->currency,
@@ -379,12 +382,14 @@ class ContractController extends Controller
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'billing_cycle' => ['required', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'next_due_date' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:60'],
         ]);
 
         return [
             'client_id' => $data['client_id'],
             'name' => $data['name'],
+            'notes' => $data['notes'] ?? null,
             'amount' => $data['amount'],
             'currency' => strtoupper($data['currency']),
             'billing_cycle' => $data['billing_cycle'],

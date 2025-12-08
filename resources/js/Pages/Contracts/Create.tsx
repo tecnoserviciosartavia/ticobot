@@ -17,6 +17,7 @@ export default function ContractsCreate({ clients, defaultCurrency, defaultBilli
         currency: defaultCurrency ?? 'CRC',
         billing_cycle: defaultBillingCycle ?? 'monthly',
         next_due_date: '',
+        notes: '',
         grace_period_days: '0',
     });
 

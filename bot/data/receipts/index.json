@@ -1908,5 +1908,79 @@
     "reconciled": true,
     "reconciled_sent": true,
     "reconciled_sent_ts": 1764984406723
+  },
+  {
+    "id": "50660244291-1765135848031",
+    "chatId": "50660244291@c.us",
+    "filename": "receipt-50660244291-1765135832860",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50660244291-1765135832860",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1765135848031,
+    "status": "applied",
+    "backend_payment_id": 50,
+    "months": 1,
+    "backend_apply_result": {
+      "id": 50,
+      "client_id": 44,
+      "contract_id": null,
+      "reminder_id": null,
+      "amount": "5000.00",
+      "currency": "CRC",
+      "status": "unverified",
+      "channel": "whatsapp",
+      "reference": "bot:50660244291-1765135848031",
+      "paid_at": null,
+      "metadata": {
+        "months": 1,
+        "local_receipt_id": "50660244291-1765135848031",
+        "backend_receipt_id": 50
+      },
+      "created_at": "2025-12-07T19:30:48.000000Z",
+      "updated_at": "2025-12-07T19:31:00.000000Z",
+      "deleted_at": null
+    },
+    "monthly_amount": 5000,
+    "total_amount": 5000,
+    "reconciled": true,
+    "reconciled_sent": true,
+    "reconciled_sent_ts": 1765135882190
+  },
+  {
+    "id": "50683677150-1765136403874",
+    "chatId": "50683677150@c.us",
+    "filename": "receipt-50683677150-1765136397130",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50683677150-1765136397130",
+    "mime": "image/jpeg",
+    "text": "",
+    "ts": 1765136403874,
+    "status": "applied",
+    "backend_payment_id": 51,
+    "months": 1,
+    "backend_apply_result": {
+      "id": 51,
+      "client_id": 21,
+      "contract_id": null,
+      "reminder_id": null,
+      "amount": "2000.00",
+      "currency": "CRC",
+      "status": "unverified",
+      "channel": "whatsapp",
+      "reference": "bot:50683677150-1765136403874",
+      "paid_at": null,
+      "metadata": {
+        "months": 1,
+        "local_receipt_id": "50683677150-1765136403874",
+        "backend_receipt_id": 51
+      },
+      "created_at": "2025-12-07T19:40:04.000000Z",
+      "updated_at": "2025-12-07T19:40:11.000000Z",
+      "deleted_at": null
+    },
+    "monthly_amount": 2000,
+    "total_amount": 2000,
+    "reconciled": true,
+    "reconciled_sent": true,
+    "reconciled_sent_ts": 1765136556136
   }
 ]

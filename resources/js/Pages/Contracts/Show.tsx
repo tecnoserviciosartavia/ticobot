@@ -7,6 +7,7 @@ interface ContractResource {
     id: number;
     client: { id: number; name: string; email: string | null; phone: string | null } | null;
     name: string;
+    notes?: string | null;
     amount: string;
     currency: string | null;
     billing_cycle: string;
@@ -171,6 +172,10 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                 <div className="flex justify-between">
                                     <dt className="text-gray-500 dark:text-gray-400">Creado</dt>
                                     <dd className="font-medium text-gray-900 dark:text-gray-100">{formatDate(contract.created_at)}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500 dark:text-gray-400">Notas</dt>
+                                    <dd className="mt-1 whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">{contract.notes ?? '—'}</dd>
                                 </div>
                             </dl>
                         </article>
