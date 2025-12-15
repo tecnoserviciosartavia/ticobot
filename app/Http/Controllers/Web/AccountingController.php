@@ -66,11 +66,22 @@ class AccountingController extends Controller
             ];
         })->reverse()->values();
 
-        // Porcentaje conciliado = monto verificado / (verificado + pendiente) - SOLO MES ACTUAL
+        // Porcentaje conciliado = monto verificado del mes / total de contratos activos del mes
         $verifiedTotal = $totals['verified']['amount'];
-        $pendingTotal = $totals['unverified']['amount'] + $totals['in_review']['amount'];
-        $conciliationRate = ($verifiedTotal + $pendingTotal) > 0
-            ? round(($verifiedTotal / ($verifiedTotal + $pendingTotal)) * 100, 2)
+        
+        // Total de contratos activos en el mes actual (por moneda)
+        $activeContractsTotal = Contract::query()
+            ->where(function ($q) use ($endOfMonth) {
+                $q->where('created_at', '<=', $endOfMonth)
+                  ->where(function ($sq) use ($endOfMonth) {
+                      $sq->whereNull('deleted_at')
+                        ->orWhere('deleted_at', '>', $endOfMonth);
+                  });
+            })
+            ->sum('amount');
+        
+        $conciliationRate = $activeContractsTotal > 0
+            ? round(($verifiedTotal / $activeContractsTotal) * 100, 2)
             : 0.0;
 
         // Cálculo mensual: Total contratos - Total pagado verificado

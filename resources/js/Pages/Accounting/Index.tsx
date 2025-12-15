@@ -56,7 +56,7 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
             <SummaryCard title="Monto conciliado" value={`CRC ${formatMoney(totals.verified?.amount || 0)}`} subtitle={`${totals.verified?.count || 0} pagos (mes actual)`} color="bg-green-50" />
             <SummaryCard title="Monto pendiente" value={`CRC ${formatMoney((totals.unverified?.amount || 0) + (totals.in_review?.amount || 0))}`} subtitle={`${(totals.unverified?.count || 0) + (totals.in_review?.count || 0)} pagos (mes actual)`} color="bg-yellow-50" />
             <SummaryCard title="Meses registrados" value={total_months.toString()} subtitle={`Mes actual (metadata 'months')`} color="bg-indigo-50" />
-            <SummaryCard title="% conciliado" value={`${conciliation_rate.toFixed(2)}%`} subtitle="(verificado / total mes actual)" color="bg-blue-50" />
+            <SummaryCard title="% conciliado" value={`${conciliation_rate.toFixed(2)}%`} subtitle="(verificado / total contratos activos)" color="bg-blue-50" />
           </div>
 
           {/* Tabla por estado y moneda */}
