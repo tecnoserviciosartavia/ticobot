@@ -211,17 +211,17 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
               </div>
             </div>
 
-          {/* Pendiente mensual: Total contratos - Total pagado */}
+          {/* Pendiente mensual: Total contratos - Total pagado del mes */}
           <div className="bg-white shadow rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Pendiente mensual (Total contratos - Total pagado)</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Análisis mensual (Contratos activos vs Pagos del mes)</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="border-b">
                     <th className="py-2 px-3 text-left font-semibold text-gray-600">Mes</th>
-                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Total Contratos</th>
-                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Total Pagado</th>
-                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Pendiente</th>
+                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Contratos Activos</th>
+                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Pagado (mes)</th>
+                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Diferencia</th>
                   </tr>
                 </thead>
                 <tbody>
