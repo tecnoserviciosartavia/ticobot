@@ -262,6 +262,20 @@ class ApiClient {
     return res.data;
   }
 
+  async storeReceiptFromBot(payload: {
+    payment_id?: number;
+    client_phone?: string;
+    file_base64?: string;
+    file_path?: string;
+    file_name: string;
+    mime_type: string;
+    received_at?: string;
+    metadata?: Record<string, any>;
+  }) {
+    const res = await this.http.post('payments/receipts/bot', payload);
+    return res.data;
+  }
+
   async fetchSentRemindersWithoutPayment(startDate: string, endDate: string): Promise<ReminderRecord[]> {
     const response = await this.http.get<ReminderRecord[]>('reminders/sent-without-payment', {
       params: {

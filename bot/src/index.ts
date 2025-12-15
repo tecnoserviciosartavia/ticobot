@@ -2064,12 +2064,35 @@ async function main(): Promise<void> {
     const buffer = Buffer.from(base64Data, 'base64');
     await fs.writeFile(filepath, buffer);
 
-    // append to index
+    // append to index (keep for backward compatibility)
     const raw = await fs.readFile(RECEIPTS_INDEX, { encoding: 'utf8' });
     const arr = JSON.parse(raw || '[]');
     const entry = { id, chatId, filename, filepath, mime, text: text || '', ts: now, status: 'pending' } as any;
     arr.push(entry);
     await fs.writeFile(RECEIPTS_INDEX, JSON.stringify(arr, null, 2), { encoding: 'utf8' });
+
+    // Also save to database via API
+    try {
+      const phone = chatId.replace(/[^0-9]/g, '');
+      await apiClient.storeReceiptFromBot({
+        client_phone: phone,
+        file_path: filepath,
+        file_name: filename,
+        mime_type: mime,
+        received_at: new Date(now).toISOString(),
+        metadata: {
+          bot_receipt_id: id,
+          chat_id: chatId,
+          status: 'pending',
+          text: text || '',
+          saved_from_bot: true,
+        },
+      });
+      logger.info({ id, chatId, filename }, 'Comprobante guardado en DB via API');
+    } catch (err: any) {
+      logger.warn({ err, id, chatId }, 'Error guardando comprobante en DB, solo guardado en JSON');
+    }
+
     return { id, filepath, entry };
   }
 
@@ -2108,14 +2131,29 @@ async function main(): Promise<void> {
       const raw = await fs.readFile(RECEIPTS_INDEX, { encoding: 'utf8' });
       const arr = JSON.parse(raw || '[]');
       let changed = false;
+      let entry: any = null;
       for (const it of arr) {
         if (it && it.id === id) {
           Object.assign(it, patch);
           changed = true;
+          entry = it;
           break;
         }
       }
-      if (changed) await fs.writeFile(RECEIPTS_INDEX, JSON.stringify(arr, null, 2), { encoding: 'utf8' });
+      if (changed) {
+        await fs.writeFile(RECEIPTS_INDEX, JSON.stringify(arr, null, 2), { encoding: 'utf8' });
+        
+        // Also update in database if it has backend_id or backend_payment_id
+        const backendId = entry?.backend_id || entry?.backend_payment_id;
+        if (backendId) {
+          try {
+            // For now, we'll just log this. Future enhancement: create update endpoint
+            logger.debug({ id, backendId, patch }, 'Comprobante actualizado (backend sync pending)');
+          } catch (err: any) {
+            logger.debug({ err, id }, 'Error sincronizando actualización con DB');
+          }
+        }
+      }
       return changed;
     } catch (e) {
       logger.warn({ e, id, patch }, 'No se pudo actualizar índice de comprobantes');

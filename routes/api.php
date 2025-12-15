@@ -17,6 +17,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::post('payments/{payment}/status', [PaymentController::class, 'updateStatus']);
     Route::post('payments/{payment}/receipts', [PaymentController::class, 'attachReceipt']);
+    Route::post('payments/receipts/bot', [PaymentController::class, 'storeReceiptFromBot']);
 
     Route::apiResource('clients', ClientController::class)->names('api.clients');
     Route::apiResource('contracts', ContractController::class)->names('api.contracts');

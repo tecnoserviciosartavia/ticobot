@@ -269,4 +269,100 @@ class PaymentController extends Controller
 
         return response()->json($receipt, 201);
     }
+
+    /**
+     * Store receipt from bot (base64 encoded image or existing file path)
+     */
+    public function storeReceiptFromBot(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'payment_id' => ['nullable', 'exists:payments,id'],
+            'client_phone' => ['required_without:payment_id', 'string'],
+            'file_base64' => ['required_without:file_path', 'string'],
+            'file_path' => ['required_without:file_base64', 'string'],
+            'file_name' => ['required', 'string'],
+            'mime_type' => ['required', 'string'],
+            'received_at' => ['nullable', 'date'],
+            'metadata' => ['nullable', 'array'],
+        ]);
+
+        // Si no tiene payment_id, buscar por teléfono del cliente
+        $paymentId = $data['payment_id'] ?? null;
+        
+        if (!$paymentId && isset($data['client_phone'])) {
+            // Buscar cliente por teléfono
+            $phone = preg_replace('/[^0-9]/', '', $data['client_phone']);
+            $client = \App\Models\Client::where('phone', 'like', '%' . substr($phone, -8))->first();
+            
+            if ($client) {
+                // Buscar el pago más reciente del cliente que esté sin conciliar
+                $payment = \App\Models\Payment::where('client_id', $client->id)
+                    ->whereIn('status', ['unverified', 'in_review'])
+                    ->orderByDesc('created_at')
+                    ->first();
+                    
+                if ($payment) {
+                    $paymentId = $payment->id;
+                }
+            }
+        }
+
+        // Procesar el archivo
+        $filePath = null;
+        $fileSize = 0;
+
+        if (isset($data['file_base64'])) {
+            // Decodificar base64 y guardar
+            $fileData = base64_decode($data['file_base64']);
+            $extension = match($data['mime_type']) {
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/gif' => 'gif',
+                'application/pdf' => 'pdf',
+                default => 'dat',
+            };
+            
+            $fileName = 'bot-receipt-' . time() . '-' . uniqid() . '.' . $extension;
+            $filePath = 'payment-receipts/' . $fileName;
+            
+            \Storage::disk('local')->put($filePath, $fileData);
+            $fileSize = strlen($fileData);
+        } elseif (isset($data['file_path']) && file_exists($data['file_path'])) {
+            // Copiar archivo existente
+            $fileSize = filesize($data['file_path']);
+            $extension = pathinfo($data['file_path'], PATHINFO_EXTENSION);
+            $fileName = 'bot-receipt-' . time() . '-' . uniqid() . '.' . $extension;
+            $filePath = 'payment-receipts/' . $fileName;
+            
+            $fileContent = file_get_contents($data['file_path']);
+            \Storage::disk('local')->put($filePath, $fileContent);
+        }
+
+        $receiptData = [
+            'file_path' => $filePath,
+            'file_name' => $data['file_name'],
+            'file_size' => $fileSize,
+            'mime_type' => $data['mime_type'],
+            'received_at' => $data['received_at'] ?? now(),
+            'metadata' => array_merge($data['metadata'] ?? [], [
+                'source' => 'bot',
+                'stored_at' => now()->toIso8601String(),
+            ]),
+        ];
+
+        if ($paymentId) {
+            $payment = Payment::findOrFail($paymentId);
+            $receipt = $payment->receipts()->create($receiptData);
+        } else {
+            // Crear sin payment_id (para revisar después)
+            $receiptData['payment_id'] = null;
+            $receipt = \App\Models\PaymentReceipt::create($receiptData);
+        }
+
+        return response()->json([
+            'success' => true,
+            'receipt' => $receipt,
+            'payment_id' => $paymentId,
+        ], 201);
+    }
 }
