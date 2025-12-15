@@ -424,4 +424,55 @@ class ClientController extends Controller
         }
         return $out;
     }
+
+    /**
+     * Remove the specified client from storage.
+     * This will delete ALL associated data including contracts, payments, reminders, etc.
+     */
+    public function destroy(Client $client): RedirectResponse
+    {
+        try {
+            DB::beginTransaction();
+
+            $clientName = $client->name;
+
+            // Get all payments to delete their receipts and conciliations
+            $payments = $client->payments()->get();
+            foreach ($payments as $payment) {
+                // Delete payment receipts
+                $payment->receipts()->delete();
+                
+                // Delete conciliations associated with this payment
+                $payment->conciliation()->delete();
+            }
+
+            // Delete all payments
+            $client->payments()->delete();
+
+            // Get all contracts to delete their reminders
+            $contracts = $client->contracts()->get();
+            foreach ($contracts as $contract) {
+                // Delete reminders associated with this contract
+                $contract->reminders()->delete();
+            }
+
+            // Delete all contracts
+            $client->contracts()->delete();
+
+            // Delete any remaining reminders directly associated with the client
+            $client->reminders()->delete();
+
+            // Finally, delete the client
+            $client->delete();
+
+            DB::commit();
+
+            return redirect()
+                ->route('clients.index')
+                ->with('success', "Cliente '{$clientName}' y todos sus datos asociados han sido eliminados correctamente.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Error al eliminar el cliente: ' . $e->getMessage());
+        }
+    }
 }

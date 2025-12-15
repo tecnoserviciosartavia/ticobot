@@ -14,8 +14,13 @@ class AccountingController extends Controller
 {
     public function index(): Response
     {
-        // Agrupar montos por estado y moneda
+        // Fechas del mes actual
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $endOfMonth = Carbon::now()->endOfMonth();
+
+        // Agrupar montos por estado y moneda - SOLO MES ACTUAL
         $byStatusCurrency = Payment::query()
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->selectRaw('status, COALESCE(currency, "CRC") as currency, SUM(amount) as total_amount, COUNT(*) as total_count')
             ->groupBy('status', 'currency')
             ->get()
@@ -26,18 +31,24 @@ class AccountingController extends Controller
                 'total_count' => (int) $row->total_count,
             ]));
 
-        // Totales generales por estado
+        // Totales generales por estado - SOLO MES ACTUAL
         $statuses = ['verified', 'unverified', 'in_review', 'rejected'];
         $totals = [];
         foreach ($statuses as $st) {
             $totals[$st] = [
-                'amount' => (float) Payment::where('status', $st)->sum('amount'),
-                'count' => (int) Payment::where('status', $st)->count(),
+                'amount' => (float) Payment::where('status', $st)
+                    ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+                    ->sum('amount'),
+                'count' => (int) Payment::where('status', $st)
+                    ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+                    ->count(),
             ];
         }
 
-        // Total meses pagados (metadata['months']) para pagos conciliados (verified)
-        $verifiedPayments = Payment::where('status', 'verified')->get(['metadata']);
+        // Total meses pagados (metadata['months']) para pagos conciliados (verified) - SOLO MES ACTUAL
+        $verifiedPayments = Payment::where('status', 'verified')
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->get(['metadata']);
         $totalMonths = 0;
         foreach ($verifiedPayments as $p) {
             if (is_array($p->metadata) && isset($p->metadata['months'])) {
@@ -55,7 +66,7 @@ class AccountingController extends Controller
             ];
         })->reverse()->values();
 
-        // Porcentaje conciliado = monto verificado / (verificado + pendiente)
+        // Porcentaje conciliado = monto verificado / (verificado + pendiente) - SOLO MES ACTUAL
         $verifiedTotal = $totals['verified']['amount'];
         $pendingTotal = $totals['unverified']['amount'] + $totals['in_review']['amount'];
         $conciliationRate = ($verifiedTotal + $pendingTotal) > 0

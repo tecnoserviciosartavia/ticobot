@@ -233,6 +233,35 @@ class ApiClient {
     return res.data;
   }
 
+  async deleteContractsByPhone(phone: string) {
+    // Delete all contracts for a given phone
+    const client = await this.findCustomerByPhone(phone);
+    if (!client) throw new Error('Cliente no encontrado');
+    const contracts = await this.listContracts({ client_id: client.id });
+    for (const c of contracts) {
+      await this.http.delete(`contracts/${c.id}`);
+    }
+    return { deleted: contracts.length };
+  }
+
+  async listPayments(params?: any) {
+    const res = await this.http.get('payments', { params: params || {} });
+    const body: any = res.data;
+    if (Array.isArray(body)) return body;
+    if (body && Array.isArray(body.data)) return body.data;
+    return [] as any[];
+  }
+
+  async getPayment(id: number | string) {
+    const res = await this.http.get(`payments/${id}`);
+    return res.data;
+  }
+
+  async createConciliation(payload: any) {
+    const res = await this.http.post('conciliations', payload);
+    return res.data;
+  }
+
   async fetchSentRemindersWithoutPayment(startDate: string, endDate: string): Promise<ReminderRecord[]> {
     const response = await this.http.get<ReminderRecord[]>('reminders/sent-without-payment', {
       params: {

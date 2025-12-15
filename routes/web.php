@@ -27,10 +27,12 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     // Contracts import (CSV/XLSX) - define BEFORE the resource to avoid matching `contracts/{contract}`
     Route::get('contracts/import', [WebContractController::class, 'importForm'])->name('contracts.import');
     Route::post('contracts/import', [WebContractController::class, 'import'])->name('contracts.import.store');
-    Route::resource('clients', WebClientController::class)->except(['destroy']);
+    Route::resource('clients', WebClientController::class);
     Route::resource('contracts', WebContractController::class)->except(['destroy']);
     Route::resource('reminders', WebReminderController::class)->except(['destroy']);
     Route::get('/payments', [WebPaymentController::class, 'index'])->name('payments.index');
+    Route::get('/payments/create', [WebPaymentController::class, 'create'])->name('payments.create');
+    Route::post('/payments', [WebPaymentController::class, 'store'])->name('payments.store');
     Route::get('/payments/client-contracts', [WebPaymentController::class, 'getClientContracts'])->name('payments.client-contracts');
     Route::delete('/payments/{payment}', [WebPaymentController::class, 'destroy'])->name('payments.destroy');
     Route::get('/conciliations', [WebConciliationController::class, 'index'])->name('conciliations.index');

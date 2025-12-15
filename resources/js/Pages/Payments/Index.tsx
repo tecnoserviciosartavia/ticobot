@@ -135,12 +135,23 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
         <AuthenticatedLayout
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
-                        Pagos
-                    </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Controla los pagos recibidos, su verificación y los comprobantes asociados.
-                    </p>
+                    <div className="flex-1">
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
+                            Pagos
+                        </h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Controla los pagos recibidos, su verificación y los comprobantes asociados.
+                        </p>
+                    </div>
+                    <a
+                        href={route('payments.create')}
+                        className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                    >
+                        <svg className="-ml-0.5 mr-1.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Crear Pago Manual
+                    </a>
                 </div>
             }
         >

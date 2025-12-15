@@ -34,7 +34,7 @@ export class WhatsAppClient {
       qrcode.generate(qr, { small: true });
 
   void QRCode.toDataURL(qr)
-        .then(async (dataUrl) => {
+        .then(async (dataUrl: string) => {
           try {
             await apiClient.reportWhatsappQr(dataUrl);
           } catch (error) {

@@ -576,6 +576,333 @@ async function main(): Promise<void> {
           }
         }
 
+        // view_details (from menu)
+        if (flow.type === 'view_details') {
+          if (flow.step === 1) {
+            let ph = body === 'yo' ? fromNorm : normalizeCR(body);
+            if (!ph || !/^\d{8,15}$/.test(ph)) { await message.reply('Ingresa un teléfono válido (8 dígitos CR o con código de país).'); return; }
+            if (ph.length === 8) ph = (config.defaultCountryCode || '506') + ph;
+            try {
+              // Find client first
+              const client = await apiClient.findCustomerByPhone(ph);
+              if (!client) {
+                await message.reply(`❌ No encontré un cliente con ese teléfono.\n\nEscribe *adminmenu* para volver`);
+                adminFlows.delete(chatId);
+                return;
+              }
+              
+              // Get contracts instead of subscriptions
+              const contracts = await apiClient.listContracts({ client_id: client.id });
+              const lines: string[] = [];
+              lines.push(`📇 *Detalles de ${client.name || ph}*`);
+              lines.push(`📱 ${client.phone}`);
+              lines.push('');
+              
+              if (contracts && contracts.length) {
+                lines.push(`💼 *Contratos*: ${contracts.length}`);
+                contracts.slice(0, 5).forEach((c: any) => {
+                  lines.push(`  • ${c.name || 'Sin nombre'}`);
+                  lines.push(`    ₡${Number(c.amount || 0).toLocaleString('es-CR')} ${c.currency || 'CRC'}`);
+                  lines.push(`    Ciclo: ${c.billing_cycle || 'N/A'}`);
+                  if (c.next_due_date) lines.push(`    Próximo: ${c.next_due_date.split('T')[0]}`);
+                });
+                if (contracts.length > 5) lines.push(`  ...y ${contracts.length - 5} más`);
+              } else {
+                lines.push('💼 Sin contratos activos');
+              }
+              
+              lines.push('');
+              lines.push('Escribe *adminmenu* para volver al menú admin');
+              await message.reply(lines.join('\n'));
+            } catch (e: any) {
+              logger.error({ e, phone: ph }, 'Error consultando detalles de cliente');
+              await message.reply(`❌ Error consultando detalles: ${String(e && e.message ? e.message : e)}\n\nEscribe *adminmenu* para volver`);
+            }
+            adminFlows.delete(chatId);
+            return;
+          }
+        }
+
+        // generate_receipt (from menu)
+        if (flow.type === 'generate_receipt') {
+          if (flow.step === 1) {
+            let ph = normalizeCR(body);
+            if (!ph || !/^\d{8,15}$/.test(ph)) { await message.reply('❌ Teléfono inválido. Usa 8 dígitos.'); return; }
+            if (ph.length === 8) ph = (config.defaultCountryCode || '506') + ph;
+            try {
+              await message.reply('⏳ Generando comprobante...');
+              const res = await apiClient.createReceiptForClient({ phone: ph });
+              if (res && res.receipt_id) {
+                await apiClient.sendReceipt(res.receipt_id);
+                await message.reply(`✅ Comprobante generado y enviado a ${ph}\nID: ${res.receipt_id}\n\nEscribe *adminmenu* para volver`);
+              } else {
+                await message.reply('Error generando comprobante (respuesta inesperada del backend).');
+              }
+            } catch (e: any) {
+              await message.reply(`❌ Error: ${String(e && e.message ? e.message : e)}`);
+            }
+            adminFlows.delete(chatId);
+            return;
+          }
+        }
+
+        // send_receipt (from menu)
+        if (flow.type === 'send_receipt') {
+          if (flow.step === 1) {
+            const receiptId = parseInt(body);
+            if (isNaN(receiptId)) { await message.reply('❌ ID inválido. Ingresa solo números.'); return; }
+            try {
+              await apiClient.sendReceipt(receiptId);
+              await message.reply(`✅ Comprobante ${receiptId} enviado (o solicitado envío).\n\nEscribe *adminmenu* para volver`);
+            } catch (e: any) {
+              await message.reply(`❌ Error: ${String(e && e.message ? e.message : e)}`);
+            }
+            adminFlows.delete(chatId);
+            return;
+          }
+        }
+
+        // list_transactions (from menu)
+        if (flow.type === 'list_transactions') {
+          if (flow.step === 1) {
+            let filterPhone: string | undefined;
+            const txt = body.trim();
+            if (txt && txt.length > 0) {
+              filterPhone = normalizeCR(txt);
+              if (filterPhone.length === 8) filterPhone = (config.defaultCountryCode || '506') + filterPhone;
+            }
+            try {
+              const transactions = await apiClient.listTransactions(filterPhone, 20);
+              if (!transactions || transactions.length === 0) {
+                await message.reply(filterPhone ? `📭 No hay transacciones para ${filterPhone}` : '📭 No hay transacciones registradas');
+                adminFlows.delete(chatId);
+                return;
+              }
+              const lines: string[] = [];
+              lines.push(filterPhone ? `💰 *Transacciones de ${filterPhone}* (${transactions.length})` : `💰 *Últimas transacciones* (${transactions.length})`, '');
+              for (const [idx, t] of transactions.entries()) {
+                lines.push(`*${idx + 1}.* ID: ${t.id}`);
+                lines.push(`   📅 ${t.created_at || t.txn_date}`);
+                lines.push(`   💵 ₡${Number(t.amount || 0).toLocaleString('es-CR')}`);
+                lines.push(`   📱 ${t.phone || 'N/A'}`);
+                lines.push(`   👤 ${t.client_name || '❓ Sin match'}`);
+                if (t.motivo) lines.push(`   📝 ${t.motivo}`);
+                if (t.ref) lines.push(`   🔖 Ref: ${String(t.ref).substring(0, 15)}...`);
+                lines.push('');
+              }
+              lines.push('Escribe *adminmenu* para volver al menú admin');
+              await message.reply(lines.join('\n'));
+            } catch (e: any) {
+              await message.reply(`❌ Error: ${String(e && e.message ? e.message : e)}`);
+            }
+            adminFlows.delete(chatId);
+            return;
+          }
+        }
+
+        // delete_transaction_input (from menu - collect ID first)
+        if (flow.type === 'delete_transaction_input') {
+          if (flow.step === 1) {
+            const txnId = parseInt(body);
+            if (isNaN(txnId)) { await message.reply('❌ ID inválido. Ingresa solo números.'); return; }
+            flow.data.txnId = txnId;
+            flow.type = 'delete_transaction';
+            flow.step = 1;
+            await message.reply(`⚠️ ¿Eliminar transacción?\n\nID: ${txnId}\n\nResponde CONFIRMAR para continuar`);
+            return;
+          }
+        }
+
+        // create_payment (registrar pago manual)
+        if (flow.type === 'create_payment') {
+          if (flow.step === 1) {
+            let ph = normalizeCR(body);
+            if (!ph || !/^\d{8,15}$/.test(ph)) { await message.reply('❌ Teléfono inválido. Usa 8 dígitos.'); return; }
+            if (ph.length === 8) ph = (config.defaultCountryCode || '506') + ph;
+            const client = await apiClient.findCustomerByPhone(ph);
+            if (!client) {
+              await message.reply(`❌ No encontré un cliente con ese teléfono.\n\nEscribe *adminmenu* para volver`);
+              adminFlows.delete(chatId);
+              return;
+            }
+            flow.data.client = client;
+            flow.step = 2;
+            await message.reply(`Cliente: *${client.name}*\n\nIngresa el monto del pago (solo números, ej: 7000):`);
+            return;
+          }
+          if (flow.step === 2) {
+            const amount = parseAmountCRC(body);
+            if (!amount || amount <= 0) { await message.reply('❌ Monto inválido. Escribe solo números.'); return; }
+            flow.data.amount = amount;
+            flow.step = 3;
+            await message.reply('Moneda (CRC o USD):');
+            return;
+          }
+          if (flow.step === 3) {
+            const currency = body.trim().toUpperCase();
+            if (!['CRC', 'USD'].includes(currency)) { await message.reply('❌ Moneda inválida. Escribe CRC o USD.'); return; }
+            flow.data.currency = currency;
+            flow.step = 4;
+            await message.reply('Canal de pago (ej: sinpe, transferencia, efectivo):');
+            return;
+          }
+          if (flow.step === 4) {
+            flow.data.channel = body.trim() || 'manual';
+            flow.step = 5;
+            await message.reply('Referencia (opcional, Enter para omitir):');
+            return;
+          }
+          if (flow.step === 5) {
+            flow.data.reference = body.trim() || null;
+            flow.step = 6;
+            const d = flow.data;
+            const resumen = [
+              '📝 *Resumen del Pago*',
+              '',
+              `👤 Cliente: ${d.client.name}`,
+              `📱 Teléfono: ${d.client.phone}`,
+              `💵 Monto: ₡${Number(d.amount).toLocaleString('es-CR')} ${d.currency}`,
+              `📊 Canal: ${d.channel}`,
+              `🔖 Referencia: ${d.reference || 'Sin referencia'}`,
+              '',
+              'Confirma con "si" o "no"'
+            ].join('\n');
+            await message.reply(resumen);
+            return;
+          }
+          if (flow.step === 6) {
+            const ans = body.trim().toLowerCase();
+            if (!['si', 'sí', 's', 'y', 'yes'].includes(ans)) {
+              if (['no', 'n', 'cancelar'].includes(ans)) {
+                adminFlows.delete(chatId);
+                await message.reply('❌ Registro de pago cancelado.\n\nEscribe *adminmenu* para volver');
+                return;
+              }
+              await message.reply('Responde "si" para confirmar o "no" para cancelar.');
+              return;
+            }
+            try {
+              const d = flow.data;
+              const paymentPayload = {
+                client_id: d.client.id,
+                amount: d.amount,
+                currency: d.currency,
+                channel: d.channel,
+                status: 'unverified',
+                reference: d.reference,
+                metadata: { registered_by: 'admin_via_bot', admin_phone: fromNorm }
+              };
+              const payment = await apiClient.createPayment(paymentPayload);
+              await message.reply(`✅ Pago registrado correctamente.\n\nID: ${payment.id}\nEstado: ${payment.status}\n\nEscribe *adminmenu* para volver`);
+            } catch (e: any) {
+              logger.error({ e, data: flow.data }, 'Error creando pago manual');
+              await message.reply(`❌ Error registrando pago: ${String(e && e.message ? e.message : e)}`);
+            }
+            adminFlows.delete(chatId);
+            return;
+          }
+        }
+
+        // conciliate_payment
+        if (flow.type === 'conciliate_payment') {
+          if (flow.step === 1) {
+            const paymentId = parseInt(body);
+            if (isNaN(paymentId)) { await message.reply('❌ ID inválido. Ingresa solo números.'); return; }
+            try {
+              const payment = await apiClient.getPayment(paymentId);
+              if (!payment) {
+                await message.reply(`❌ No encontré el pago con ID ${paymentId}.\n\nEscribe *adminmenu* para volver`);
+                adminFlows.delete(chatId);
+                return;
+              }
+              flow.data.payment = payment;
+              flow.step = 2;
+              const lines = [
+                '💰 *Pago a Conciliar*',
+                '',
+                `ID: ${payment.id}`,
+                `Cliente: ${payment.client?.name || payment.client_id}`,
+                `Monto: ₡${Number(payment.amount || 0).toLocaleString('es-CR')} ${payment.currency || 'CRC'}`,
+                `Estado actual: ${payment.status}`,
+                `Referencia: ${payment.reference || 'Sin referencia'}`,
+                '',
+                'Estado nuevo (verified, rejected, o Enter para verified):'
+              ].join('\n');
+              await message.reply(lines);
+              return;
+            } catch (e: any) {
+              await message.reply(`❌ Error obteniendo pago: ${String(e && e.message ? e.message : e)}`);
+              adminFlows.delete(chatId);
+              return;
+            }
+          }
+          if (flow.step === 2) {
+            const newStatus = body.trim() || 'verified';
+            if (!['verified', 'rejected', 'pending', 'unverified'].includes(newStatus)) {
+              await message.reply('❌ Estado inválido. Usa: verified, rejected, pending o unverified');
+              return;
+            }
+            flow.data.newStatus = newStatus;
+            flow.step = 3;
+            await message.reply('Notas de conciliación (opcional, Enter para omitir):');
+            return;
+          }
+          if (flow.step === 3) {
+            const notes = body.trim() || null;
+            try {
+              const d = flow.data;
+              // Update payment status
+              await apiClient.updatePayment(d.payment.id, { status: d.newStatus });
+              
+              // Create conciliation record
+              const conciliationPayload = {
+                payment_id: d.payment.id,
+                status: d.newStatus,
+                notes: notes,
+                conciliated_by: fromNorm,
+                conciliated_at: new Date().toISOString()
+              };
+              await apiClient.createConciliation(conciliationPayload);
+              
+              await message.reply(`✅ Pago conciliado correctamente.\n\nID: ${d.payment.id}\nNuevo estado: ${d.newStatus}\n\nEscribe *adminmenu* para volver`);
+            } catch (e: any) {
+              logger.error({ e, paymentId: flow.data.payment?.id }, 'Error conciliando pago');
+              await message.reply(`❌ Error conciliando pago: ${String(e && e.message ? e.message : e)}`);
+            }
+            adminFlows.delete(chatId);
+            return;
+          }
+        }
+
+        // delete_contracts_by_phone
+        if (flow.type === 'delete_contracts_by_phone') {
+          if (flow.step === 1) {
+            let ph = normalizeCR(body);
+            if (!ph || !/^\d{8,15}$/.test(ph)) { await message.reply('❌ Teléfono inválido.'); return; }
+            if (ph.length === 8) ph = (config.defaultCountryCode || '506') + ph;
+            flow.data.phone = ph;
+            flow.step = 2;
+            await message.reply(`⚠️ Vas a ELIMINAR los contratos de ${ph} y los pagos FUTUROS asociados.\n\nEscribe CONFIRMAR para continuar o CANCELAR para abortar.`);
+            return;
+          }
+          if (flow.step === 2) {
+            const ans = body.trim().toLowerCase();
+            if (ans !== 'confirmar') {
+              adminFlows.delete(chatId);
+              await message.reply('❌ Operación cancelada.');
+              return;
+            }
+            try {
+              const result = await apiClient.deleteContractsByPhone(flow.data.phone);
+              await message.reply(`✅ ${result.deleted} contrato(s) eliminado(s) correctamente.`);
+            } catch (e: any) {
+              await message.reply(`❌ Error: ${String(e && e.message ? e.message : e)}`);
+            }
+            adminFlows.delete(chatId);
+            return;
+          }
+        }
+
       } catch (e: any) {
         adminFlows.delete(chatId);
         await message.reply(`Error en asistente: ${String(e && e.message ? e.message : e)}`);
@@ -837,6 +1164,284 @@ async function main(): Promise<void> {
       }
     }
 
+    // Admin menu system: if admin types 'adminmenu' or 'admin', show interactive admin menu
+    if (isAdminUser && (lc === 'adminmenu' || lc === 'admin' || lc === 'menuadmin')) {
+      const adminMenuText = [
+        '🔧 *MENÚ ADMIN* 🔧',
+        '',
+        'Envía el número de la opción deseada:',
+        '',
+        '1️⃣ Crear cliente + contrato',
+        '2️⃣ Ver detalles de cliente',
+        '3️⃣ Ver mis detalles',
+        '4️⃣ Listar comprobantes del día',
+        '5️⃣ Generar comprobante para cliente',
+        '6️⃣ Enviar comprobante por ID',
+        '7️⃣ Listar transacciones',
+        '8️⃣ Ejecutar scheduler',
+        '',
+        '💰 *PAGOS Y CONCILIACIÓN*',
+        '9️⃣ Registrar pago manual',
+        '🔟 Conciliar pago',
+        '1️⃣1️⃣ Listar pagos pendientes',
+        '',
+        '🗑️ *ELIMINACIÓN*',
+        '1️⃣2️⃣ Eliminar cliente',
+        '1️⃣3️⃣ Eliminar contrato',
+        '1️⃣4️⃣ Eliminar transacción',
+        '',
+        '1️⃣5️⃣ Estado del bot',
+        '',
+        '📋 Escribe *help para ver comandos de texto',
+        '❌ Escribe salir para cancelar',
+      ].join('\n');
+      await message.reply(adminMenuText);
+      menuShown.set(chatId, true);
+      // Store a special marker so we know this is an admin menu session
+      lastMenuItems.set(chatId, [{ type: 'admin_menu' }]);
+      return;
+    }
+
+    // If admin menu is active, process numeric selections
+    if (isAdminUser && menuShown.get(chatId) && lastMenuItems.get(chatId)?.[0]?.type === 'admin_menu') {
+      const selection = body.trim();
+      
+      if (selection === '1') {
+        // Crear cliente + suscripción
+        adminFlows.set(chatId, { type: 'create_subscription', step: 1, data: {} });
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('Asistente: Crear cliente + suscripción.\nTeléfono del cliente (8 dígitos o con código de país). Escribe "yo" para usar tu número.');
+        return;
+      }
+      
+      if (selection === '2') {
+        // Ver detalles de cliente
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('Ingresa el teléfono del cliente (8 dígitos) o escribe "yo" para ver tus detalles:');
+        adminFlows.set(chatId, { type: 'view_details', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '3') {
+        // Ver mis detalles (ejecutar inmediatamente)
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        try {
+          const phone = fromUser;
+          const client = await apiClient.findCustomerByPhone(phone);
+          
+          if (!client) {
+            await message.reply(`📇 *Tus Detalles*\n\n❌ No estás registrado como cliente.\n\nEscribe *adminmenu* para volver`);
+            return;
+          }
+          
+          const contracts = await apiClient.listContracts({ client_id: client.id });
+          const lines: string[] = [];
+          lines.push(`📇 *Tus Detalles*`);
+          lines.push(`👤 ${client.name || phone}`);
+          lines.push(`📱 ${client.phone}`);
+          lines.push('');
+          
+          if (contracts && contracts.length) {
+            lines.push(`💼 *Contratos*: ${contracts.length}`);
+            contracts.slice(0, 3).forEach((c: any) => {
+              lines.push(`  • ${c.name || 'Sin nombre'}`);
+              lines.push(`    ₡${Number(c.amount || 0).toLocaleString('es-CR')} ${c.currency || 'CRC'}`);
+              lines.push(`    Ciclo: ${c.billing_cycle || 'N/A'}`);
+              if (c.next_due_date) lines.push(`    Próximo: ${c.next_due_date.split('T')[0]}`);
+            });
+            if (contracts.length > 3) lines.push(`  ...y ${contracts.length - 3} más`);
+          } else {
+            lines.push('💼 Sin contratos activos');
+          }
+          
+          lines.push('');
+          lines.push('Escribe *adminmenu* para volver al menú admin');
+          await message.reply(lines.join('\n'));
+        } catch (e: any) {
+          logger.error({ e, phone: fromUser }, 'Error consultando mis detalles');
+          await message.reply(`❌ Error consultando detalles: ${String(e && e.message ? e.message : e)}`);
+        }
+        return;
+      }
+      
+      if (selection === '4') {
+        // Listar comprobantes del día
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const receipts = await apiClient.listReceiptsByDate(today);
+          if (!receipts || receipts.length === 0) {
+            await message.reply('📄 No hay comprobantes generados hoy.\n\nEscribe *adminmenu* para volver');
+            return;
+          }
+          const lines: string[] = [];
+          lines.push(`📄 *Comprobantes de hoy* (${receipts.length})`, '');
+          receipts.forEach((r: any, idx: number) => {
+            const status = r.sent_at ? '✅ Enviado' : '📤 Pendiente';
+            const time = new Date(r.created_at).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
+            lines.push(`*${idx + 1}.* ID: ${r.id} | ${status}`);
+            lines.push(`   Cliente: ${r.customer_name || r.customer_phone}`);
+            lines.push(`   Hora: ${time}`);
+            lines.push('');
+          });
+          lines.push('Escribe *adminmenu* para volver al menú admin');
+          await message.reply(lines.join('\n'));
+        } catch (e: any) {
+          await message.reply(`❌ Error: ${String(e && e.message ? e.message : e)}`);
+        }
+        return;
+      }
+      
+      if (selection === '5') {
+        // Generar comprobante para cliente
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('Ingresa el teléfono del cliente para generar el comprobante (8 dígitos):');
+        adminFlows.set(chatId, { type: 'generate_receipt', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '6') {
+        // Enviar comprobante por ID
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('Ingresa el ID del comprobante a enviar:');
+        adminFlows.set(chatId, { type: 'send_receipt', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '7') {
+        // Listar transacciones
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('Ingresa el teléfono del cliente para filtrar transacciones, o presiona Enter para ver todas (últimas 20):');
+        adminFlows.set(chatId, { type: 'list_transactions', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '8') {
+        // Ejecutar scheduler
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        try {
+          await processor.runBatch();
+          await message.reply('✅ Scheduler ejecutado (runBatch).\n\nEscribe *adminmenu* para volver');
+        } catch (e) {
+          await message.reply('❌ Error ejecutando scheduler: ' + String(e));
+        }
+        return;
+      }
+      
+      if (selection === '9') {
+        // Registrar pago manual
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('📝 *Registrar Pago Manual*\n\nIngresa el teléfono del cliente (8 dígitos):');
+        adminFlows.set(chatId, { type: 'create_payment', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '10') {
+        // Conciliar pago
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('🔄 *Conciliar Pago*\n\nIngresa el ID del pago a conciliar:');
+        adminFlows.set(chatId, { type: 'conciliate_payment', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '11') {
+        // Listar pagos pendientes
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        try {
+          const payments = await apiClient.listPayments({ status: ['pending', 'unverified'], per_page: 20 });
+          if (!payments || payments.length === 0) {
+            await message.reply('📭 No hay pagos pendientes.\n\nEscribe *adminmenu* para volver');
+            return;
+          }
+          const lines: string[] = [];
+          lines.push(`💰 *Pagos Pendientes* (${payments.length})`, '');
+          for (const [idx, p] of payments.entries()) {
+            lines.push(`*${idx + 1}.* ID: ${p.id}`);
+            lines.push(`   💵 ₡${Number(p.amount || 0).toLocaleString('es-CR')} ${p.currency || 'CRC'}`);
+            lines.push(`   👤 ${p.client?.name || p.client_id || 'Sin cliente'}`);
+            lines.push(`   📋 Estado: ${p.status}`);
+            if (p.reference) lines.push(`   🔖 Ref: ${p.reference}`);
+            lines.push('');
+          }
+          lines.push('Escribe *adminmenu* para volver');
+          await message.reply(lines.join('\n'));
+        } catch (e: any) {
+          await message.reply(`❌ Error: ${String(e && e.message ? e.message : e)}`);
+        }
+        return;
+      }
+      
+      if (selection === '12') {
+        // Eliminar cliente
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('Ingresa el teléfono del cliente a ELIMINAR (8 dígitos o con código de país):');
+        adminFlows.set(chatId, { type: 'delete_customer', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '13') {
+        // Eliminar contrato
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('Ingresa el teléfono del cliente para eliminar sus contratos (8 dígitos):');
+        adminFlows.set(chatId, { type: 'delete_contracts_by_phone', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '14') {
+        // Eliminar transacción
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('Ingresa el ID de la transacción a eliminar:');
+        adminFlows.set(chatId, { type: 'delete_transaction_input', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '15') {
+        // Estado del bot
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        try {
+          const uptime = process.uptime();
+          const hours = Math.floor(uptime / 3600);
+          const minutes = Math.floor((uptime % 3600) / 60);
+          const statusText = [
+            '🤖 *Estado del Bot*',
+            '',
+            `⏱️ Uptime: ${hours}h ${minutes}m`,
+            `📊 Memoria: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+            `🌐 Node: ${process.version}`,
+            `⚙️ Timezone: ${TIMEZONE}`,
+            `🕐 Horario: ${formatBusinessHours()}`,
+            '',
+            'Escribe *adminmenu* para volver'
+          ].join('\n');
+          await message.reply(statusText);
+        } catch (e: any) {
+          await message.reply(`Error obteniendo estado: ${String(e && e.message ? e.message : e)}`);
+        }
+        return;
+      }
+      
+      // Opción no reconocida en menú admin
+      await message.reply('Opción no reconocida. Escribe *adminmenu* para ver el menú o *help para ver comandos de texto.');
+      menuShown.delete(chatId);
+      lastMenuItems.delete(chatId);
+      return;
+    }
+
     // Procesar comandos admin simples (prefijo '*')
     if (isAdminUser && lc.startsWith('*')) {
       const cmd = lc.slice(1).trim();
@@ -844,12 +1449,14 @@ async function main(): Promise<void> {
         const helpText = [
           '🔧 *Comandos admin disponibles:*',
           '',
+          '*adminmenu* — menú interactivo admin',
           '*ping* — healthcheck',
           '*status* — estado del bot',
           '*cancelar* — cancelar asistente admin',
           '*runscheduler* — ejecutar procesamiento de recordatorios (batch)',
           '*nuevo* — crear cliente + suscripción (asistente)',
           '*detalles <telefono>* — ver cliente y sus suscripciones',
+          '*yo* — ver mis propios detalles',
           '*comprobantes* — listar comprobantes del día',
           '*comprobante <telefono>* — generar y enviar comprobante',
           '*enviar <id>* — enviar comprobante por ID',
@@ -915,21 +1522,36 @@ async function main(): Promise<void> {
         // atajo para ver detalles del propio admin
         try {
           const phone = fromUser;
-          const days = 60;
-          const subs = await apiClient.listSubscriptions(phone);
-          const pays = await apiClient.listPaymentsUpcoming(phone, days);
-          const next = (pays || []).find((p: any) => (p.status || '').includes('pendiente'));
+          const client = await apiClient.findCustomerByPhone(phone);
+          
+          if (!client) {
+            await message.reply(`📇 *Tus Detalles*\n\n❌ No estás registrado como cliente.`);
+            return;
+          }
+          
+          const contracts = await apiClient.listContracts({ client_id: client.id });
           const lines: string[] = [];
-          lines.push(`📇 Detalles ${phone}`);
-          if (subs && subs.length) {
-            lines.push(`• Suscripciones: ${subs.length}`);
-            subs.slice(0, 3).forEach((s: any) => lines.push(`  - Día ${s.day_of_month} ${s.due_time} ₡${Number(s.amount).toLocaleString('es-CR')} (${s.active ? 'Activa' : 'Pausada'})`));
-            if (subs.length > 3) lines.push('  ...');
-          } else { lines.push('• Sin suscripciones'); }
-          lines.push(`• Pagos próximos (${days} días): ${pays ? pays.length : 0}`);
-          if (next) lines.push(`• Próximo: ${next.due_date} ${next.due_time} ₡${Number(next.amount).toLocaleString('es-CR')}`);
+          lines.push(`📇 *Detalles de ${client.name || phone}*`);
+          lines.push(`📱 ${client.phone}`);
+          lines.push('');
+          
+          if (contracts && contracts.length) {
+            lines.push(`💼 *Contratos*: ${contracts.length}`);
+            contracts.slice(0, 3).forEach((c: any) => {
+              lines.push(`  • ${c.name || 'Sin nombre'}`);
+              lines.push(`    ₡${Number(c.amount || 0).toLocaleString('es-CR')} ${c.currency || 'CRC'}`);
+              if (c.next_due_date) lines.push(`    Próximo: ${c.next_due_date.split('T')[0]}`);
+            });
+            if (contracts.length > 3) lines.push(`  ...y ${contracts.length - 3} más`);
+          } else {
+            lines.push('💼 Sin contratos activos');
+          }
+          
           await message.reply(lines.join('\n'));
-        } catch (e: any) { await message.reply(`Error consultando detalles: ${String(e && e.message ? e.message : e)}`); }
+        } catch (e: any) { 
+          logger.error({ e, phone: fromUser }, 'Error en comando *yo');
+          await message.reply(`Error consultando detalles: ${String(e && e.message ? e.message : e)}`); 
+        }
         return;
       }
 
@@ -938,21 +1560,36 @@ async function main(): Promise<void> {
           const parts = cmd.split(/\s+/);
           let phone = parts[1] ? parts[1].replace(/[^0-9]/g, '') : '';
           if (!phone) phone = fromUser;
-          const days = 60;
-          const subs = await apiClient.listSubscriptions(phone);
-          const pays = await apiClient.listPaymentsUpcoming(phone, days);
-          const next = (pays || []).find((p: any) => (p.status || '').includes('pendiente'));
+          
+          const client = await apiClient.findCustomerByPhone(phone);
+          if (!client) {
+            await message.reply(`❌ No encontré un cliente con ese teléfono: ${phone}`);
+            return;
+          }
+          
+          const contracts = await apiClient.listContracts({ client_id: client.id });
           const lines: string[] = [];
-          lines.push(`📇 Detalles ${phone}`);
-          if (subs && subs.length) {
-            lines.push(`• Suscripciones: ${subs.length}`);
-            subs.slice(0, 3).forEach((s: any) => lines.push(`  - Día ${s.day_of_month} ${s.due_time} ₡${Number(s.amount).toLocaleString('es-CR')} (${s.active ? 'Activa' : 'Pausada'})`));
-            if (subs.length > 3) lines.push('  ...');
-          } else { lines.push('• Sin suscripciones'); }
-          lines.push(`• Pagos próximos (${days} días): ${pays ? pays.length : 0}`);
-          if (next) lines.push(`• Próximo: ${next.due_date} ${next.due_time} ₡${Number(next.amount).toLocaleString('es-CR')}`);
+          lines.push(`📇 *Detalles de ${client.name || phone}*`);
+          lines.push(`📱 ${client.phone}`);
+          lines.push('');
+          
+          if (contracts && contracts.length) {
+            lines.push(`💼 *Contratos*: ${contracts.length}`);
+            contracts.slice(0, 3).forEach((c: any) => {
+              lines.push(`  • ${c.name || 'Sin nombre'}`);
+              lines.push(`    ₡${Number(c.amount || 0).toLocaleString('es-CR')} ${c.currency || 'CRC'}`);
+              if (c.next_due_date) lines.push(`    Próximo: ${c.next_due_date.split('T')[0]}`);
+            });
+            if (contracts.length > 3) lines.push(`  ...y ${contracts.length - 3} más`);
+          } else {
+            lines.push('💼 Sin contratos activos');
+          }
+          
           await message.reply(lines.join('\n'));
-        } catch (e: any) { await message.reply(`Error consultando detalles: ${String(e && e.message ? e.message : e)}`); }
+        } catch (e: any) { 
+          logger.error({ e, phone: cmd.split(/\s+/)[1] }, 'Error en comando *detalles');
+          await message.reply(`Error consultando detalles: ${String(e && e.message ? e.message : e)}`); 
+        }
         return;
       }
 
@@ -1213,6 +1850,91 @@ async function main(): Promise<void> {
             }
 
             return;
+          }
+
+          // Special case: option 8 - Account statement / Estado de cuenta
+          const isOptionEight = (typeof asNum === 'number' && asNum === 8)
+            || (matched.keyword && String(matched.keyword).trim() === '8')
+            || (matched.key && String(matched.key).trim() === '8');
+
+          if (isOptionEight) {
+            try {
+              // Get client by phone
+              const client = await apiClient.findCustomerByPhone(fromUser);
+              
+              if (!client || !client.id) {
+                await message.reply('❌ No encontramos tu información en nuestro sistema. Por favor contacta con un asesor escribiendo "agente".');
+                return;
+              }
+
+              // Get client's contracts
+              const contracts = await apiClient.listContracts({ client_id: client.id });
+              
+              if (!contracts || contracts.length === 0) {
+                await message.reply('ℹ️ No tienes contratos activos en este momento.\n\nPara más información, escribe "agente" para hablar con un asesor.');
+                return;
+              }
+
+              // Build account statement message
+              const lines: string[] = [];
+              lines.push('📊 *ESTADO DE CUENTA*');
+              lines.push('');
+              lines.push(`👤 Cliente: ${client.name || 'N/A'}`);
+              lines.push(`📱 Teléfono: ${client.phone || fromUser}`);
+              lines.push('');
+              lines.push('📋 *Tus Contratos:*');
+              lines.push('');
+
+              for (const contract of contracts) {
+                const status = contract.status === 'active' ? '✅ Activo' : 
+                              contract.status === 'paused' ? '⏸️ Pausado' : 
+                              contract.status === 'cancelled' ? '❌ Cancelado' : 
+                              '⚪ ' + (contract.status || 'Desconocido');
+                
+                lines.push(`🔹 *Contrato #${contract.id}*`);
+                lines.push(`   Servicio: ${contract.service_description || contract.contract_type?.name || 'N/A'}`);
+                lines.push(`   Estado: ${status}`);
+                lines.push(`   Monto: ${contract.currency || 'CRC'} ${Number(contract.amount || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                
+                if (contract.next_due_date) {
+                  const dueDate = new Date(contract.next_due_date);
+                  const today = new Date();
+                  const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  
+                  if (diffDays < 0) {
+                    lines.push(`   ⚠️ Próximo pago: VENCIDO (${Math.abs(diffDays)} días de retraso)`);
+                  } else if (diffDays === 0) {
+                    lines.push(`   ⚠️ Próximo pago: HOY`);
+                  } else if (diffDays <= 7) {
+                    lines.push(`   ⏰ Próximo pago: En ${diffDays} día${diffDays !== 1 ? 's' : ''}`);
+                  } else {
+                    lines.push(`   📅 Próximo pago: ${dueDate.toLocaleDateString('es-CR')}`);
+                  }
+                }
+                
+                if (contract.notes && contract.notes.trim().length > 0) {
+                  lines.push(`   📝 Nota: ${contract.notes.substring(0, 100)}${contract.notes.length > 100 ? '...' : ''}`);
+                }
+                
+                lines.push('');
+              }
+
+              lines.push('━━━━━━━━━━━━━━━━━');
+              lines.push('');
+              lines.push('💡 *Opciones:*');
+              lines.push('• Escribe *6* para enviar comprobante de pago');
+              lines.push('• Escribe *menu* para volver al menú principal');
+              lines.push('• Escribe *agente* para hablar con un asesor');
+
+              await message.reply(lines.join('\n'));
+              
+              logger.info({ chatId, clientId: client.id, contractsCount: contracts.length }, 'Estado de cuenta enviado');
+              return;
+            } catch (error: any) {
+              logger.error({ error, chatId }, 'Error obteniendo estado de cuenta');
+              await message.reply('❌ Ocurrió un error al obtener tu estado de cuenta. Por favor intenta más tarde o escribe "agente" para hablar con un asesor.');
+              return;
+            }
           }
 
           await message.reply(replyText);
@@ -1575,6 +2297,74 @@ async function main(): Promise<void> {
           } catch (e: any) {
             logger.warn({ e, entry }, 'Error enviando PDF reconciliado al cliente');
             await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: false });
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: String(e && e.message ? e.message : e) }));
+            return;
+          }
+        }
+
+        // Endpoint para enviar PDF directamente a un cliente (para pagos manuales)
+        if (req.method === 'POST' && u.pathname === '/webhook/send_pdf') {
+          let raw = '';
+          for await (const chunk of req) raw += chunk;
+          const payload = raw ? JSON.parse(raw) : {};
+          const phone = payload.phone ?? null;
+          const message = payload.message ?? null;
+          const pdfBase64 = payload.pdf_base64 ?? null;
+          const pdfPath = payload.pdf_path ?? null;
+          const paymentId = payload.payment_id ?? null;
+
+          if (!phone) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'phone required' }));
+            return;
+          }
+
+          // Normalizar el teléfono al formato chatId
+          const chatId = normalizeToChatId(phone);
+          if (!chatId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'invalid phone format' }));
+            return;
+          }
+
+          // Obtener el PDF en base64
+          let base64data: string | null = null;
+          let filename = `payment-${paymentId || Date.now()}.pdf`;
+          
+          if (pdfBase64) {
+            base64data = pdfBase64.replace(/^data:application\/(pdf);base64,/, '');
+          } else if (pdfPath) {
+            try {
+              const buff = await fs.readFile(pdfPath);
+              base64data = buff.toString('base64');
+              filename = path.basename(pdfPath);
+            } catch (e) {
+              logger.warn({ e, pdfPath }, 'Error leyendo PDF desde path');
+            }
+          }
+
+          if (!base64data) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'no pdf data provided' }));
+            return;
+          }
+
+          // Enviar el PDF al cliente
+          try {
+            await whatsappClient.sendMedia(chatId, base64data, 'application/pdf', filename);
+            
+            // Enviar el mensaje de texto si se proporcionó
+            if (message && message.trim().length > 0) {
+              await whatsappClient.sendText(chatId, message);
+            }
+            
+            logger.info({ chatId, paymentId, filename }, 'PDF de pago manual enviado al cliente');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          } catch (e: any) {
+            logger.warn({ e, chatId, paymentId }, 'Error enviando PDF de pago manual al cliente');
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, error: String(e && e.message ? e.message : e) }));
             return;

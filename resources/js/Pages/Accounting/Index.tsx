@@ -51,17 +51,17 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
       <Head title="Contabilidad" />
       <div className="py-6">
         <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-8">
-          {/* Tarjetas resumen */}
+          {/* Tarjetas resumen - Mes actual */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryCard title="Monto conciliado" value={`CRC ${formatMoney(totals.verified?.amount || 0)}`} subtitle={`${totals.verified?.count || 0} pagos`} color="bg-green-50" />
-            <SummaryCard title="Monto pendiente" value={`CRC ${formatMoney((totals.unverified?.amount || 0) + (totals.in_review?.amount || 0))}`} subtitle={`${(totals.unverified?.count || 0) + (totals.in_review?.count || 0)} pagos`} color="bg-yellow-50" />
-            <SummaryCard title="Meses registrados" value={total_months.toString()} subtitle="Suma metadata 'months'" color="bg-indigo-50" />
-            <SummaryCard title="% conciliado" value={`${conciliation_rate.toFixed(2)}%`} subtitle="(verificado / total proceso)" color="bg-blue-50" />
+            <SummaryCard title="Monto conciliado" value={`CRC ${formatMoney(totals.verified?.amount || 0)}`} subtitle={`${totals.verified?.count || 0} pagos (mes actual)`} color="bg-green-50" />
+            <SummaryCard title="Monto pendiente" value={`CRC ${formatMoney((totals.unverified?.amount || 0) + (totals.in_review?.amount || 0))}`} subtitle={`${(totals.unverified?.count || 0) + (totals.in_review?.count || 0)} pagos (mes actual)`} color="bg-yellow-50" />
+            <SummaryCard title="Meses registrados" value={total_months.toString()} subtitle={`Mes actual (metadata 'months')`} color="bg-indigo-50" />
+            <SummaryCard title="% conciliado" value={`${conciliation_rate.toFixed(2)}%`} subtitle="(verificado / total mes actual)" color="bg-blue-50" />
           </div>
 
           {/* Tabla por estado y moneda */}
           <div className="bg-white shadow rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Montos agrupados por estado y moneda</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Montos agrupados por estado y moneda (mes actual)</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>

@@ -4,7 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { usePage } from '@inertiajs/react';
 import type { PageProps } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 
 interface Client {
     id: number;
@@ -45,6 +45,9 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
 
     const page = usePage();
     const flashSuccess = (page.props as any)?.flash?.success as string | undefined;
+    const flashError = (page.props as any)?.flash?.error as string | undefined;
+
+    const [deletingId, setDeletingId] = useState<number | null>(null);
 
     const clientRows = clients?.data ?? [];
     const paginationLinks = clients?.links ?? [];
@@ -66,6 +69,16 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
             preserveScroll: true,
             replace: true,
         });
+    };
+
+    const handleDelete = (clientId: number, clientName: string) => {
+        if (confirm(`⚠️ ¿Estás seguro de que deseas eliminar al cliente "${clientName}"?\n\nEsto eliminará PERMANENTEMENTE:\n• El cliente\n• Todos sus contratos\n• Todos sus pagos\n• Todas sus conciliaciones\n• Todos sus recordatorios\n• Todos los recibos asociados\n\nEsta acción NO se puede deshacer.`)) {
+            setDeletingId(clientId);
+            router.delete(route('clients.destroy', clientId), {
+                preserveScroll: true,
+                onFinish: () => setDeletingId(null),
+            });
+        }
     };
 
     return (
@@ -102,8 +115,13 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     {flashSuccess && (
-                        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-900/50 dark:border-emerald-700 dark:text-emerald-200">
                             {flashSuccess}
+                        </div>
+                    )}
+                    {flashError && (
+                        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:bg-red-900/50 dark:border-red-700 dark:text-red-200">
+                            {flashError}
                         </div>
                     )}
                     <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
@@ -194,6 +212,9 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
                                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Actualizado
                                         </th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                            Acciones
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 bg-white dark:bg-gray-800">
@@ -230,6 +251,25 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
                                                           year: 'numeric',
                                                       })
                                                     : '—'}
+                                            </td>
+                                            <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <Link
+                                                        href={route('clients.edit', client.id)}
+                                                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                                    >
+                                                        Editar
+                                                    </Link>
+                                                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDelete(client.id, client.name)}
+                                                        disabled={deletingId === client.id}
+                                                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {deletingId === client.id ? 'Eliminando...' : 'Eliminar'}
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

@@ -1982,5 +1982,67 @@
     "reconciled": true,
     "reconciled_sent": true,
     "reconciled_sent_ts": 1765136556136
+  },
+  {
+    "id": "50662805121-1765391863049",
+    "chatId": "50662805121@c.us",
+    "filename": "receipt-50662805121-1765390897705",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50662805121-1765390897705",
+    "mime": "audio/ogg; codecs=opus",
+    "text": "",
+    "ts": 1765391863049,
+    "status": "created",
+    "backend_payment_id": 52
+  },
+  {
+    "id": "50670993915-1765554026719",
+    "chatId": "50670993915@c.us",
+    "filename": "receipt-50670993915-1765554026717",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50670993915-1765554026717",
+    "mime": "image/jpeg",
+    "text": "Adjunto comprobante",
+    "ts": 1765554026719,
+    "status": "created",
+    "backend_payment_id": 57,
+    "reconciled": true,
+    "reconciled_sent": true,
+    "reconciled_sent_ts": 1765554061284
+  },
+  {
+    "id": "50687517324-1765814332953",
+    "chatId": "50687517324@c.us",
+    "filename": "receipt-50687517324-1765814324927",
+    "filepath": "/home/fabian/ticobot/bot/data/receipts/receipt-50687517324-1765814324927",
+    "mime": "image/jpeg",
+    "text": "Pago mes diciembre",
+    "ts": 1765814332953,
+    "status": "applied",
+    "backend_payment_id": 60,
+    "months": 1,
+    "backend_apply_result": {
+      "id": 60,
+      "client_id": 32,
+      "contract_id": null,
+      "reminder_id": null,
+      "amount": "2000.00",
+      "currency": "CRC",
+      "status": "unverified",
+      "channel": "whatsapp",
+      "reference": "bot:50687517324-1765814332953",
+      "paid_at": null,
+      "metadata": {
+        "months": 1,
+        "local_receipt_id": "50687517324-1765814332953",
+        "backend_receipt_id": 60
+      },
+      "created_at": "2025-12-15T15:58:56.000000Z",
+      "updated_at": "2025-12-15T15:59:06.000000Z",
+      "deleted_at": null
+    },
+    "monthly_amount": 2000,
+    "total_amount": 2000,
+    "reconciled": true,
+    "reconciled_sent": true,
+    "reconciled_sent_ts": 1765818850245
   }
 ]
