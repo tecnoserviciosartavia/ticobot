@@ -275,11 +275,17 @@ async function main(): Promise<void> {
       logger.debug({ e }, 'touchTimer fallo');
     }
 
-  // If outside business hours, politely inform the user and avoid processing further (admins and agents bypass)
+  // Business hours check: admins and ongoing processes always bypass
+  // Regular users can now use the menu and automatic options 24/7, but agent requests notify about off-hours
   try {
     const isAdminUserEarly = isAdminChatId(chatId) || fromNorm === '50672140974';
-    if (! _isWithinBusinessHours() && !isAdminUserEarly && !agentMode.get(chatId)) {
-      await message.reply(`Hola. Actualmente estamos fuera del horario de atención (${TIMEZONE}). Nuestro horario: ${formatBusinessHours()}. Por favor intenta de nuevo durante el horario de atención.`);
+    const isInActiveProcess = awaitingReceipt.get(chatId) || pendingConfirmReceipt.has(chatId) || awaitingMonths.has(chatId) || agentMode.get(chatId) || menuShown.get(chatId);
+    const isMediaUpload = !!(message as any).hasMedia;
+    
+    // Solo bloqueamos mensajes completamente fuera de contexto cuando no hay horario
+    // El menú y las opciones automáticas ahora funcionan 24/7
+    if (! _isWithinBusinessHours() && !isAdminUserEarly && !isInActiveProcess && !isMediaUpload && lc !== 'menu' && lc !== 'inicio' && lc !== 'help') {
+      await message.reply(`Hola. Actualmente estamos fuera del horario de atención (${TIMEZONE}). Nuestro horario: ${formatBusinessHours()}.\n\n💡 Puedes usar el menú escribiendo "menu" para acceder a opciones automáticas disponibles 24/7.`);
       return;
     }
   } catch (e) {
@@ -1745,7 +1751,13 @@ async function main(): Promise<void> {
 
     // Handle explicit "agente" request to transfer to human support
     if (lc === 'agente' || lc === 'asesor' || lc === 'soporte') {
-      await message.reply('Perfecto, te estoy conectando con un asesor. Un miembro de nuestro equipo te atenderá en breve. Por favor espera un momento.');
+      const isOutsideHours = !_isWithinBusinessHours();
+      
+      if (isOutsideHours) {
+        await message.reply(`⏰ Actualmente estamos fuera del horario de atención.\n\nNuestro horario: ${formatBusinessHours()}\n\n✅ He registrado tu solicitud y un asesor te contactará cuando inicie el horario de atención.\n\n💡 Mientras tanto, puedes usar el menú (escribe "menu") para acceder a opciones automáticas disponibles 24/7.`);
+      } else {
+        await message.reply('Perfecto, te estoy conectando con un asesor. Un miembro de nuestro equipo te atenderá en breve. Por favor espera un momento.');
+      }
       
       // Activate agent mode
       agentMode.set(chatId, true);
@@ -1762,10 +1774,13 @@ async function main(): Promise<void> {
         const now = Date.now();
         const lastNotified = adminNotifiedAt.get(chatId) || 0;
         if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
-          const notifyText = `🔔 Cliente ${fromUser} (${chatId}) solicitó hablar con un agente.\n\nÚltimo mensaje: "${String(body).slice(0, 200)}"\n\nPor favor responde directamente a este chat para atender al cliente.`;
+          const isOutsideHours = !_isWithinBusinessHours();
+          const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
+          const offHoursSuffix = isOutsideHours ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.` : '';
+          const notifyText = `${offHoursPrefix}🔔 Cliente ${fromUser} (${chatId}) solicitó hablar con un agente.\n\nÚltimo mensaje: "${String(body).slice(0, 200)}"${offHoursSuffix}\n\nPor favor responde directamente a este chat para atender al cliente.`;
           await whatsappClient.sendText(adminChatId, notifyText);
           adminNotifiedAt.set(chatId, now);
-          logger.info({ adminChatId, chatId }, 'Admin notificado sobre solicitud de agente (palabra clave)');
+          logger.info({ adminChatId, chatId, outsideHours: isOutsideHours }, 'Admin notificado sobre solicitud de agente (palabra clave)');
         } else {
           logger.debug({ chatId, lastNotified }, 'Omitida notificación admin por throttle (palabra clave)');
         }
@@ -1821,7 +1836,15 @@ async function main(): Promise<void> {
             || (matched.key && String(matched.key).trim() === '5');
 
           if (isOptionFive) {
-            const agentMsg = 'Para hablar con un asesor, por favor comunícate con nuestro equipo de soporte o escribe "agente" para que te transferamos. Un asesor te contactará a la brevedad.';
+            const isOutsideHours = !_isWithinBusinessHours();
+            
+            let agentMsg = '';
+            if (isOutsideHours) {
+              agentMsg = `⏰ Actualmente estamos fuera del horario de atención.\n\nNuestro horario: ${formatBusinessHours()}\n\n✅ He registrado tu solicitud y un asesor te contactará cuando inicie el horario de atención.\n\n💡 Mientras tanto, puedes usar el menú (escribe "menu") para acceder a opciones automáticas disponibles 24/7.`;
+            } else {
+              agentMsg = 'Para hablar con un asesor, por favor comunícate con nuestro equipo de soporte o escribe "agente" para que te transferamos. Un asesor te contactará a la brevedad.';
+            }
+            
             await message.reply(agentMsg);
 
             // Activate agent mode and notify admin just like the generic agent transfer flow
@@ -1838,10 +1861,13 @@ async function main(): Promise<void> {
               const now = Date.now();
               const lastNotified = adminNotifiedAt.get(chatId) || 0;
               if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
-                const notifyText = `Cliente ${fromUser} (${chatId}) solicita atención de un asesor (opción 5). Mensaje: "${String(body).slice(0,200)}"`;
+                const isOutsideHours = !_isWithinBusinessHours();
+                const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
+                const offHoursSuffix = isOutsideHours ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.` : '';
+                const notifyText = `${offHoursPrefix}Cliente ${fromUser} (${chatId}) solicita atención de un asesor (opción 5). Mensaje: "${String(body).slice(0,200)}"${offHoursSuffix}`;
                 await whatsappClient.sendText(adminChatId, notifyText);
                 adminNotifiedAt.set(chatId, now);
-                logger.info({ adminChatId, chatId }, 'Admin notificado sobre solicitud de agente (opción 5)');
+                logger.info({ adminChatId, chatId, outsideHours: isOutsideHours }, 'Admin notificado sobre solicitud de agente (opción 5)');
               } else {
                 logger.debug({ chatId, lastNotified, throttleMs: AGENT_NOTIFY_THROTTLE_MS }, 'Omitida notificación admin por throttle (opción 5)');
               }
@@ -1971,10 +1997,13 @@ async function main(): Promise<void> {
               const now = Date.now();
               const lastNotified = adminNotifiedAt.get(chatId) || 0;
               if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
-                const notifyText = `Cliente ${fromUser} (${chatId}) solicita atención de un asesor. Mensaje: "${String(body).slice(0, 200)}"`;
+                const isOutsideHours = !_isWithinBusinessHours();
+                const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
+                const offHoursSuffix = isOutsideHours ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.` : '';
+                const notifyText = `${offHoursPrefix}Cliente ${fromUser} (${chatId}) solicita atención de un asesor. Mensaje: "${String(body).slice(0, 200)}"${offHoursSuffix}`;
                 await whatsappClient.sendText(adminChatId, notifyText);
                 adminNotifiedAt.set(chatId, now);
-                logger.info({ adminChatId, chatId }, 'Admin notificado sobre solicitud de agente');
+                logger.info({ adminChatId, chatId, outsideHours: isOutsideHours }, 'Admin notificado sobre solicitud de agente');
               } else {
                 logger.debug({ chatId, lastNotified, throttleMs: AGENT_NOTIFY_THROTTLE_MS }, 'Omitida notificación admin por throttle');
               }
