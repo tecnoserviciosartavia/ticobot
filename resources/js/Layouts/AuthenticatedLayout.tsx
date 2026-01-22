@@ -59,6 +59,12 @@ export default function Authenticated({
                                     Pagos
                                 </NavLink>
                                 <NavLink
+                                    href={route('payments.pending')}
+                                    active={route().current('payments.pending')}
+                                >
+                                    💰 Pendientes
+                                </NavLink>
+                                <NavLink
                                     href={route('conciliations.index')}
                                     active={route().current('conciliations.*')}
                                 >
@@ -204,9 +210,15 @@ export default function Authenticated({
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             href={route('payments.index')}
-                            active={route().current('payments.*')}
+                            active={route().current('payments.index')}
                         >
                             Pagos
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('payments.pending')}
+                            active={route().current('payments.pending')}
+                        >
+                            💰 Pagos Pendientes
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             href={route('conciliations.index')}

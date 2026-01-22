@@ -34,9 +34,12 @@ class ApiClient {
   }
 
   async markQueued(reminder: ReminderRecord): Promise<void> {
+    // Capear attempts para evitar valores inesperadamente grandes que puedan
+    // provocar errores en el backend si la columna es pequeña.
+    const nextAttempts = Math.min((reminder.attempts || 0) + 1, 100);
     await this.http.patch(`reminders/${reminder.id}`, {
       status: 'queued',
-      attempts: reminder.attempts + 1,
+      attempts: nextAttempts,
       queued_at: new Date().toISOString()
     });
   }
@@ -286,6 +289,39 @@ class ApiClient {
 
     return response.data;
   }
+
+  /**
+   * Fetch data from the backend API (generic helper).
+   */
+  async fetchFromBackend(path: string): Promise<any> {
+    try {
+      const response = await this.http.get(path);
+      return response.data;
+    } catch (error: any) {
+      logger.debug({ error: error?.message, path }, 'fetchFromBackend error');
+      throw error;
+    }
+  }
+
+  /**
+   * Get payment status for a phone number.
+   */
+  async getPaymentStatus(phone: string): Promise<any> {
+    return this.fetchFromBackend(`/api/payment-status/${phone}`);
+  }
+
+  /**
+   * Check if a contact is paused.
+   */
+  async checkPausedContact(whatsappNumber: string): Promise<boolean> {
+    try {
+      const res = await this.fetchFromBackend(`/api/paused-contacts/check/${whatsappNumber}`);
+      return res?.is_paused === true;
+    } catch (e) {
+      return false;
+    }
+  }
 }
 
 export const apiClient = new ApiClient();
+

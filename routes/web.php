@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/payments/create', [WebPaymentController::class, 'create'])->name('payments.create');
     Route::post('/payments', [WebPaymentController::class, 'store'])->name('payments.store');
     Route::get('/payments/client-contracts', [WebPaymentController::class, 'getClientContracts'])->name('payments.client-contracts');
+    Route::get('/payments/pending', [\App\Http\Controllers\Web\PaymentController::class, 'pending'])->name('payments.pending');
     Route::delete('/payments/{payment}', [WebPaymentController::class, 'destroy'])->name('payments.destroy');
     Route::get('/conciliations', [WebConciliationController::class, 'index'])->name('conciliations.index');
     Route::post('/conciliations', [WebConciliationController::class, 'store'])->name('conciliations.store');

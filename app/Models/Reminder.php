@@ -26,6 +26,7 @@ class Reminder extends Model
         'sent_at',
         'acknowledged_at',
         'status',
+        'notes',
         'payload',
         'response_payload',
         'attempts',

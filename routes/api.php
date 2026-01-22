@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ReminderController;
 use App\Http\Controllers\Api\WhatsAppStatusController;
 use App\Http\Controllers\Api\ContractTypeController;
 use App\Http\Controllers\Api\BotMenuController;
+use App\Http\Controllers\api\PaymentStatusController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -43,4 +44,25 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::put('menu/{menu}', [BotMenuController::class, 'update'])->name('menu.update');
         Route::delete('menu/{menu}', [BotMenuController::class, 'destroy'])->name('menu.destroy');
     });
+
+    // Payment status and paused contacts endpoints
+    Route::prefix('payment-status')->group(function (): void {
+        Route::get('{phone}', [PaymentStatusController::class, 'getByPhone']);
+    });
+
+    Route::prefix('paused-contacts')->group(function (): void {
+        Route::get('/', [PaymentStatusController::class, 'listPaused']);
+        Route::get('check/{whatsappNumber}', [PaymentStatusController::class, 'isPaused']);
+        Route::post('/', [PaymentStatusController::class, 'pauseContact']);
+        Route::delete('{clientId}/{whatsappNumber}', [PaymentStatusController::class, 'resumeContact']);
+    });
+
+    // Pending payments endpoints
+    Route::prefix('summary')->group(function (): void {
+        Route::get('pending-payments', [PaymentStatusController::class, 'summaryPendingPayments']);
+    });
+
+    Route::get('clients/pending-payments', [PaymentStatusController::class, 'clientsWithPendingPayments']);
+    // Send reminder for a client (creates a Reminder pending to be picked by bot)
+    Route::post('clients/{client}/send-reminder', [PaymentStatusController::class, 'sendReminder']);
 });

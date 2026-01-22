@@ -267,6 +267,9 @@ async function main(): Promise<void> {
     const chatId = message.from;
     const fromUser = String(chatId || '').replace(/@c\.us$/, '');
     const fromNorm = normalizeCR(fromUser);
+    const send = async (text: string) => {
+      await whatsappClient.sendText(chatId, text);
+    };
 
     // Mantener timeout por chat y detectar admin
     try {
@@ -290,6 +293,20 @@ async function main(): Promise<void> {
     }
   } catch (e) {
     logger.debug({ e }, 'error verificando horario de atención');
+  }
+
+  // Check if contact is paused (whitelist): if paused and not admin, don't show menu
+  // Note: isAdminUser is declared later, so we check isAdminChatId directly here
+  if (!isAdminChatId(chatId) && fromNorm !== '50672140974') {
+    try {
+      const isPaused = await apiClient.checkPausedContact(fromUser);
+      if (isPaused) {
+        logger.info({ chatId, fromUser }, 'Contacto está pausado, ignorando mensaje');
+        return;
+      }
+    } catch (e: any) {
+      logger.debug({ e, chatId }, 'Error verificando si el contacto está pausado (continuando normally)');
+    }
   }
 
   // If we're awaiting a receipt from this chat, handle media uploads first
@@ -1701,6 +1718,49 @@ async function main(): Promise<void> {
       return;
     }
 
+    // Handle payment status query
+    if (lc === 'pagos' || lc === 'estado') {
+      try {
+        const paymentStatus = await apiClient.getPaymentStatus(fromNorm);
+        if (!paymentStatus || !paymentStatus.success) {
+          await message.reply('❌ No encontramos información sobre tu cuenta. Por favor contáctanos directamente.');
+          return;
+        }
+
+        const { client, summary, payments } = paymentStatus;
+        const lines: string[] = [];
+        lines.push(`📊 *Estado de Pagos*`);
+        lines.push(`👤 ${client.name}`);
+        lines.push(`📱 ${client.phone}`);
+        lines.push('');
+        lines.push(`📈 *Resumen:*`);
+        lines.push(`  • Total de pagos: ${summary.total_payments}`);
+        lines.push(`  • Completados: ${summary.completed}`);
+        lines.push(`  • Pendientes: ${summary.pending}`);
+        
+        if (payments && payments.length > 0) {
+          lines.push('');
+          lines.push(`📋 *Últimos pagos:*`);
+          payments.slice(0, 5).forEach((p: any, idx: number) => {
+            const date = p.paid_at ? p.paid_at.split('T')[0] : '❓ Sin fecha';
+            const status = p.status === 'completed' ? '✅' : p.status === 'pending' ? '⏳' : '❌';
+            lines.push(`${idx + 1}. ${status} ₡${Number(p.amount).toLocaleString('es-CR')} ${p.currency} (${date})`);
+          });
+          if (payments.length > 5) {
+            lines.push(`...y ${payments.length - 5} pagos más`);
+          }
+        }
+
+        lines.push('');
+        lines.push('Para más información contáctanos o escribe "menu" para volver al menú principal.');
+        await message.reply(lines.join('\n'));
+      } catch (error: any) {
+        logger.error({ error, fromNorm }, 'Error consultando estado de pagos');
+        await message.reply('❌ No pudimos obtener tu información de pagos. Intenta más tarde o contáctanos directamente.');
+      }
+      return;
+    }
+
     // Handle explicit exit command: clear any pending menu or agent mode
     if (lc === 'salir' || lc === 'exit') {
       const wasAgent = !!agentMode.get(chatId);
@@ -2021,7 +2081,7 @@ async function main(): Promise<void> {
         }
 
         // not a valid option while menu active: reply and clear shown state so next message will show menu again
-        await message.reply('No reconozco esa opción. Por favor elige un número del menú o escribe "menu" para volver a ver las opciones o "salir" para finalizar.');
+        await send('No reconozco esa opción. Por favor elige un número del menú o escribe "menu" para volver a ver las opciones o "salir" para finalizar.');
         menuShown.delete(chatId);
         lastMenuItems.delete(chatId);
         return;
@@ -2041,7 +2101,7 @@ async function main(): Promise<void> {
       }
       const menuToUse = await resolveMenu();
       if (!menuToUse || !Array.isArray(menuToUse) || menuToUse.length === 0) {
-        await message.reply('Lo siento, el menú no está disponible en este momento. Intenta más tarde.');
+        await send('Lo siento, el menú no está disponible en este momento. Intenta más tarde.');
         return;
       }
 
@@ -2067,9 +2127,21 @@ async function main(): Promise<void> {
       lastMenuItems.set(chatId, menuToUse);
       // If the selected menu includes option '6' (Enviar comprobante), we will set awaitingReceipt when chosen; handled in menu selection branch
       return;
-    } catch (error) {
-      logger.error({ error }, 'Error mostrando el menú');
-      await message.reply('Lo siento, el menú no está disponible en este momento. Intenta más tarde.');
+    } catch (error: any) {
+      logger.error({
+        errMsg: error?.message,
+        errStack: error?.stack,
+        error,
+      }, 'Error mostrando el menú');
+      try {
+        await message.reply('Lo siento, el menú no está disponible en este momento. Intenta más tarde.');
+      } catch (replyErr: any) {
+        logger.error({
+          errMsg: replyErr?.message,
+          errStack: replyErr?.stack,
+          replyErr,
+        }, 'No se pudo enviar mensaje de menú no disponible');
+      }
       return;
     }
   });
@@ -2241,6 +2313,13 @@ async function main(): Promise<void> {
           try {
             await processor.runBatch();
             results[item.id] = { ok: true, ran: true, time: new Date().toISOString() };
+          } catch (e: any) {
+            results[item.id] = { ok: false, error: String(e && e.message ? e.message : e) };
+          }
+        } else if (item.type === 'state') {
+          try {
+            const state = await whatsappClient.getState();
+            results[item.id] = { ok: true, ...state };
           } catch (e: any) {
             results[item.id] = { ok: false, error: String(e && e.message ? e.message : e) };
           }

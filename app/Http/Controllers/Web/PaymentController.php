@@ -346,4 +346,12 @@ class PaymentController extends Controller
             ]);
         }
     }
+
+    /**
+     * Render the pending payments page (React component).
+     */
+    public function pending(): Response
+    {
+        return Inertia::render('Payments/PendingPayments');
+    }
 }
