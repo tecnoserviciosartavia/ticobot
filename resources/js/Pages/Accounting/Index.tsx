@@ -123,11 +123,13 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
                         return;
                       }
 
+                      const todayDate = new Date().toISOString().split('T')[0];
                       router.post(route('reminders.store'), {
                         client_id: c.id,
                         contract_id: contractId,
                         channel: 'whatsapp',
                         scheduled_for: new Date().toISOString(),
+                        payload: { due_date: todayDate },
                       });
                     };
 

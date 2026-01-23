@@ -137,15 +137,16 @@ export default function PendingPayments({}: PageProps) {
     const sendReminder = async (clientId: number) => {
         if (!confirm('Enviar recordatorio por WhatsApp a este cliente?')) return;
         try {
+            const today = new Date().toISOString().split('T')[0];
             const resp = await fetch(`/api/clients/${clientId}/send-reminder`, {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({}),
-            });
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ due_date: today }),
+                });
             if (resp.ok) {
                 alert('Recordatorio creado correctamente');
                 fetchData(currentPage);
@@ -157,6 +158,32 @@ export default function PendingPayments({}: PageProps) {
         } catch (e) {
             console.error(e);
             alert('Error creando recordatorio');
+        }
+    };
+
+    const pauseContact = async (clientId: number, phone?: string | null) => {
+        if (!confirm('¿Pausar el bot para este contacto?')) return;
+        try {
+            const resp = await fetch('/api/paused-contacts', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({ client_id: clientId, whatsapp_number: phone ?? '' }),
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok) {
+                alert('Contacto pausado correctamente');
+                fetchData(currentPage);
+                fetchSummary();
+            } else {
+                alert('Error pausando contacto: ' + (data.message || resp.statusText));
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Error pausando contacto');
         }
     };
 
@@ -326,6 +353,12 @@ export default function PendingPayments({}: PageProps) {
                                                             className="inline-flex items-center gap-1 rounded-md bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-100"
                                                         >
                                                             Enviar recordatorio
+                                                        </button>
+                                                        <button
+                                                            onClick={() => pauseContact(client.id, client.phone)}
+                                                            className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                                        >
+                                                            Pausar contacto
                                                         </button>
                                                     </div>
                                                 </td>

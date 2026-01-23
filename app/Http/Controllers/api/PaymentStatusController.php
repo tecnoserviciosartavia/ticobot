@@ -241,6 +241,7 @@ class PaymentStatusController extends Controller
             'message' => 'nullable|string',
             'contract_id' => 'nullable|exists:contracts,id',
             'scheduled_for' => 'nullable|date',
+            'due_date' => 'nullable|date',
         ]);
 
         $contractId = $request->input('contract_id') ?? optional($client->contracts()->first())->id;
@@ -250,6 +251,13 @@ class PaymentStatusController extends Controller
         $payload = [
             'message' => $request->input('message') ?? null,
         ];
+
+        // If caller provided a due_date, include it in the payload so the
+        // reminder message will reference the supplied date instead of the
+        // contract's stored next_due_date (which may point to the next month).
+        if ($request->filled('due_date')) {
+            $payload['due_date'] = Carbon::parse($request->input('due_date'))->toDateString();
+        }
 
         $reminder = Reminder::create([
             'contract_id' => $contractId,
