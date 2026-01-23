@@ -31,5 +31,9 @@ Thumbs.db
 /bot/storage
 /bot/bot.log
 
+# Generated receipts (ignore individual receipt files, keep index.json tracked)
+/bot/data/receipts/*
+!/bot/data/receipts/index.json
+
 # Apache config (local)
 ticobot.conf
