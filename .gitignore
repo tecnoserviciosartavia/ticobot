@@ -31,5 +31,17 @@ Thumbs.db
 /bot/storage
 /bot/bot.log
 
+# Bot runtime data (no source)
+/bot/data/receipts/
+/bot/data/backend_sim/
+
+# Data exports / samples (no source)
+/cobradorapp.csv
+/public/samples/*.xlsx
+
+# DB backups / secrets
+/storage/backups/*.sql.gz
+/storage/backups/.mysql-backup.cnf
+
 # Apache config (local)
 ticobot.conf

@@ -125,7 +125,7 @@ export class ReminderProcessor {
       await apiClient.markSent(reminder.id);
       logger.info({ reminderId: reminder.id }, 'Recordatorio enviado correctamente');
     } catch (error) {
-      logger.error({ error, reminderId: reminder.id }, 'No se pudo enviar el recordatorio');
+      logger.error({ err: error, reminderId: reminder.id }, 'No se pudo enviar el recordatorio');
 
       // Intentar devolver el recordatorio a estado 'pending' para que pueda ser reintentado
       try {
@@ -217,14 +217,14 @@ export class ReminderProcessor {
           // Pequeña pausa entre mensajes para no saturar
           await new Promise(resolve => setTimeout(resolve, 2000));
         } catch (error) {
-          logger.error({ error, reminderId: reminder.id }, 'Error reenviando recordatorio');
+          logger.error({ err: error, reminderId: reminder.id }, 'Error reenviando recordatorio');
         }
       }
 
       this.lastResendCheck = now;
       logger.info('Proceso de reenvío completado');
     } catch (error) {
-      logger.error({ error }, 'Error en verificación de recordatorios sin conciliar');
+      logger.error({ err: error }, 'Error en verificación de recordatorios sin conciliar');
     }
   }
 }

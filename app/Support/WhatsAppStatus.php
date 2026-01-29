@@ -20,13 +20,26 @@ class WhatsAppStatus
      */
     public static function snapshot(): array
     {
+        $status = Cache::get(self::STATUS_KEY, 'disconnected');
+        $qr = Cache::get(self::QR_KEY);
+        $generatedAt = Cache::get(self::QR_GENERATED_AT_KEY);
+        $lastReadyAt = Cache::get(self::LAST_READY_AT_KEY);
+        $lastDisconnectedAt = Cache::get(self::LAST_DISCONNECTED_AT_KEY);
+        $lastDisconnectReason = Cache::get(self::LAST_DISCONNECT_REASON_KEY);
+
+        // Hardening: if we have seen a successful ready event recently and there's no active QR,
+        // prefer showing "ready" even if a stale "pending" got cached due to a race.
+        if ($status === 'pending' && empty($qr) && !empty($lastReadyAt)) {
+            $status = 'ready';
+        }
+
         return [
-            'status' => Cache::get(self::STATUS_KEY, 'disconnected'),
-            'qr' => Cache::get(self::QR_KEY),
-            'generated_at' => Cache::get(self::QR_GENERATED_AT_KEY),
-            'last_ready_at' => Cache::get(self::LAST_READY_AT_KEY),
-            'last_disconnected_at' => Cache::get(self::LAST_DISCONNECTED_AT_KEY),
-            'last_disconnect_reason' => Cache::get(self::LAST_DISCONNECT_REASON_KEY),
+            'status' => $status,
+            'qr' => $qr,
+            'generated_at' => $generatedAt,
+            'last_ready_at' => $lastReadyAt,
+            'last_disconnected_at' => $lastDisconnectedAt,
+            'last_disconnect_reason' => $lastDisconnectReason,
         ];
     }
 

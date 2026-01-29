@@ -16,7 +16,7 @@ const runBatch = async () => {
   try {
     await processor.runBatch();
   } catch (error) {
-    logger.error({ error }, 'Error procesando lote de recordatorios');
+    logger.error({ err: error }, 'Error procesando lote de recordatorios');
   }
 };
 
@@ -1755,7 +1755,7 @@ async function main(): Promise<void> {
         lines.push('Para más información contáctanos o escribe "menu" para volver al menú principal.');
         await message.reply(lines.join('\n'));
       } catch (error: any) {
-        logger.error({ error, fromNorm }, 'Error consultando estado de pagos');
+        logger.error({ err: error, fromNorm }, 'Error consultando estado de pagos');
         await message.reply('❌ No pudimos obtener tu información de pagos. Intenta más tarde o contáctanos directamente.');
       }
       return;
@@ -1803,7 +1803,7 @@ async function main(): Promise<void> {
         lastMenuItems.set(chatId, menuToUse);
         return;
       } catch (error) {
-        logger.error({ error }, 'No se pudo resolver el menú');
+        logger.error({ err: error }, 'No se pudo resolver el menú');
         await message.reply('Lo siento, el menú no está disponible en este momento. Intenta más tarde.');
         return;
       }
@@ -2017,7 +2017,7 @@ async function main(): Promise<void> {
               logger.info({ chatId, clientId: client.id, contractsCount: contracts.length }, 'Estado de cuenta enviado');
               return;
             } catch (error: any) {
-              logger.error({ error, chatId }, 'Error obteniendo estado de cuenta');
+              logger.error({ err: error, chatId }, 'Error obteniendo estado de cuenta');
               await message.reply('❌ Ocurrió un error al obtener tu estado de cuenta. Por favor intenta más tarde o escribe "agente" para hablar con un asesor.');
               return;
             }
@@ -2086,7 +2086,7 @@ async function main(): Promise<void> {
         lastMenuItems.delete(chatId);
         return;
       } catch (error) {
-        logger.error({ error }, 'Error manejando opción de menú');
+        logger.error({ err: error }, 'Error manejando opción de menú');
         return;
       }
     }
@@ -2351,7 +2351,63 @@ async function main(): Promise<void> {
     const port = Number(process.env.BOT_WEBHOOK_PORT || 3001);
     const server = http.createServer(async (req, res) => {
       try {
+        const remoteAddress = req.socket?.remoteAddress || '';
+        const isLocal =
+          remoteAddress === '127.0.0.1' ||
+          remoteAddress === '::1' ||
+          remoteAddress === '::ffff:127.0.0.1';
+
         const u = new URL(req.url || '/', `http://${req.headers.host}`);
+
+        // --- Debug endpoints (solo localhost) ---
+        if (req.method === 'GET' && u.pathname === '/debug/state') {
+          if (!isLocal) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'forbidden' }));
+            return;
+          }
+
+          const state = await whatsappClient.getState();
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, ...state }));
+          return;
+        }
+
+        if (req.method === 'GET' && u.pathname === '/debug/chats') {
+          if (!isLocal) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'forbidden' }));
+            return;
+          }
+
+          const summary = await whatsappClient.debugGetChatsSummary();
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(summary));
+          return;
+        }
+
+        if (req.method === 'POST' && u.pathname === '/debug/ping_admin') {
+          if (!isLocal) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'forbidden' }));
+            return;
+          }
+
+          const adminPhone = ADMIN_PHONES[0] || null;
+          const adminChatId = adminPhone ? normalizeToChatId(adminPhone) : null;
+          if (!adminChatId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'admin chatId not configured' }));
+            return;
+          }
+
+          const ts = new Date().toISOString();
+          await whatsappClient.sendText(adminChatId, `Ping del bot (${ts}). Si ves esto, el envío funciona.`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, to: adminChatId }));
+          return;
+        }
+
         if (req.method === 'POST' && u.pathname === '/webhook/receipt_reconciled') {
           let raw = '';
           for await (const chunk of req) raw += chunk;
@@ -2526,6 +2582,11 @@ async function main(): Promise<void> {
       }
     });
 
+    // Avoid crashing the whole bot on listen errors (e.g. EADDRINUSE)
+    server.on('error', (err: any) => {
+      logger.error({ err, port }, 'Webhook server error');
+    });
+
     server.listen(port, () => logger.info({ port }, 'Webhook server listening'));
   }
 
@@ -2601,7 +2662,7 @@ async function main(): Promise<void> {
     try {
       await whatsappClient.shutdown();
     } catch (error) {
-      logger.warn({ error }, 'Error cerrando el cliente de WhatsApp');
+      logger.warn({ err: error }, 'Error cerrando el cliente de WhatsApp');
     }
 
     process.exit(0);
@@ -2617,6 +2678,14 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  logger.fatal({ error }, 'El bot de WhatsApp se detuvo por un error inesperado');
-  process.exit(1);
+  logger.fatal({ err: error }, 'El bot de WhatsApp se detuvo por un error inesperado');
+  // Try to shutdown WhatsApp client to avoid leaving Chromium processes running
+  void (async () => {
+    try {
+      await whatsappClient.shutdown();
+    } catch (err) {
+      logger.warn({ err }, 'Error cerrando WhatsAppClient después de un fallo fatal');
+    }
+    process.exit(1);
+  })();
 });

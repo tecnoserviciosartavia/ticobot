@@ -14,6 +14,8 @@ class ExampleTest extends TestCase
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200);
+        // En apps con auth (Breeze/Jetstream), la ruta raíz suele redirigir (302)
+        // hacia /login o /dashboard según el estado de autenticación.
+        $response->assertStatus(302);
     }
 }
