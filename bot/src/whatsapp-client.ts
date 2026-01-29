@@ -38,9 +38,11 @@ export class WhatsAppClient {
   private readonly enableMessagePolling: boolean;
   private readonly markMessagesRead: boolean;
   private messagePollTimer: NodeJS.Timeout | null = null;
+  private messagePollNextAt: number | null = null;
   private processedMessageIds = new Map<string, number>();
   private messagePollConsecutiveFailures = 0;
   private messagePollingDisabledLogged = false;
+  private wwebjsStubsApplied = false;
 
   private async applyWwebjsSafetyStubs(): Promise<void> {
     try {
@@ -84,6 +86,16 @@ export class WhatsAppClient {
       }
     } catch (e) {
       logger.debug({ e }, 'No se pudo aplicar sendSeen noop');
+    }
+  }
+
+  private async ensureWwebjsStubsApplied(): Promise<void> {
+    if (this.wwebjsStubsApplied) return;
+    try {
+      await this.applyWwebjsSafetyStubs();
+      this.wwebjsStubsApplied = true;
+    } catch {
+      // best-effort; no bloquear
     }
   }
 
@@ -183,6 +195,108 @@ export class WhatsAppClient {
       clearInterval(this.messagePollTimer);
       this.messagePollTimer = null;
     }
+    this.messagePollNextAt = null;
+  }
+
+  private kickMessagePollingSoon(): void {
+    if (!this.enableMessagePolling) return;
+    if (!this.inboundHandler) return;
+    if (!this.isReady) return;
+
+    const now = Date.now();
+    const desiredAt = now + 250;
+    if (this.messagePollTimer && this.messagePollNextAt && this.messagePollNextAt <= desiredAt) {
+      return;
+    }
+    if (this.messagePollTimer) {
+      clearTimeout(this.messagePollTimer as any);
+      this.messagePollTimer = null;
+    }
+    this.messagePollNextAt = desiredAt;
+    this.messagePollTimer = setTimeout(() => {
+      this.messagePollTimer = null;
+      void this.runMessagePollingTick();
+    }, Math.max(0, desiredAt - now));
+  }
+
+  private async runMessagePollingTick(): Promise<void> {
+    if (!this.isReady) return;
+    if (!this.inboundHandler) return;
+
+    const idleIntervalMs = Number(process.env.BOT_MESSAGE_POLL_IDLE_MS || process.env.BOT_MESSAGE_POLL_MS || 15000);
+    const activeIntervalMs = Number(process.env.BOT_MESSAGE_POLL_ACTIVE_MS || 2000);
+    const maxChats = Number(process.env.BOT_MESSAGE_POLL_MAX_CHATS || 5);
+    const maxPerChat = Number(process.env.BOT_MESSAGE_POLL_MAX_PER_CHAT || 15);
+
+    let nextDelay = idleIntervalMs;
+
+    try {
+      const unreadChats = await this.listUnreadChatsLightweight(maxChats);
+      this.messagePollConsecutiveFailures = 0;
+
+      if (unreadChats.length > 0) {
+        nextDelay = activeIntervalMs;
+      }
+
+      for (const c of unreadChats) {
+        const unreadCount = Math.min(Number(c.unreadCount || 0), Math.max(1, maxPerChat));
+        if (unreadCount <= 0) continue;
+
+        let chat: any | null = null;
+        let messages: pkg.Message[] = [];
+        try {
+          chat = await (this.client as any).getChatById?.(c.id);
+          if (!chat) continue;
+          messages = await chat.fetchMessages({ limit: Math.max(8, Math.min(maxPerChat, unreadCount + 3)) });
+        } catch (error) {
+          logger.debug({ err: error, chatId: c.id }, 'No se pudo fetchMessages en polling');
+          continue;
+        }
+
+        for (const message of messages) {
+          const id = (message as any)?.id?._serialized;
+          if (!id) continue;
+          if ((message as any).fromMe) continue;
+          if (this.processedMessageIds.has(id)) continue;
+          if (String((message as any).from || '').endsWith('@broadcast')) continue;
+
+          this.markProcessedMessage(id);
+          logger.info(
+            { id, from: (message as any).from, chatId: c.id, unreadCount: chat?.unreadCount ?? unreadCount },
+            'Procesando mensaje vía polling (fallback)'
+          );
+
+          try {
+            await this.inboundHandler(message);
+          } catch (error) {
+            logger.error({ err: error }, 'Error manejando mensaje entrante (polling)');
+          }
+        }
+
+        await this.markChatIdAsReadBestEffort(c.id);
+      }
+    } catch (error) {
+      this.messagePollConsecutiveFailures += 1;
+      const failures = this.messagePollConsecutiveFailures;
+      logger.warn({ err: error, failures }, 'Polling de mensajes falló');
+      nextDelay = Math.max(5000, idleIntervalMs);
+
+      if (failures >= 3) {
+        logger.error({ failures }, 'Polling de mensajes falló repetidamente; deteniendo polling y reiniciando WhatsApp');
+        this.stopMessagePolling();
+        void this.safeRestart('message_polling_failed');
+        return;
+      }
+    }
+
+    // re-programar el siguiente tick (sin solapar)
+    const now = Date.now();
+    const delay = Math.max(250, Number.isFinite(nextDelay) ? nextDelay : idleIntervalMs);
+    this.messagePollNextAt = now + delay;
+    this.messagePollTimer = setTimeout(() => {
+      this.messagePollTimer = null;
+      void this.runMessagePollingTick();
+    }, delay);
   }
 
   private startMessagePolling(): void {
@@ -197,76 +311,16 @@ export class WhatsAppClient {
     if (!this.inboundHandler) return;
     if (this.messagePollTimer) return;
 
-    const intervalMs = Number(process.env.BOT_MESSAGE_POLL_MS || 15000);
-    const maxChats = Number(process.env.BOT_MESSAGE_POLL_MAX_CHATS || 5);
-    const maxPerChat = Number(process.env.BOT_MESSAGE_POLL_MAX_PER_CHAT || 15);
-    logger.warn({ intervalMs }, 'Iniciando polling de mensajes (fallback)');
+    const idleIntervalMs = Number(process.env.BOT_MESSAGE_POLL_IDLE_MS || process.env.BOT_MESSAGE_POLL_MS || 15000);
+    const activeIntervalMs = Number(process.env.BOT_MESSAGE_POLL_ACTIVE_MS || 2000);
+    logger.warn({ idleIntervalMs, activeIntervalMs }, 'Iniciando polling de mensajes (fallback)');
 
-    this.messagePollTimer = setInterval(() => {
-      void (async () => {
-        if (!this.isReady) return;
-        if (!this.inboundHandler) return;
-
-        try {
-          const unreadChats = await this.listUnreadChatsLightweight(maxChats);
-          this.messagePollConsecutiveFailures = 0;
-
-          for (const c of unreadChats) {
-            const unreadCount = Math.min(Number(c.unreadCount || 0), Math.max(1, maxPerChat));
-            if (unreadCount <= 0) continue;
-
-            let chat: any | null = null;
-            let messages: pkg.Message[] = [];
-            try {
-              // Resolver el chat solo para los no leídos (evita serializar 500+ chats cada tick)
-              chat = await (this.client as any).getChatById?.(c.id);
-              if (!chat) continue;
-
-              // Traer un poco más por si hay mensajes sin marcar como leídos todavía
-              messages = await chat.fetchMessages({ limit: Math.max(8, Math.min(maxPerChat, unreadCount + 3)) });
-            } catch (error) {
-              logger.debug({ err: error, chatId: c.id }, 'No se pudo fetchMessages en polling');
-              continue;
-            }
-
-            // procesar en orden (más viejo -> más nuevo)
-            for (const message of messages) {
-              const id = (message as any)?.id?._serialized;
-              if (!id) continue;
-              if ((message as any).fromMe) continue;
-              if (this.processedMessageIds.has(id)) continue;
-              if (String((message as any).from || '').endsWith('@broadcast')) continue;
-
-              this.markProcessedMessage(id);
-              logger.info(
-                { id, from: (message as any).from, chatId: c.id, unreadCount: chat?.unreadCount ?? unreadCount },
-                'Procesando mensaje vía polling (fallback)'
-              );
-
-              try {
-                await this.inboundHandler(message);
-              } catch (error) {
-                logger.error({ err: error }, 'Error manejando mensaje entrante (polling)');
-              }
-            }
-
-            // Marcar leído una sola vez por chat (mucho menos carga)
-            await this.markChatIdAsReadBestEffort(c.id);
-          }
-        } catch (error) {
-          this.messagePollConsecutiveFailures += 1;
-          const failures = this.messagePollConsecutiveFailures;
-          logger.warn({ err: error, failures }, 'Polling de mensajes falló');
-
-          // Si el polling se rompe consistentemente (p.ej. WWebJS.getChatModel/update), mejor reiniciar.
-          if (failures >= 3) {
-            logger.error({ failures }, 'Polling de mensajes falló repetidamente; deteniendo polling y reiniciando WhatsApp');
-            this.stopMessagePolling();
-            void this.safeRestart('message_polling_failed');
-          }
-        }
-      })();
-    }, intervalMs);
+    // primera ejecución inmediata
+    this.messagePollNextAt = Date.now();
+    this.messagePollTimer = setTimeout(() => {
+      this.messagePollTimer = null;
+      void this.runMessagePollingTick();
+    }, 0);
   }
 
   constructor() {
@@ -356,6 +410,7 @@ export class WhatsAppClient {
     const originalSendMessage = (this.client as any).sendMessage?.bind(this.client);
     if (originalSendMessage) {
       (this.client as any).sendMessage = async (...args: any[]) => {
+        await this.ensureWwebjsStubsApplied();
         const patchedArgs = [...args];
         // whatsapp-web.js suele hacer sendSeen() por defecto al enviar; en algunos builds eso truena con markedUnread.
         // Forzamos sendSeen:false para evitar el bug y mejorar performance.
@@ -762,6 +817,9 @@ export class WhatsAppClient {
         }
 
         await this.markChatAsSeenBestEffort(message);
+
+        // Si la sesión está "media rota" y dependemos de polling, acelerar el siguiente tick.
+        this.kickMessagePollingSoon();
       } catch (error) {
         logger.error({ err: error }, 'Error manejando mensaje entrante');
       }
