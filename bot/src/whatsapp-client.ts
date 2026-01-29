@@ -37,6 +37,8 @@ export class WhatsAppClient {
   private readonly debugMessages: boolean;
   private readonly enableMessagePolling: boolean;
   private readonly markMessagesRead: boolean;
+  private readonly enableAutoRestartOnStuck: boolean;
+  private readonly stuckCheckIntervalMs: number;
   private messagePollTimer: NodeJS.Timeout | null = null;
   private messagePollNextAt: number | null = null;
   private processedMessageIds = new Map<string, number>();
@@ -341,6 +343,10 @@ export class WhatsAppClient {
     this.debugMessages = parseEnvBool(process.env.BOT_DEBUG_MESSAGES, false);
     this.enableMessagePolling = parseEnvBool(process.env.BOT_ENABLE_MESSAGE_POLLING, false);
     this.markMessagesRead = parseEnvBool(process.env.BOT_MARK_MESSAGES_READ, true);
+    // Auto-restart can cause Puppeteer session locks ("browser already running") if Chrome doesn't exit cleanly.
+    // Keep it OFF by default; can be enabled when the environment is stable.
+    this.enableAutoRestartOnStuck = parseEnvBool(process.env.BOT_AUTO_RESTART_ON_STUCK, false);
+    this.stuckCheckIntervalMs = Number(process.env.BOT_STUCK_CHECK_INTERVAL_MS || 120000); // 2 min
 
     logger.info(
       {
@@ -359,7 +365,6 @@ export class WhatsAppClient {
 
     this.client = new Client({
       authStrategy: new LocalAuth({ dataPath: config.sessionPath }),
-      sendSeenOnReply: false,
       ...(wwebVersion
         ? {
             webVersion: wwebVersion,
@@ -708,6 +713,19 @@ export class WhatsAppClient {
           }
 
           if (!this.authStuckRestarted) {
+            if (!this.enableAutoRestartOnStuck) {
+              logger.warn(
+                {
+                  state,
+                  authenticatedSecondsAgo: this.authenticatedAt
+                    ? Math.round((Date.now() - this.authenticatedAt) / 1000)
+                    : null
+                },
+                'Auto-restart por stuck deshabilitado; se evita reinicio para no bloquear la sesión de Chrome'
+              );
+              return;
+            }
+
             this.authStuckRestarted = true;
             await this.safeRestart('stuck_after_authenticated');
           }
@@ -919,6 +937,137 @@ export class WhatsAppClient {
         ok: false,
         error: error?.message ? String(error.message) : String(error)
       };
+    }
+  }
+
+  /**
+   * Limpia chats (del lado del bot) para números que NO están permitidos.
+   *
+   * Importante:
+   * - WhatsApp Web no siempre permite “borrar chat” desde librerías. Lo más estable es:
+   *   - limpiar mensajes (clearMessages) si está disponible
+   *   - archivar el chat
+   * - Esta función está diseñada para ser llamada desde el menú admin.
+   */
+  async cleanupChats(options: {
+    /** Si true, no ejecuta acciones destructivas; solo reporta qué haría */
+    dryRun?: boolean;
+    /** Incluir chats con mensajes no leídos (default: false) */
+    includeUnread?: boolean;
+    /** Incluir grupos (default: false) */
+    includeGroups?: boolean;
+    /** Máximo de chats a procesar (default: 200) */
+    limit?: number;
+    /** Función que retorna true si el número es permitido (cliente/admin/whitelist/etc) */
+    isAllowedNumber: (whatsappNumber: string) => Promise<boolean>;
+  }): Promise<{
+    ok: boolean;
+    scanned: number;
+    candidates: number;
+    acted: number;
+    skippedUnread: number;
+    skippedGroup: number;
+    errors: number;
+    sample: Array<{ chatId: string; phone: string; action: 'skip' | 'clear' | 'archive' | 'none'; reason?: string }>;
+  }> {
+    const dryRun = options.dryRun !== false; // default true
+    const includeUnread = options.includeUnread === true;
+    const includeGroups = options.includeGroups === true;
+    const limit = Number(options.limit || 200);
+
+    const result = {
+      ok: true,
+      scanned: 0,
+      candidates: 0,
+      acted: 0,
+      skippedUnread: 0,
+      skippedGroup: 0,
+      errors: 0,
+      sample: [] as Array<{ chatId: string; phone: string; action: 'skip' | 'clear' | 'archive' | 'none'; reason?: string }>
+    };
+
+    try {
+      const chats: any[] = await this.client.getChats();
+      const slice = chats.slice(0, Math.max(0, limit));
+      for (const c of slice) {
+        result.scanned++;
+
+        const chatId = c?.id?._serialized ?? String(c?.id ?? '');
+        const isGroup = Boolean(c?.isGroup);
+        const unreadCount = Number(c?.unreadCount || 0);
+
+        if (isGroup && !includeGroups) {
+          result.skippedGroup++;
+          if (result.sample.length < 20) result.sample.push({ chatId, phone: '', action: 'skip', reason: 'group' });
+          continue;
+        }
+
+        if (unreadCount > 0 && !includeUnread) {
+          result.skippedUnread++;
+          if (result.sample.length < 20) result.sample.push({ chatId, phone: '', action: 'skip', reason: 'unread' });
+          continue;
+        }
+
+        const phone = String(chatId).replace(/@c\.us$/, '').replace(/[^0-9]/g, '');
+        if (!phone || phone.length < 8) {
+          if (result.sample.length < 20) result.sample.push({ chatId, phone: phone || '', action: 'skip', reason: 'invalid_phone' });
+          continue;
+        }
+
+        let allowed = false;
+        try {
+          allowed = await options.isAllowedNumber(phone);
+        } catch {
+          // Si el check falla, no destruimos nada.
+          allowed = true;
+        }
+
+        if (allowed) {
+          if (result.sample.length < 20) result.sample.push({ chatId, phone, action: 'none', reason: 'allowed' });
+          continue;
+        }
+
+        // Candidato a limpiar
+        result.candidates++;
+        if (dryRun) {
+          if (result.sample.length < 20) result.sample.push({ chatId, phone, action: 'none', reason: 'dry_run' });
+          continue;
+        }
+
+        // Acciones: intentar clearMessages y luego archive
+        try {
+          const chat: any = await this.client.getChatById(chatId);
+
+          let didSomething = false;
+          if (chat && typeof chat.clearMessages === 'function') {
+            await chat.clearMessages();
+            didSomething = true;
+            result.acted++;
+            if (result.sample.length < 20) result.sample.push({ chatId, phone, action: 'clear' });
+          }
+
+          // Archivar aunque no exista clearMessages
+          if (chat && typeof chat.archive === 'function') {
+            await chat.archive();
+            didSomething = true;
+            result.acted++;
+            if (result.sample.length < 20) result.sample.push({ chatId, phone, action: 'archive' });
+          }
+
+          if (!didSomething) {
+            if (result.sample.length < 20) result.sample.push({ chatId, phone, action: 'none', reason: 'no_supported_actions' });
+          }
+        } catch (e: any) {
+          result.errors++;
+          logger.warn({ chatId, phone, err: e?.message || e }, 'cleanupChats: error procesando chat');
+          if (result.sample.length < 20) result.sample.push({ chatId, phone, action: 'skip', reason: 'error' });
+        }
+      }
+
+      return result;
+    } catch (e: any) {
+      logger.error({ err: e }, 'cleanupChats: fallo general');
+      return { ...result, ok: false, errors: result.errors + 1 };
     }
   }
 

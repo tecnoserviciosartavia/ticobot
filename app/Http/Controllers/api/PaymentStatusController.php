@@ -64,20 +64,40 @@ class PaymentStatusController extends Controller
     public function pauseContact(Request $request)
     {
         $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
+            'client_id' => 'nullable|exists:clients,id',
             'whatsapp_number' => 'required|string',
             'reason' => 'nullable|string',
         ]);
 
+        // Normalize whatsapp_number to digits-only for consistent lookup.
+        $validated['whatsapp_number'] = preg_replace('/[^0-9]/', '', $validated['whatsapp_number']);
+
+        // If client_id is not provided, try to infer it from the client's phone.
+        // This keeps backwards compatibility while allowing pauses for numbers
+        // that are not registered in the system.
+        if (empty($validated['client_id'])) {
+            $clean = preg_replace('/[^0-9]/', '', $validated['whatsapp_number']);
+            $client = Client::where('phone', 'like', "%$clean%")->first();
+            if ($client) {
+                $validated['client_id'] = $client->id;
+            }
+        }
+
         $pausedContact = PausedContact::firstOrCreate(
             [
-                'client_id' => $validated['client_id'],
                 'whatsapp_number' => $validated['whatsapp_number'],
             ],
             [
+                'client_id' => $validated['client_id'] ?? null,
                 'reason' => $validated['reason'] ?? null,
             ]
         );
+
+        // If we created it without client_id but later inferred one, update it.
+        if (!empty($validated['client_id']) && empty($pausedContact->client_id)) {
+            $pausedContact->client_id = $validated['client_id'];
+            $pausedContact->save();
+        }
 
         return response()->json([
             'success' => true,
@@ -94,6 +114,32 @@ class PaymentStatusController extends Controller
     {
         $deleted = PausedContact::where('client_id', $clientId)
             ->where('whatsapp_number', $whatsappNumber)
+            ->delete();
+
+        if (!$deleted) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Contacto no encontrado en lista de pausa',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Contacto removido de la lista de pausa',
+        ]);
+    }
+
+    /**
+     * Reanudar un contacto solo por número (remover de lista blanca).
+     * DELETE /api/paused-contacts/by-number/{whatsappNumber}
+     */
+    public function resumeContactByNumber($whatsappNumber)
+    {
+        $normalized = preg_replace('/[^0-9]/', '', $whatsappNumber);
+        // Be tolerant: match exact or last-8 digits (records may be stored with or without country code).
+        $last8 = substr($normalized, -8);
+        $deleted = PausedContact::where('whatsapp_number', $normalized)
+            ->orWhere('whatsapp_number', 'like', "%$last8")
             ->delete();
 
         if (!$deleted) {
@@ -131,11 +177,12 @@ class PaymentStatusController extends Controller
      */
     public function isPaused($whatsappNumber)
     {
-        $paused = PausedContact::where('whatsapp_number', $whatsappNumber)->exists();
+        $normalized = preg_replace('/[^0-9]/', '', $whatsappNumber);
+        $paused = PausedContact::where('whatsapp_number', $normalized)->exists();
 
         return response()->json([
             'success' => true,
-            'whatsapp_number' => $whatsappNumber,
+            'whatsapp_number' => $normalized,
             'is_paused' => $paused,
         ]);
     }
@@ -244,8 +291,22 @@ class PaymentStatusController extends Controller
         ]);
 
         $contractId = $request->input('contract_id') ?? optional($client->contracts()->first())->id;
+        $contract = $contractId ? $client->contracts()->where('contracts.id', $contractId)->first() : null;
+        if (!$contract) {
+            // fallback defensive: if no contract found for this client, behave as before
+            $contract = $client->contracts()->first();
+            $contractId = $contract?->id;
+        }
 
-        $scheduled = $request->filled('scheduled_for') ? Carbon::parse($request->input('scheduled_for')) : Carbon::now();
+        // Por defecto, mantener la fecha de cobro del contrato.
+        // Evita que los recordatorios manuales se vayan "al siguiente mes" por usar now() en fechas cercanas al corte.
+        if ($request->filled('scheduled_for')) {
+            $scheduled = Carbon::parse($request->input('scheduled_for'));
+        } else {
+            $scheduled = $contract?->next_due_date
+                ? Carbon::parse($contract->next_due_date)->startOfDay()
+                : Carbon::now();
+        }
 
         $payload = [
             'message' => $request->input('message') ?? null,
@@ -259,6 +320,12 @@ class PaymentStatusController extends Controller
             'status' => 'pending',
             'payload' => $payload,
         ]);
+
+        // If request comes from Inertia (router.post), it must receive a redirect / Inertia-compatible response.
+        // Otherwise, the Inertia client will show "All Inertia requests must receive a valid Inertia response".
+        if ($request->header('X-Inertia')) {
+            return back()->with('success', 'Recordatorio creado correctamente')->with('reminder_id', $reminder->id);
+        }
 
         return response()->json([
             'success' => true,

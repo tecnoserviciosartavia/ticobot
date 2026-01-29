@@ -35,6 +35,14 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('/payments', [WebPaymentController::class, 'store'])->name('payments.store');
     Route::get('/payments/client-contracts', [WebPaymentController::class, 'getClientContracts'])->name('payments.client-contracts');
     Route::get('/payments/pending', [\App\Http\Controllers\Web\PaymentController::class, 'pending'])->name('payments.pending');
+
+    // Web JSON endpoints (session-auth) for pages that fetch() data directly.
+    // This avoids SPA/Sanctum cookie-state complexities and prevents 401s on /api/* for same-origin requests.
+    Route::prefix('web-api')->group(function (): void {
+        Route::get('clients/pending-payments', [\App\Http\Controllers\api\PaymentStatusController::class, 'clientsWithPendingPayments']);
+        Route::get('summary/pending-payments', [\App\Http\Controllers\api\PaymentStatusController::class, 'summaryPendingPayments']);
+        Route::post('clients/{client}/send-reminder', [\App\Http\Controllers\api\PaymentStatusController::class, 'sendReminder'])->name('webapi.clients.sendReminder');
+    });
     Route::delete('/payments/{payment}', [WebPaymentController::class, 'destroy'])->name('payments.destroy');
     Route::get('/conciliations', [WebConciliationController::class, 'index'])->name('conciliations.index');
     Route::post('/conciliations', [WebConciliationController::class, 'store'])->name('conciliations.store');

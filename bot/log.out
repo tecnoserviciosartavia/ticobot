@@ -1,220 +1,482 @@
+[15:38:46] [32mINFO[39m (ticobot-whatsapp/2392658): [36mInicializando WhatsApp (puppeteer)[39m
+    headless: false
+    hasCustomUserAgent: true
+    wwebVersion: null
+    wwebCacheType: null
+    wwebCacheStrict: false
+    disableWwebjsPatches: true
+    debugMessages: true
+    enableMessagePolling: false
+    markMessagesRead: true
+[15:38:47] [41mFATAL[49m (ticobot-whatsapp/2392658): [36mError inicializando cliente de WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1200:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3553:3)
+    }
+[15:38:47] [41mFATAL[49m (ticobot-whatsapp/2392658): [36mEl bot de WhatsApp se detuvo por un error inesperado[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1200:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3553:3)
+    }
+[15:38:47] [33mWARN[39m (ticobot-whatsapp/2392658): [36mWhatsAppClient.destroy falló; intentando cleanup alternativo[39m
+    err: {
+      "type": "TypeError",
+      "message": "Cannot read properties of null (reading 'close')",
+      "stack":
+          TypeError: Cannot read properties of null (reading 'close')
+              at Client.destroy (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:876:31)
+              at WhatsAppClient.shutdown (file:///home/fabian/ticobot/bot/dist/index.js:1275:25)
+              at file:///home/fabian/ticobot/bot/dist/index.js:3894:28
+              at file:///home/fabian/ticobot/bot/dist/index.js:3899:5
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    }
+[15:38:47] [33mWARN[39m (ticobot-whatsapp/2392658): [36mNo se pudo ejecutar pkill de cleanup para WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true\n",
+      "stack":
+          Error: Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true
+          
+              at genericNodeError (node:internal/errors:984:15)
+              at wrappedFn (node:internal/errors:538:14)
+              at ChildProcess.exithandler (node:child_process:422:12)
+              at ChildProcess.emit (node:events:524:28)
+              at maybeClose (node:internal/child_process:1104:16)
+              at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+      "code": null,
+      "killed": false,
+      "signal": "SIGTERM",
+      "cmd": "pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true",
+      "stdout": "",
+      "stderr": ""
+    }
+[15:49:56] [32mINFO[39m (ticobot-whatsapp/2393872): [36mInicializando WhatsApp (puppeteer)[39m
+    headless: false
+    hasCustomUserAgent: true
+    wwebVersion: null
+    wwebCacheType: null
+    wwebCacheStrict: false
+    disableWwebjsPatches: true
+    debugMessages: true
+    enableMessagePolling: false
+    markMessagesRead: true
+[15:49:57] [41mFATAL[49m (ticobot-whatsapp/2393872): [36mError inicializando cliente de WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1200:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3585:3)
+    }
+[15:49:57] [41mFATAL[49m (ticobot-whatsapp/2393872): [36mEl bot de WhatsApp se detuvo por un error inesperado[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1200:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3585:3)
+    }
+[15:49:57] [33mWARN[39m (ticobot-whatsapp/2393872): [36mWhatsAppClient.destroy falló; intentando cleanup alternativo[39m
+    err: {
+      "type": "TypeError",
+      "message": "Cannot read properties of null (reading 'close')",
+      "stack":
+          TypeError: Cannot read properties of null (reading 'close')
+              at Client.destroy (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:876:31)
+              at WhatsAppClient.shutdown (file:///home/fabian/ticobot/bot/dist/index.js:1275:25)
+              at file:///home/fabian/ticobot/bot/dist/index.js:3926:28
+              at file:///home/fabian/ticobot/bot/dist/index.js:3931:5
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    }
+[15:49:57] [33mWARN[39m (ticobot-whatsapp/2393872): [36mNo se pudo ejecutar pkill de cleanup para WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true\n",
+      "stack":
+          Error: Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true
+          
+              at genericNodeError (node:internal/errors:984:15)
+              at wrappedFn (node:internal/errors:538:14)
+              at ChildProcess.exithandler (node:child_process:422:12)
+              at ChildProcess.emit (node:events:524:28)
+              at maybeClose (node:internal/child_process:1104:16)
+              at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+      "code": null,
+      "killed": false,
+      "signal": "SIGTERM",
+      "cmd": "pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true",
+      "stdout": "",
+      "stderr": ""
+    }
 nohup: ignoring input
-▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-█ ▄▄▄▄▄ █▀▄▀▄▀▀▀ ▄▀█ ▄▄██▄ ▄▀█▄▄▀▀█▄▄█▄  ▀█  ▄█▄ ██ ▄▄▄▄▄ █
-█ █   █ █▄ ▀ ▄▀▄▄▄██▀████▄██ █▀ ▄▄██▀█▄ ██▄█▄█▀▄ ██ █   █ █
-█ █▄▄▄█ █  ▀▄█▀▀██ ▀▀█  ▀▄  ▄▄▄  ▀ █▄▀▀ █▀▀ ██ ▀▄██ █▄▄▄█ █
-█▄▄▄▄▄▄▄█ ▀ ▀▄█▄▀ ▀ ▀ █ ▀▄█ █▄█ ▀▄█▄█ ▀▄█▄▀ █ ▀ █ █▄▄▄▄▄▄▄█
-█ ▄█ ██▄ █▀▄▀  █▄▄▀ █▄▄▄▀█▄▄▄▄ ▄██ ▄▄ █▄█ ██ ▀█████▄▄▄▀▄▄██
-█▀ █▄▀▄▄▀██▄▄▀▀█ █▀▄▄▄  █ ▄ █▀ ▀ ▄█▄▀█▄█▀▀██▄▀██▀▀█▀ ▀▀█▀ █
-█▀▄▄▄█ ▄█ ▀█▄█▄██ █▄ ▄ ▀█▄█▄▄ █▀  █▀▄▄ ▄▄▄ █▄ █▀▄▄ █▄▄█▄▀▀█
-█▄▀▄  █▄▄██▄▀█▀ ▄▄███▄▄ █▀▀█▀▄ ▄ █▀▄█▄▄ █ ▀▀█ ▀ █ ▀█ ▀▄█▀▀█
-█▀▀ ▄██▄▄▀▀▄ ▀█▄██▄▄▄  ▀▀▄▀▀   ▄█▄▀█▄▄█▀▀██▄▄ █▄▀▄█▀▄▀▄▀▀▀█
-█ ▄▀██▀▄▄  █▄▄▀▄ ██▄█▀▀██▀▀█ ██▄▀ ▄█▀█▄▄ ▄▄██▀█▄▄▀ ████▄▄ █
-█▀██▄▄▄▄▄█▀▄ ▄███ ▄  █ ▄▄ ▄   ▄█ █▄█▀▄█▄▄ █▄▀▀█▄▀█ █▀  ▀▄▀█
-█▄▄▄▀▄▄▄ ▀█▀█▄▀ █  █▀ ▀▄▀▀▄█▄▄██▀▀▄ ▄   ▄▄▄▀ ▀ █ ██▀▄█▄▄▄▄█
-██ ▀▄ ▄▄█▄█▄█▀▄ █▀█ ██▄ ▄██▄▄ ▄▄▄▀▀ ▄  ▄  ██▄▄▄▀██ ▄▄  █ ██
-█▀▀▄▀ ▄▄▄  █ ▄█ ▀▀▀▀▄▀█▄█▄  ▄▄▄ ▄ ▄▀▄▀ ▀▀██▄███▄█ ▄▄▄ ▄▄ ██
-██  █ █▄█ ▀█ █▄██▄▄██ ██▀█▄ █▄█ ▀ █▄ ▄▄▀▄▀▀▄█▄▄█▀ █▄█ ▄▀  █
-█ ▀  ▄ ▄▄ █▄█▄█▀▄▄▀██▄█ ▀▀▄▄  ▄▄█▀▄██ ▄ ▀█▀▄  ██▀  ▄▄ █▄▄ █
-█▀▄▄▄▀▄▄▀ ▄▄▀▄█▄█▄▀▄█▄▄ ▄▄ ▄▄█▄▄ █ ▄  █▄▄▄▀█▄▀██▄▀ ▀██▄█▄ █
-█▄▀█▀█▄▄▀▀█▄  ▀▄▀▄███ ▄██▄▀▄ ▄▀▄ ▄▀▄ █▄█▀▀▄▀█ █▄▀ ▀▄▀▄▀██▄█
-█▄▀█▀██▄███▄▀██▄   ▄▀ ▄  ▄█▄  ▄▀ ▄▄▀▄  ▄▄ ██ ▄▄ ███▄█▀▀▄▄▀█
-█▀▀█▀ █▄█▀▄ ▄█▀█ ▄ ▄█ ██▀▄   ▄▀ █▄ █▀ ▀██▄ ▄██▄▄▄  █▄▀▄█ ▄█
-█▀▄█▄  ▄▄▄▄▀▄▄█ █▄ ▄▀▀▄█▄█ ▄█▄██▄  ██ ▀ ▄█ ██ ▄██ ▄▀▄█▄▄▄▄█
-█ █ ▄  ▄█▄▄▀█▄ █▀██▄▄▄ █▀ █ ▀▀ ▄█ ▀  ▄▄▀ ██▀▀▀▄▄▄  ▄ ▄█▄▄ █
-█▀▀  ▀▄▄▄▄▀█▀ ▄▀█▄▄▄▄▄ █▄▄▀▀██ ▀ ██▄▀ ▀▄▀▄██▀██▄ ▀▀ ▄█ ▄ ██
-█ ▀ ▀▀▄▄ ▄▀ █ █ ▀▄  ▄  ▀▀ █▀▀▀▄ ▄██ █▄ ▀▄▄█▄█▄▄█▀▀█▄▄█ ▄█ █
-███████▄▄▀▄▄█▄▀▀ ▀▄▄ ▄  ▄▄█ ▄▄▄   █ ▄ ▄▄▄ ▄▄▄ █▀█ ▄▄▄ ███▄█
-█ ▄▄▄▄▄ █▄▄▀  █▄▀▀  ██ ▄▀▀  █▄█ █▀▄█▄   ▀  ▀ ▄▀ ▀ █▄█ ▄▄ ██
-█ █   █ █▀  ███▀█▀  ▀  █▀ ▀ ▄▄  ▀ ██  ▄▀▄▀ ▄█ ███▄    █▀▀▀█
-█ █▄▄▄█ █▀▀▄▄ ▀███ ▄▄▄█ █▀██▄ █▀█████▀█ ▀█▀▄  ▄ ▄  ▄▄ ▄▄█▄█
-█▄▄▄▄▄▄▄█▄██▄▄▄▄▄▄█▄██▄▄██▄█▄█▄▄▄▄██▄▄▄█▄▄████▄▄▄▄█▄▄▄▄█▄██
-
-[00:05:32] [32mINFO[39m (ticobot-whatsapp/869139): [36mEscanee el código QR para iniciar sesión.[39m
-[00:05:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:05:32] [32mINFO[39m (ticobot-whatsapp/869139): [36mServicio de recordatorios iniciado[39m
+[16:18:06] [32mINFO[39m (ticobot-whatsapp/2396599): [36mInicializando WhatsApp (puppeteer)[39m
+    headless: false
+    hasCustomUserAgent: true
+    wwebVersion: null
+    wwebCacheType: null
+    wwebCacheStrict: false
+    disableWwebjsPatches: true
+    debugMessages: true
+    enableMessagePolling: false
+    markMessagesRead: true
+[16:18:07] [41mFATAL[49m (ticobot-whatsapp/2396599): [36mError inicializando cliente de WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1204:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3596:3)
+    }
+[16:18:07] [41mFATAL[49m (ticobot-whatsapp/2396599): [36mEl bot de WhatsApp se detuvo por un error inesperado[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1204:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3596:3)
+    }
+[16:18:07] [33mWARN[39m (ticobot-whatsapp/2396599): [36mWhatsAppClient.destroy falló; intentando cleanup alternativo[39m
+    err: {
+      "type": "TypeError",
+      "message": "Cannot read properties of null (reading 'close')",
+      "stack":
+          TypeError: Cannot read properties of null (reading 'close')
+              at Client.destroy (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:876:31)
+              at WhatsAppClient.shutdown (file:///home/fabian/ticobot/bot/dist/index.js:1279:25)
+              at file:///home/fabian/ticobot/bot/dist/index.js:3937:28
+              at file:///home/fabian/ticobot/bot/dist/index.js:3942:5
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    }
+[16:18:07] [33mWARN[39m (ticobot-whatsapp/2396599): [36mNo se pudo ejecutar pkill de cleanup para WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true\n",
+      "stack":
+          Error: Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true
+          
+              at genericNodeError (node:internal/errors:984:15)
+              at wrappedFn (node:internal/errors:538:14)
+              at ChildProcess.exithandler (node:child_process:422:12)
+              at ChildProcess.emit (node:events:524:28)
+              at maybeClose (node:internal/child_process:1104:16)
+              at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+      "code": null,
+      "killed": false,
+      "signal": "SIGTERM",
+      "cmd": "pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true",
+      "stdout": "",
+      "stderr": ""
+    }
+nohup: ignoring input
+[16:18:43] [32mINFO[39m (ticobot-whatsapp/2397042): [36mInicializando WhatsApp (puppeteer)[39m
+    headless: false
+    hasCustomUserAgent: true
+    wwebVersion: null
+    wwebCacheType: null
+    wwebCacheStrict: false
+    disableWwebjsPatches: true
+    debugMessages: true
+    enableMessagePolling: false
+    markMessagesRead: true
+[16:18:43] [41mFATAL[49m (ticobot-whatsapp/2397042): [36mError inicializando cliente de WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1204:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3596:3)
+    }
+[16:18:44] [41mFATAL[49m (ticobot-whatsapp/2397042): [36mEl bot de WhatsApp se detuvo por un error inesperado[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1204:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3596:3)
+    }
+[16:18:44] [33mWARN[39m (ticobot-whatsapp/2397042): [36mWhatsAppClient.destroy falló; intentando cleanup alternativo[39m
+    err: {
+      "type": "TypeError",
+      "message": "Cannot read properties of null (reading 'close')",
+      "stack":
+          TypeError: Cannot read properties of null (reading 'close')
+              at Client.destroy (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:876:31)
+              at WhatsAppClient.shutdown (file:///home/fabian/ticobot/bot/dist/index.js:1279:25)
+              at file:///home/fabian/ticobot/bot/dist/index.js:3937:28
+              at file:///home/fabian/ticobot/bot/dist/index.js:3942:5
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    }
+[16:18:44] [33mWARN[39m (ticobot-whatsapp/2397042): [36mNo se pudo ejecutar pkill de cleanup para WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true\n",
+      "stack":
+          Error: Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true
+          
+              at genericNodeError (node:internal/errors:984:15)
+              at wrappedFn (node:internal/errors:538:14)
+              at ChildProcess.exithandler (node:child_process:422:12)
+              at ChildProcess.emit (node:events:524:28)
+              at maybeClose (node:internal/child_process:1104:16)
+              at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+      "code": null,
+      "killed": false,
+      "signal": "SIGTERM",
+      "cmd": "pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true",
+      "stdout": "",
+      "stderr": ""
+    }
+nohup: ignoring input
+[16:20:47] [32mINFO[39m (ticobot-whatsapp/2398645): [36mInicializando WhatsApp (puppeteer)[39m
+    headless: false
+    hasCustomUserAgent: true
+    wwebVersion: null
+    wwebCacheType: null
+    wwebCacheStrict: false
+    disableWwebjsPatches: true
+    debugMessages: true
+    enableMessagePolling: false
+    markMessagesRead: true
+[16:20:54] [31mERROR[39m (ticobot-whatsapp/2398645): [36mWebhook server error[39m
+    port: 3001
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use :::3001",
+      "stack":
+          Error: listen EADDRINUSE: address already in use :::3001
+              at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+              at listenInCluster (node:net:1965:12)
+              at Server.listen (node:net:2067:7)
+              at startWebhookServer (file:///home/fabian/ticobot/bot/dist/index.js:3865:12)
+              at main (file:///home/fabian/ticobot/bot/dist/index.js:3867:3)
+      "code": "EADDRINUSE",
+      "errno": -98,
+      "syscall": "listen",
+      "address": "::",
+      "port": 3001
+    }
+[16:20:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mWhatsApp loading_screen[39m
+    percent: 100
+    message: "WhatsApp"
+[16:20:54] [32mINFO[39m (ticobot-whatsapp/2398645): [36mSettings cargadas desde API[39m
+    loaded: [
+      "payment_contact",
+      "bank_accounts",
+      "service_name",
+      "beneficiary_name"
+    ]
+[16:20:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:20:54] [32mINFO[39m (ticobot-whatsapp/2398645): [36mServicio de recordatorios iniciado[39m
     intervalMs: 30000
-[00:06:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-█ ▄▄▄▄▄ █▀▄▀▄▀  ▄▄▀█▄▄▄▄▄▄ ▄▀█▄▄▀▀█▄▀█ ▄▀▄▄ ▄▀█▄ ██ ▄▄▄▄▄ █
-█ █   █ █▄ ▀▄▄▀▄▄▄██▀▄██▄███ █▀ ▄▄██▄█▄  █▄██▄▀▄ ██ █   █ █
-█ █▄▄▄█ █ ▄█ ▄▀▀██ ▀▀█  ▀▄  ▄▄▄ █  █▄▄▀  ▀▀ █  ▀▄██ █▄▄▄█ █
-█▄▄▄▄▄▄▄█ █▄▀▄█▄▀ ▀ ▀ █ ▀▄█ █▄█ ▀▄█▄█ ▀▄█▄▀ █ ▀ █ █▄▄▄▄▄▄▄█
-█ ▄█ ▀▀▄ █ ▀▄█ █▄▄▀ █▄▄▄▀█▄▄▄▄ ▄██ ▄▄ █▄█ ██ ▀████▀▄  ▀▄▄██
-█▀ █▄ ▄▄ ▄ ▄ █▀█ █▀▄▄▄  █ ▄▀█▀ ▀ ▄▀ ▀█ █▀▀▀█▄▀█████▀ █▀█▀ █
-█▀▄ ▀█ ▄ ▄█▀▄█▄██ █▄ ▄ ▀█▄██ ▄█▀  █▀▄▄ ▄▄▄██▄ █  █ █  ▀ ▀▀█
-█▄█ ▀ █▄█▄█▄▀█▀ ▄▄▄ █▄███▀▀█ ▄   █▀██▄▄██  ▀▀ ▀ █▀▀█▀▀ █▀▀█
-█  ▀▄██▄▄▀▀▄ ▀█▄▄▄ ▄▄▀ █▀█▀▀  █▄█▄▀█▄▄▀▀██▀▄▄ ▄█▀▄█▀▄▀▄▀▀▀█
-█ ▄▀███▄▄  █▄▄▀▄▄▄█▄██▀█ █▀█ ████▄▄█ ▀▄██ ▄▄▄▄██▄▀▄▀███▄▄ █
-█▄ █▄ ▀▄▄█▀▄▄████ ▄  █ ▄▄ ▄   ▄█▄▀▄█▀ █▄ ▄█▄▄▀█▄▀█▄▄▀  ▀█▀█
-█▄▄▄▀ █▄ ▀▄▄▄ ▀ █  █▀ ▀▄▀▀▄█▄▄██  ▄ █   ▄▄▄▀   █ █▀▀▄▀▄▄▄▄█
-██ ▀▄▀▀▄▀▄██▄▀▄▄█▀█ ██▄ ▄██ ▄ ▄▄▄▀▀ ▄  ▄  ██▄▄▄▀▄█▀█   █ ██
-█▀▀▄▀ ▄▄▄ ▄    ▄▀▀▀▀▄▀█▄█▄▀ ▄▄▄ ▄  ▀▄▀ ▀▀██ ██▀   ▄▄▄ ▄▄ ██
-██    █▄█ █  █▀▀█▄▄██ ██▀█  █▄█ ▀ █▄ ▄█ ▄▀▄██▄▄▄  █▄█  █  █
-██  ▀ ▄▄ ▄█▄█▄█▀▄▄▀ █▄██▀▀▄   ▄▄█▀▄█▀▄ ▄██▄█ ▄██▀  ▄ ▄▄█▄ █
-███▄▀▀▄▄ ▄▄▄▀▄█▄██▀▄ ▄█ ▀█ ▄██▄▄ █ ▄█ █▄  ▄▄▄▀▀█ ▀ ▀▄▄█▄  █
-████▀█▄▄█ █▄  ▀▄▄ ███▄▄██▄▀▄▄█▀▄▄ ▀▄█▀█▄▀ █ ▀█▄▄▀ ▀▄▀█▀█▀▄█
-█▄▄█▀██▄███▄ ▄█▄   ▄▀ ▄  ▄█▄  ▄▀  ▄▀   ▄▄▄██ ▄▄ ███▄█▀▀▄█▀█
-█▀▀█▀ █▄█▀  █▄█  ▄ ▄█ ██▀▄   ▄▀ ▄█ █▀ ▀█▄▄ ▄█▄▄▄▄  █▄▀▄█ ▄█
-█▀▄█▄▀▄▄▄▄▄▀ ▄ ▀█▄ ▄▀▀▄█▄█ ▄█▄██▄  ██ ▀ ▄█ ██ ▄██  █▄█ ▄▄▄█
-█ █ ▄  ▄█▄█ █▄  ▀██▄▄▄ █▀ █ ▀▀ ▄█ █  ▄ █ █▀▀▀▀▄   ▄  ▄██▄ █
-█▀▀██▄█▄▄█▀ ▀  ██▄▄▄▄▄ █▄▄▀▄██ ▀ █▄▄▀  ▄▀▄▄▄▀█▄█▄▄▄▀██▀▀ ██
-█ ▀ ▀▀▄▄▀▄▀ █ █ ▀▄█ ▄ ▀▀▀ ▄█▀▀▄ ▄██ █▄▀▀  █▄▀▄▀█  █ █  ▄█ █
-███████▄█▀▄▄█▄▀▀█ ▄ ▀█▀▄ ██ ▄▄▄   █ ▄▄█▄  ▄▄ ▄█▀█ ▄▄▄ ███▄█
-█ ▄▄▄▄▄ █▄▄▀  █▄█▄  ▄  ▄▀   █▄█ ▀█▄█ █  ██   ▀▀   █▄█ ▄▄ ██
-█ █   █ █▀  ▄██▀█▀  ▀  █▀ ▀ ▄   ▀▄██▄ ▄▀▄▀ ▄█▄███▄  ▄ █▀▀ █
-█ █▄▄▄█ █▀▄▀█▀▄ ██ ▄▄▄█ █▀██▀▄█▀█▄██▄ █ ▀▄▀▄ ▀▄ ▄  ▄ ▄▄▄█▄█
-█▄▄▄▄▄▄▄█▄███▄▄█▄▄█▄██▄▄██▄███▄▄▄▄██▄▄▄█▄▄████▄▄▄▄█▄▄▄▄█▄██
-
-[00:06:31] [32mINFO[39m (ticobot-whatsapp/869139): [36mEscanee el código QR para iniciar sesión.[39m
-[00:06:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-█ ▄▄▄▄▄ ██▄█▄▀▄▀  ▀▄▄ █▀▀▄▄▄▀▀▄▄█▀  ▀▀▄ █▀█   █▄ ██ ▄▄▄▄▄ █
-█ █   █ █▄ ▀█ ▀█▄▄▄█ ███▄▄█▄ █  ▄████▄▄▀▄███ █▀▄ ██ █   █ █
-█ █▄▄▄█ ██▄ ▀  ██▄▄▀ ▀ ▀█▄▀ ▄▄▄  ▄ ▄▄█ ▄ ▀█ ▄  ▀▄██ █▄▄▄█ █
-█▄▄▄▄▄▄▄█ ▀ █ ▀▄▀▄▀ █ █▄▀▄▀ █▄█ █▄█ █ █▄█ ▀ ▀ ▀▄█ █▄▄▄▄▄▄▄█
-█ ▄▄▀▄▄▄▄▄▄█ ▀ ▄▄▄  ██▄▄ █▄▄▄▄ ▄█▄ ▄█ ███ ▄█  ██▄▄▄▄▀█▀▄███
-█▀▀▀▄  ▄▄▀▀▀▀█ ▀ ▄█▄█  ▀▀ ▄▄▀ ▄▀▀ ▀▀██▀▀▀ ▀███▀ ▄███▀ ██ ▄█
-█▀ ▄ ▀ ▄  ▄▀▄█ ██▄█▄▄▄ ██▄▀▄ ▄█▀▄ ▀█▄▄██▄ ▄█   █▀█▄█▄ █▄█▀█
-█▀ ▄█ ▄▄█▄█▄ █▀▀▄▄▄ ██▄▀▄▀▀▄ ▄█▄ ▄ █▄  █▀▄█▄██▄█▀▀▀▄  █▄▀ █
-███▀▄▄▀▄██▀█▄▀▄  ██ ▀█▄ ██ █ ▀█▄▄  █▄▄ ▄▄ ██  █▄█▄▄█▄  ▀▄▀█
-█  ▄▄██▄   ▀▄▄█▄█▄█▄█▄▀▀  ██ ▀█▄▀ ▄▀█ ▀█  ▄█▀▄█▀▄▀▄▀█▀█▄ ▄█
-█▄ ▄▄█▀▄▄▄▀▄ ██▄█ █  ▄ ▄█ ▄▀  ██▄▄▄█▄▄██▀ ▄▄  █▄ █▄▄▀ ▀▀▄ █
-█▄█ ▀▀▄▄▀▀▄▄▀▀█ █▀▄█ ▄▀██▀█▀▄█▀█▀█▄▀▀▀▀▄▄█ ▀ █ ▄▄███▄▄ ▄█ █
-██▄▀▄█ ▄▄█ █▄▄▀ ███ ▀█▄▄▄█▀▄▄▄▄▄ ▀▀▄▄ ▄▄ ▄██ ▄▄███▄▄   █▄██
-█▀▀█▀ ▄▄▄ █▄▄ ▄▄▀▀ ▀▄ █▄▄▄█ ▄▄▄ ▄▀▄██▀  ▀█ ▄█▄█▄  ▄▄▄ ▀▄ ▄█
-██▀▀█ █▄█ ▀▀▄█▄▀██ █▄▄█▄███ █▄█  ▄▄▄▄▄ ▄▄ ▄█▄ █▄▄ █▄█  █▀▄█
-█ ▀ █ ▄▄ ▄█ █▄▀▀▄ ██▀▄██▀▀ ▄ ▄▄▄▀▀▄ █  ▀▀█ ▄▄ ▀▀  ▄▄ ▄██  █
-█▄▀██▀█▄█▄▄▄ ▄██▄▄ ▄▄▄  ██ █ ██▄ ▄ ▄ ▄▄█  ▄▄ ▄▄█▀   ▄███▄██
-███▀▄▄ ▄█▄██▄   ▄▀▀█ █▄▄▄▀  ▄██▄▀▄▀█▄█▄▀ ▄▀▀▀▀▄▄▄   █▄██  █
-█ ██▀▀█▄▀██  ▄▀▄ ▄ ▄█ ▄▄ ▄▀▄ ▄▀▀▄▄▄█▄ ▄▄ ▄██▄▄▄▄██▀▄██▀▄▀ █
-█▀▀▄▀ ▄▄█   ▀ ▀▀ ▄▀▄█▀██ ▄ ▀ ▄▄▄█▄ █  ▀▄██▀▄█▄▄▄█  ▄▄▀██ ██
-█▀█▀▄ ▀▄█ █▀▄▀▀███▄▄ █▄▄ █▀ ██▀██▄ ▄▀  ▄▄▄▄█▄▄▄▄▀ █▀▄▄ ▄█ █
-█ ▀ ▄▄ ▄▀▄▄▀████▀▀█▄ ▄ ▀▀ ▀ ▀█ ▄▀ █▄ ▄▄█ ▀▀██▀▄ ▄  ▄  ▄█  █
-█▀▀  ▀ ▄█ ▀▄  ▄▄█▄█▄▄█ ██▄▀▀██▀▀ ▄▄▄  ██▀▄▀▄▀▄ █▀▄▀ ▄▄ ▀ ▄█
-█ ▀ ▀▀▄▄ ▀▀▀▀ ▄▄▀█▀██▄▄▀█ ▄█▀   █▀▄▀▀▄██ ▀ █▄▄ ██ ▄ ▄█▄█▄▄█
-███████▄▄▀▄ █▄█▀▀█  ██▄ ██▀ ▄▄▄ ▄ █▄▄  ▄▄▄▄▄▄  ██ ▄▄▄ ███ █
-█ ▄▄▄▄▄ █ ▄▀▀ ███▄▀  ▄ ▄ ▄  █▄█ █ ▄█▄  ▀▀█ ▀ █▀▀▄ █▄█ █▄▀▄█
-█ █   █ █▄ ▀▄█▄██ ▄  ▄ ▄█  ▄▄▄▄  ▄█▄  ██  ▄▄ ▄█▄▀▄ ▄▄▄▀▀▀▄█
-█ █▄▄▄█ █  ▀ ▄█▀█▀ ▄ ▄█▄█▀▀█ ▄█▀▀██▀█▀▀ ▀ ▀▄▄ ▄▄▄ ▄▄▄▄▄▄▀▄█
-█▄▄▄▄▄▄▄█▄███▄▄█▄▄▄▄█▄▄▄▄█▄▄▄▄█▄▄████▄▄▄▄▄▄██▄▄▄█▄███▄██▄▄█
-
-[00:06:51] [32mINFO[39m (ticobot-whatsapp/869139): [36mEscanee el código QR para iniciar sesión.[39m
-[00:07:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-█ ▄▄▄▄▄ █▀▄▀▄▀▀▀ ▄ ▄  ▄█   ▄▀█▄▄▀▀  █▄      █ █▄ ██ ▄▄▄▄▄ █
-█ █   █ █▄ ▀▄▄▀▄████▀███▄███ █▀ █▄██▄█▄ ▄█▄███▀▄ ██ █   █ █
-█ █▄▄▄█ █ ▄██▄▀▀██ ▀▀█  ▀▄  ▄▄▄  ▀ █ █▀ ▄▀▀    ▀▄██ █▄▄▄█ █
-█▄▄▄▄▄▄▄█ █ █ █▄▀ ▀ ▀ █ ▀▄█ █▄█ ▀▄█▄█ ▀▄█▄▀ █ ▀ █ █▄▄▄▄▄▄▄█
-█ ▄█ ██▄ ▀▄█▄  █▄▄▀ █▄▄▄▀█ ▄▄▄ ▄██ ▄▄ █▄█ ██ ▀██▄▄▀▄▄ ▀▄▄██
-█▀ █▄▀█▄███ ▄ ▀█ █▀▄▄▄  █  ▀██ ▀ ▄█▄▀█ ▀▀▀█▀▄▀▀▀▀██▀█ ▀█▀ █
-█▀▄ ▀█ ▄▄▀██▄█▄██ █▄ ▄ ▀█▄▄█▄▄█▀  ▄ ▄▄██▄▄█▄▄ ▀▀█▄ ██▄█▄▀▀█
-█ ▀▀▀ █▄███▄▀█▀ ▄▄▀ █▄▀▄█▀▀█ ▄▄▄ █▄█▀▄▄▄▀▄ ██  █ █▀█▀▀▄█▀▀█
-█▀█▄▀██▄▄▀▀▄ ▀█▄▄▄▀ ▄▀ █ ▄▀▀  ▀▄█▄ █▄▄▄▀ █▀██▄█▄▀▄█▀▄▀█▀▀▀█
-█▀▀  ▀▀▄▄  █▄▄▀▄ ▀█▄ ▄▀█ ▄▀█ ██▄▀▄▄██▀██▀ █▄▀▀▄█▄▀ ████▄▄▄█
-█  █▄▀ ▄▄█▀▄▀ ███ ▄  █ ▄▄ ▄   ▄█ ▀▄█ ▄█▄▄▄█▄▀▀█▄▀█▄▄▀  ▀▄▀█
-█▄▄▄▀▄█▄ ▀█████▄█  █▀ ▀▄▀▀▄█▄▄██ ▀▄ █▀  ▄█▄▀ ▀ █ █▀▄ ▀▄▄▄▄█
-██ ▀▄▀█▄ █▀▀█   █▀█ ██▄ ▄██▄▄ ▄▄▄▀▀ ▄  ▄  ██▄▄▄▀ █▀▄▄▄ █ ██
-█▀▀▄▀ ▄▄▄ ▄███  ▀▀▀▀▄▀█▄█▄█ ▄▄▄ ▄  ▀▄▀ █▀█▀▄███▄█ ▄▄▄  ▄ ██
-██ ▀▄ █▄█ ▄▄ █ ▀█▄▄██ ██▀█  █▄█ ▀ ▄█ ▄ ▀▄▀▀██▄▄▄▄ █▄█ ▄█  █
-█▀▄█▄ ▄▄▄ █▄█▄█▀▄▄█▄█▄▀█▀▀▄   ▄▄█▀██▀▄ ▀█▀▀█▄  ▄   ▄ ▄▄█▄ █
-█ ▀▄▀▀▄▄ █▄▄▀▄█▄ █▀▄██ ▄█▄ ▄▄▄▄▄ █ ▄█▄██▄ █▄▀▀▄▄ ▄ ▀█▄▄█ ▄█
-█▄▀▀▀█▄▄▄▄█▄  ▀▄  ██ ▀▄██ ▀▄▀█▀▄ ▄▀▄▀ ▄▄▀▀▄ ▀ █▄▀ ▀▄ █▀██▄█
-█▄▄█▀██▄███▄ ██▄   ▄▀ ▄  ▄█▄   █ ▄▄▀▀▄ ▄  ██▄▄▄ ███▄█▀▀▄█ █
-█▀▀█▀ █▄█▀▄█ █   ▄ ▄█ ██▀▄   ▄▀ ▄█ █▀▀▀█▄█ ▄█▄▄▄▄  █▄▀▄█ ▄█
-█▀▄█▄█ ▄▄▄ █  ▄██▄ ▄▀▀▄█▄█ ▄█▄██▄  ██ ▀ ▄█ ██ ▄██ ▄ ▄█▄ ▄▄█
-█ █ ▄ ▄▄█▄ ▄▄██▄▀██▄▄▄ █▀ ▀ ▀▀ ▄█ █▄ ▄▄█ ██▀▀▀  ▄█ ▄ ▄█▄▄ █
-█▀▀▀█▀ ▄▀▄█▀▀ ▀▀█▄▄▄▄▄ █▄▄▀███ ▀ ██▄▀ ▄█▀▄▄▄▀█ █▄█▀ █▄▀▀ ██
-█ ▀ ▀▀▄▄▄ ▀ █ █ ▀▄▄▄▄ ▄▀▀ ██▀▀▄ ▄█▄ ▀ ▀ ▄ █ ▀▄  ▀█▀▄▄▀ ▄█ █
-███████▄█ ▄▄█▄▀▀█  ▄▄█ ▄▄██ ▄▄▄   █  ▄██▀▄▀▄▄▄█ █ ▄▄▄ █▄█▄█
-█ ▄▄▄▄▄ █▄▄▀  █▄▀   ▀▀ ▄▄▄  █▄█ ██▄█▀▄    ▀▀ ▀ ▀█ █▄█ ▄▄▄▀█
-█ █   █ █▀  ▄██▀█▀  ▀  █▀ ▀ ▄   ▀ ██ ▄▄▀▄█ ▄█ ███▄  ▄ █▀▀ █
-█ █▄▄▄█ █▀▀█  ▀▀██ ▄▄▄█ █▀██▀▄█▀█▄███▀█ ▀█▀▄▀ ▄ ▄  ▄▄▄▄▄█▄█
-█▄▄▄▄▄▄▄█▄▄█▄█▄▄▄▄█▄██▄▄██▄█▄▄▄▄▄▄██▄▄▄█▄▄████▄▄▄▄█▄█▄▄█▄██
-
-[00:07:11] [32mINFO[39m (ticobot-whatsapp/869139): [36mEscanee el código QR para iniciar sesión.[39m
-▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-█ ▄▄▄▄▄ █▀█▄ █  █▀█  █▄▀   █    ▀ ██   ▀▀▀▄ ▄ ▄▄ ██ ▄▄▄▄▄ █
-█ █   █ █▀▀ █▄█▄▄▄ ▀█▄▄▄  ▀█▀▄▄▄ █▄▄ ▀  ▀▄▀▀ █ ▄ ██ █   █ █
-█ █▄▄▄█ █▀▀██▄▄▄▄█ █▄ ▀ ▀ █ ▄▄▄ ▀▄▀█ █▄█▀▀▀▄██▀▀▄██ █▄▄▄█ █
-█▄▄▄▄▄▄▄█▄█▄▀ █▄▀▄█▄▀ █▄█ █ █▄█ ▀▄█ ▀▄▀▄█ █▄█ ▀▄▀▄█▄▄▄▄▄▄▄█
-█▄ ▄ ▄█▄  ▄█  ▄███▄▄▀▄██▄▀ ▄▄▄▄ ▀█▀█▀▄▀▄▄▀ ▀▄▀▄▄ ▀ █ █▄▀ ██
-███ █▀▄▄ ██▄▀ ▄ ▀█▀ ▀▀▀ █▄▀█ ▀ ██▀▄▄▀▀█  ▀█▀▀▄▄█▀▀ ▄█▄▀▀▄██
-██▄ ▄ ▄▄▄▄ ▀ ▀▄▄▄█▀  █▀▄▀ █▄▀█▀█ ▀█▄  ▀██▀▀▀▄▀▄█▀▀ ▄█▀█ ▀ █
-██   ▀ ▄▀▄▄█▄▀█ ██▀▄▀▄ ▀ ███ █▀ ▄██▄▄▄█  ██▄█▄▀  ▄██ ▀▄▀█▀█
-██ ▄███▄▀▄ ▄ █ ▀▄▄ ▄ ▄▄▀▄▀▄▄▀    ▀▀█ ▄▀▄██   ▀▄█▀  ▄█▀▄█▄▄█
-█▄▄ ▀ █▄▄▀▀   ▀█ ▄▀ ▄█  ██▀▄▀ ▀▀█▀█ ▄██▄█▀▀▀ ▄▄  █ ▄▄ ▀ ▄██
-█ ███▀▀▄ █ ██▀▀█▄▀▀▄▄█▀█▀▄  ▀▀▀▀ ██▄█▄▀▄ ▀  ▄█▄█▄▀ ▄ ▀██▀ █
-█ ▀▀ █▀▄▀▄▄  ██▀▄  ▀▄█ ▄▀█▀ █▄█▀███ ▄▄████▄██▄▀█ ▀▀▄▀█▄ ▀▀█
-█▀  █  ▄▄█▄▀▀ ██▄▄▀▄█▄██ ▀█▀██  ▄  █ ▄ █▀█▀▀▄██▄ ▀▀▄██▄▀ ▄█
-███▄  ▄▄▄  ▄▀▄▄▀  ▄█ ▀▄█  █ ▄▄▄   ▀▄▀█ █ ▄▄▄▀█ █  ▄▄▄ ▀ ▄██
-█▀█▀  █▄█ ▄▄ ▀█▀▄▄▄▀ █▄█▀▀█ █▄█ ▄██▄  ▀▄█▀▄  ▀ ▄▄ █▄█ ▄▀███
-█ ▄  ▄ ▄▄ ▄▀▀ █ █▀▄▄███▀██▄  ▄  █ █ █▄▄▀▄  █▄█▀ █▄ ▄▄▄  ▄▀█
-█▄█   ▀▄▀▄██▄ ▀▄▄█▄▄▀███▀ ▄▄▀▄▀ ▄█▀█   █▀▀ ▀▄▀▄██ ▄▀▄▄ ▀ ▄█
-█ ▄▀ █▄▄▀▀▄▄ ▄▄▀███▀  ███▀▄▀▄█▀ █▀ ▄▀▄ ▀▄▀▄█ █▄█▀▄▄▀▄▀▀▀ ▀█
-███▄  ▀▄█▄▄▀▄▀██▀█▄ ▀▀██▄ ██▀█▀▄▄▀█▄▀▄ █▀▀▀▀▄▀██▀▀██▄▄█ ▄▀█
-████ ▀ ▄▀▀▀▄█▀▀ ▀██ ▀ ▄▄▄ ▄ ▀█▄▄▀█▀▄███████ ▀▄██▀▄▄██ ▀▀▄▄█
-██▀ █ █▄▀▀▀ ▀█▀ ▄▄  ▄▄██▄▀█▀▄▄█▀▀█▀██▄▄███ ▀ ████▄▄▀██  ▀▀█
-█▄█▀██▀▄██▀▀▄██▀  ▀ ▄█▀ █▄▀▀ ▄▄ █▀▄█▄  ▄▀ ██▀ ▀▀▄█▄█▀▀ ▀▄▀█
-███  ▄▀▄▄█ █▄▄▀▀▄█▀  ▄▀▄▀ ██▄▄██▄█▄▄▄▄ ▄ █  ██▄██▄▀█▄█▄▀▄██
-█ ▀ ▀▀▄▄▀▄  █▄ █ ▄▄ ▀███▀▄ ▀ ▀▄▄▀ ▄ ▀ ▀█▀▄▀▀ ▀▀▄▀█▄█▄▄▀▀ ██
-███████▄▄ █▀▀ ▀ ██▄ ▀█▀▀▀▀█ ▄▄▄  ▀▄█▄▄ ▄██▀▀▀▀█▄█ ▄▄▄  ▀███
-█ ▄▄▄▄▄ █▄█ █▄▀▄▀▀█▄ █▀█▄ ▄ █▄█ ▀▀█▄▄ █  ▄█▄ ▄ ▀  █▄█ ▀ ▄██
-█ █   █ █ ▀  ▄ ▄▄▀ ▄▄█▀█▀▄▄▄▄  ▄▀█▄█  ▀▄██   █▄█▄ ▄▄ ▄█████
-█ █▄▄▄█ █ ▄███▄█▄ ▄ ▄█▄█▀██▄ █▀███▄ ▀██▀▀▀█ ▀▀██ ▄ █▀█  ███
-█▄▄▄▄▄▄▄█▄███▄▄███▄▄████▄█▄█▄▄█▄▄▄▄▄█▄▄███▄██████▄█▄▄▄██▄██
-
-[00:07:31] [32mINFO[39m (ticobot-whatsapp/869139): [36mEscanee el código QR para iniciar sesión.[39m
-[00:07:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:07:59] [32mINFO[39m (ticobot-whatsapp/869139): [36mCliente de WhatsApp listo.[39m
-[00:08:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:08:04] [32mINFO[39m (ticobot-whatsapp/869139): [36mMensaje entrante de WhatsApp[39m
-    from: "50670302470@c.us"
-    body: ""
-[00:08:17] [32mINFO[39m (ticobot-whatsapp/869139): [36mMensaje entrante de WhatsApp[39m
-    from: "50672140974@c.us"
-    body: "hola"
-[00:08:27] [32mINFO[39m (ticobot-whatsapp/869139): [36mMensaje entrante de WhatsApp[39m
-    from: "50672140974@c.us"
-    body: "5"
-[00:08:29] [32mINFO[39m (ticobot-whatsapp/869139): [36mMensaje entrante de WhatsApp[39m
-    from: "status@broadcast"
-    body: "Enagua short pretina ancha s m l xl"
-[00:08:33] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:08:35] [32mINFO[39m (ticobot-whatsapp/869139): [36mMensaje entrante de WhatsApp[39m
-    from: "50672140974@c.us"
-    body: "hl"
-[00:09:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:09:12] [32mINFO[39m (ticobot-whatsapp/869139): [36mMensaje entrante de WhatsApp[39m
-    from: "status@broadcast"
-    body: "Palazo cargo tipo mezclilla  s m l xl"
-[00:09:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:10:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:10:33] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:11:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:11:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:12:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:12:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:13:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:13:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:14:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:14:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:15:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:15:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:16:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:16:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:17:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:17:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:18:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:18:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:19:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:19:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:20:02] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:20:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:21:03] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:21:32] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:22:03] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:22:33] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:23:03] [34mDEBUG[39m (ticobot-whatsapp/869139): [36mNo hay recordatorios pendientes por enviar.[39m
-[00:23:32] [32mINFO[39m (ticobot-whatsapp/869139): [36mRecibida señal de apagado, cerrando bot.[39m
-    signal: "SIGTERM"
+[16:20:56] [32mINFO[39m (ticobot-whatsapp/2398645): [36mWhatsApp autenticado (session establecida).[39m
+    authenticatedAt: 1769703656086
+[16:21:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:21:26] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo se pudo obtener getState()[39m
+    err: {
+      "type": "Error",
+      "message": "Attempted to use detached Frame 'AB2C16F5810C57EEE3D5787C677760E1'.",
+      "stack":
+          Error: Attempted to use detached Frame 'AB2C16F5810C57EEE3D5787C677760E1'.
+              at CdpFrame.<anonymous> (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/util/decorators.js:107:23)
+              at CdpPage.evaluate (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/api/Page.js:826:43)
+              at Client.getState (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:1413:35)
+              at file:///home/fabian/ticobot/bot/dist/index.js:1065:51
+              at Timeout._onTimeout (file:///home/fabian/ticobot/bot/dist/index.js:1108:13)
+              at listOnTimeout (node:internal/timers:581:17)
+              at process.processTimers (node:internal/timers:519:7)
+    }
+[16:21:26] [33mWARN[39m (ticobot-whatsapp/2398645): [36mWhatsApp autenticado pero aún no está listo (posible atasco)[39m
+    state: null
+    authenticatedSecondsAgo: 30
+    alreadyRestarted: false
+[16:21:31] [33mWARN[39m (ticobot-whatsapp/2398645): [36mReiniciando cliente WhatsApp (destroy + initialize)[39m
+    triggerReason: "stuck_after_authenticated"
+[16:21:31] [31mERROR[39m (ticobot-whatsapp/2398645): [36mNo se pudo reiniciar el cliente de WhatsApp[39m
+    triggerReason: "stuck_after_authenticated"
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.safeRestart (file:///home/fabian/ticobot/bot/dist/index.js:1013:7)
+              at async file:///home/fabian/ticobot/bot/dist/index.js:1106:15
+    }
+[16:21:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:22:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:22:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:23:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:23:55] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:24:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:24:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:25:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:25:54] [32mINFO[39m (ticobot-whatsapp/2398645): [36mSettings cargadas desde API[39m
+    loaded: [
+      "payment_contact",
+      "bank_accounts",
+      "service_name",
+      "beneficiary_name"
+    ]
+[16:25:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:26:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:26:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:27:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:27:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:28:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:28:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:29:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:29:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:30:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:30:54] [32mINFO[39m (ticobot-whatsapp/2398645): [36mSettings cargadas desde API[39m
+    loaded: [
+      "payment_contact",
+      "bank_accounts",
+      "service_name",
+      "beneficiary_name"
+    ]
+[16:30:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:31:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:31:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:32:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:32:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:33:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:33:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:34:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:34:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:35:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:35:54] [32mINFO[39m (ticobot-whatsapp/2398645): [36mSettings cargadas desde API[39m
+    loaded: [
+      "payment_contact",
+      "bank_accounts",
+      "service_name",
+      "beneficiary_name"
+    ]
+[16:35:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:36:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:36:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:37:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:37:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:38:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:38:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:39:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:39:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:40:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:40:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:40:54] [32mINFO[39m (ticobot-whatsapp/2398645): [36mSettings cargadas desde API[39m
+    loaded: [
+      "payment_contact",
+      "bank_accounts",
+      "service_name",
+      "beneficiary_name"
+    ]
+[16:41:24] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+[16:41:54] [34mDEBUG[39m (ticobot-whatsapp/2398645): [36mNo hay recordatorios pendientes por enviar.[39m
+nohup: ignoring input
+[16:42:16] [32mINFO[39m (ticobot-whatsapp/2401209): [36mInicializando WhatsApp (puppeteer)[39m
+    headless: false
+    hasCustomUserAgent: true
+    wwebVersion: null
+    wwebCacheType: null
+    wwebCacheStrict: false
+    disableWwebjsPatches: true
+    debugMessages: true
+    enableMessagePolling: false
+    markMessagesRead: true
+[16:42:17] [41mFATAL[49m (ticobot-whatsapp/2401209): [36mError inicializando cliente de WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1204:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3597:3)
+    }
+[16:42:17] [41mFATAL[49m (ticobot-whatsapp/2401209): [36mEl bot de WhatsApp se detuvo por un error inesperado[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1204:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:3597:3)
+    }
+[16:42:17] [33mWARN[39m (ticobot-whatsapp/2401209): [36mWhatsAppClient.destroy falló; intentando cleanup alternativo[39m
+    err: {
+      "type": "TypeError",
+      "message": "Cannot read properties of null (reading 'close')",
+      "stack":
+          TypeError: Cannot read properties of null (reading 'close')
+              at Client.destroy (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:876:31)
+              at WhatsAppClient.shutdown (file:///home/fabian/ticobot/bot/dist/index.js:1279:25)
+              at file:///home/fabian/ticobot/bot/dist/index.js:3938:28
+              at file:///home/fabian/ticobot/bot/dist/index.js:3943:5
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    }
+[16:42:17] [33mWARN[39m (ticobot-whatsapp/2401209): [36mNo se pudo ejecutar pkill de cleanup para WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true\n",
+      "stack":
+          Error: Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true
+          
+              at genericNodeError (node:internal/errors:984:15)
+              at wrappedFn (node:internal/errors:538:14)
+              at ChildProcess.exithandler (node:child_process:422:12)
+              at ChildProcess.emit (node:events:524:28)
+              at maybeClose (node:internal/child_process:1104:16)
+              at Socket.<anonymous> (node:internal/child_process:456:11)
+              at Socket.emit (node:events:524:28)
+              at Pipe.<anonymous> (node:net:343:12)
+      "code": null,
+      "killed": false,
+      "signal": "SIGTERM",
+      "cmd": "pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true",
+      "stdout": "",
+      "stderr": ""
+    }

@@ -303,11 +303,21 @@ class ApiClient {
     }
   }
 
+  private async requestToBackend(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, data?: any): Promise<any> {
+    try {
+      const res = await this.http.request({ method, url: path, data });
+      return res.data;
+    } catch (error: any) {
+      logger.debug({ error: error?.message, method, path }, 'requestToBackend error');
+      throw error;
+    }
+  }
+
   /**
    * Get payment status for a phone number.
    */
   async getPaymentStatus(phone: string): Promise<any> {
-    return this.fetchFromBackend(`/api/payment-status/${phone}`);
+    return this.fetchFromBackend(`/payment-status/${phone}`);
   }
 
   /**
@@ -315,11 +325,29 @@ class ApiClient {
    */
   async checkPausedContact(whatsappNumber: string): Promise<boolean> {
     try {
-      const res = await this.fetchFromBackend(`/api/paused-contacts/check/${whatsappNumber}`);
+      const res = await this.fetchFromBackend(`/paused-contacts/check/${whatsappNumber}`);
       return res?.is_paused === true;
     } catch (e) {
       return false;
     }
+  }
+
+  async pauseContact(payload: { client_id?: number | null; whatsapp_number: string; reason?: string }): Promise<any> {
+    return this.requestToBackend('POST', '/paused-contacts', payload);
+  }
+
+  async resumeContact(payload: { client_id: number; whatsapp_number: string }): Promise<any> {
+    const { client_id, whatsapp_number } = payload;
+    return this.requestToBackend('DELETE', `/paused-contacts/${client_id}/${whatsapp_number}`);
+  }
+
+  async resumeContactByNumber(payload: { whatsapp_number: string }): Promise<any> {
+    const { whatsapp_number } = payload;
+    return this.requestToBackend('DELETE', `/paused-contacts/by-number/${whatsapp_number}`);
+  }
+
+  async listPausedContacts(): Promise<any> {
+    return this.requestToBackend('GET', '/paused-contacts');
   }
 }
 

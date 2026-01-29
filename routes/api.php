@@ -54,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/', [PaymentStatusController::class, 'listPaused']);
         Route::get('check/{whatsappNumber}', [PaymentStatusController::class, 'isPaused']);
         Route::post('/', [PaymentStatusController::class, 'pauseContact']);
+        Route::delete('by-number/{whatsappNumber}', [PaymentStatusController::class, 'resumeContactByNumber']);
         Route::delete('{clientId}/{whatsappNumber}', [PaymentStatusController::class, 'resumeContact']);
     });
 

@@ -46,6 +46,7 @@ export default function PendingPayments({}: PageProps) {
     const [clients, setClients] = useState<ClientWithPending[]>([]);
     const [summary, setSummary] = useState<SummaryResponse | null>(null);
     const [loading, setLoading] = useState(true);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [pagination, setPagination] = useState<PaginationMeta | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [search, setSearch] = useState('');
@@ -54,9 +55,10 @@ export default function PendingPayments({}: PageProps) {
 
     const fetchData = async (page = 1) => {
         setLoading(true);
+        setErrorMsg(null);
         try {
             const response = await fetch(
-                `/api/clients/pending-payments?per_page=15&page=${page}&search=${encodeURIComponent(
+                `/web-api/clients/pending-payments?per_page=15&page=${page}&search=${encodeURIComponent(
                     search
                 )}&sort_by=${sortBy}&sort_order=${sortOrder}`,
                 {
@@ -68,14 +70,26 @@ export default function PendingPayments({}: PageProps) {
                     credentials: 'include',
                 }
             );
+            if (!response.ok) {
+                const raw = await response.text().catch(() => '');
+                setClients([]);
+                setPagination(null);
+                setErrorMsg(`No se pudo cargar pendientes (HTTP ${response.status}). ${raw ? 'Detalle: ' + raw.slice(0, 200) : ''}`);
+                return;
+            }
             const data: ApiResponse = await response.json();
             if (data.success) {
                 setClients(data.data);
                 setPagination(data.pagination);
                 setCurrentPage(page);
+            } else {
+                setClients([]);
+                setPagination(null);
+                setErrorMsg('La API respondió sin éxito al cargar pendientes.');
             }
         } catch (error) {
             console.error('Error fetching pending payments:', error);
+            setErrorMsg('Error de red al cargar pendientes. Revisa la sesión o la conexión.');
         } finally {
             setLoading(false);
         }
@@ -83,7 +97,7 @@ export default function PendingPayments({}: PageProps) {
 
     const fetchSummary = async () => {
         try {
-            const response = await fetch('/api/summary/pending-payments', {
+            const response = await fetch('/web-api/summary/pending-payments', {
                 method: 'GET',
                 headers: {
                     Accept: 'application/json',
@@ -91,12 +105,19 @@ export default function PendingPayments({}: PageProps) {
                 },
                 credentials: 'include',
             });
+            if (!response.ok) {
+                const raw = await response.text().catch(() => '');
+                setSummary(null);
+                setErrorMsg((prev) => prev || `No se pudo cargar resumen (HTTP ${response.status}). ${raw ? raw.slice(0, 200) : ''}`);
+                return;
+            }
             const data: SummaryResponse = await response.json();
             if (data.success) {
                 setSummary(data);
             }
         } catch (error) {
             console.error('Error fetching summary:', error);
+            setErrorMsg((prev) => prev || 'Error de red al cargar el resumen de pendientes.');
         }
     };
 
@@ -136,28 +157,21 @@ export default function PendingPayments({}: PageProps) {
 
     const sendReminder = async (clientId: number) => {
         if (!confirm('Enviar recordatorio por WhatsApp a este cliente?')) return;
-        try {
-            const resp = await fetch(`/api/clients/${clientId}/send-reminder`, {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
+        router.post(
+            route('webapi.clients.sendReminder', clientId),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    alert('Recordatorio creado correctamente');
+                    fetchData(currentPage);
+                    fetchSummary();
                 },
-                credentials: 'include',
-                body: JSON.stringify({}),
-            });
-            if (resp.ok) {
-                alert('Recordatorio creado correctamente');
-                fetchData(currentPage);
-                fetchSummary();
-            } else {
-                const err = await resp.json().catch(() => ({}));
-                alert('Error creando recordatorio: ' + (err.message || resp.statusText));
+                onError: (errors: any) => {
+                    alert('Error creando recordatorio');
+                },
             }
-        } catch (e) {
-            console.error(e);
-            alert('Error creando recordatorio');
-        }
+        );
     };
 
     const SortIcon = ({ field }: { field: string }) => {
@@ -208,6 +222,11 @@ export default function PendingPayments({}: PageProps) {
 
                     {/* Card */}
                     <div className="bg-white shadow sm:rounded-lg">
+                        {errorMsg && (
+                            <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-700">
+                                {errorMsg}
+                            </div>
+                        )}
                         {/* Header */}
                         <div className="border-b border-gray-200 px-6 py-4 sm:px-6">
                             <h3 className="text-lg font-medium leading-6 text-gray-900">

@@ -87,7 +87,7 @@ class AccountingController extends Controller
         // Cálculo mensual: Total contratos - Total pagado verificado
         $monthlyData = $this->calculateMonthlyPending();
 
-        $clientsUnpaid = $this->clientsUnpaidAfterReminder();
+    $clientsUnpaid = $this->clientsWithPendingPayments($startOfMonth, $endOfMonth);
 
         return Inertia::render('Accounting/Index', [
             'by_status_currency' => $byStatusCurrency,
@@ -96,34 +96,42 @@ class AccountingController extends Controller
             'daily' => $dailyWindow,
             'conciliation_rate' => $conciliationRate,
             'monthly_pending' => $monthlyData,
-            // Clientes que recibieron recordatorios (sent_at IS NOT NULL)
-            // pero NO tienen pagos verificados (status = 'verified')
+            // Clientes con pendiente real en el periodo (por defecto: mes actual)
             'clients_unpaid_after_reminder' => $clientsUnpaid['clients'] ?? [],
             'clients_unpaid_total' => $clientsUnpaid['totals'] ?? [],
         ]);
     }
 
     /**
-     * Devuelve lista de clientes que recibieron recordatorios pero no tienen pagos verificados.
+     * Devuelve lista de clientes con pendiente real en el periodo.
      *
      * Criterio:
-     * - Existe al menos un Reminder con sent_at not null
-     * - No existe ningún Payment para el cliente con status = 'verified'
+     * - Al menos un contrato activo en el periodo
+     * - Pendiente = total contratos (activos) - pagos verificados en el periodo
+     * - Se listan solo los que tienen pendiente > 0
+     *
+     * Nota: mantenemos el nombre de props en UI por compatibilidad.
      */
-    private function clientsUnpaidAfterReminder(): array
+    private function clientsWithPendingPayments(Carbon $startOfPeriod, Carbon $endOfPeriod): array
     {
+        // 1) Clientes con contratos activos en el periodo
         $clients = Client::query()
-            ->whereHas('reminders', function ($q) {
-                $q->whereNotNull('sent_at');
+            ->whereHas('contracts', function ($q) use ($endOfPeriod) {
+                $q->where('created_at', '<=', $endOfPeriod)
+                  ->where(function ($sq) use ($endOfPeriod) {
+                      $sq->whereNull('deleted_at')
+                        ->orWhere('deleted_at', '>', $endOfPeriod);
+                  });
             })
-            ->whereDoesntHave('payments', function ($q) {
-                $q->where('status', 'verified');
-            })
-            ->withCount(['reminders as sent_reminders_count' => function ($q) {
-                $q->whereNotNull('sent_at');
+            ->withCount(['reminders as sent_reminders_count' => function ($q) use ($startOfPeriod, $endOfPeriod) {
+                // Contamos recordatorios enviados en el periodo (no histórico completo)
+                $q->whereNotNull('sent_at')->whereBetween('sent_at', [$startOfPeriod, $endOfPeriod]);
             }])
-            ->with(['reminders' => function ($q) {
-                $q->whereNotNull('sent_at')->orderByDesc('sent_at')->limit(1);
+            ->with(['reminders' => function ($q) use ($startOfPeriod, $endOfPeriod) {
+                $q->whereNotNull('sent_at')
+                  ->whereBetween('sent_at', [$startOfPeriod, $endOfPeriod])
+                  ->orderByDesc('sent_at')
+                  ->limit(1);
             }])
             ->get();
 
@@ -131,29 +139,41 @@ class AccountingController extends Controller
         $totals = []; // totals per currency across all clients
 
         foreach ($clients as $c) {
-            // Contracts sum by currency
+            // Total contratos activos en el periodo (por moneda)
             $contractsByCurrency = $c->contracts()
+                ->where('created_at', '<=', $endOfPeriod)
+                ->where(function ($sq) use ($endOfPeriod) {
+                    $sq->whereNull('deleted_at')
+                      ->orWhere('deleted_at', '>', $endOfPeriod);
+                })
                 ->selectRaw('COALESCE(currency, "CRC") as currency, SUM(amount) as total')
                 ->groupBy('currency')
                 ->get()
                 ->mapWithKeys(fn ($r) => [$r->currency => (float) $r->total]);
 
-            // Verified payments sum by currency for this client
+            // Pagos verificados en el periodo (por moneda)
             $paidByCurrency = Payment::query()
                 ->where('client_id', $c->id)
                 ->where('status', 'verified')
+                ->whereBetween('created_at', [$startOfPeriod, $endOfPeriod])
                 ->selectRaw('COALESCE(currency, "CRC") as currency, SUM(amount) as total')
                 ->groupBy('currency')
                 ->get()
                 ->mapWithKeys(fn ($r) => [$r->currency => (float) $r->total]);
 
-            // Pending = contracts - paid
+            // Pendiente = contratos - pagado (periodo)
             $currencies = $contractsByCurrency->keys()->merge($paidByCurrency->keys())->unique();
             $pending = $currencies->mapWithKeys(function ($currency) use ($contractsByCurrency, $paidByCurrency) {
                 $contractTotal = $contractsByCurrency->get($currency, 0);
                 $paidTotal = $paidByCurrency->get($currency, 0);
                 return [$currency => max(0, $contractTotal - $paidTotal)];
             });
+
+            // Si no tiene pendiente real, no se lista
+            $hasPending = $pending->contains(fn ($amt) => $amt > 0.00001);
+            if (!$hasPending) {
+                continue;
+            }
 
             // accumulate totals
             foreach ($pending as $currency => $amt) {

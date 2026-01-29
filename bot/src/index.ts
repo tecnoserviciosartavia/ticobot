@@ -75,6 +75,28 @@ async function main(): Promise<void> {
     return ADMIN_PHONES.includes(user) || ADMIN_PHONES.includes(normalized);
   }
 
+  async function isAllowedForChatCleanup(phoneDigits: string): Promise<boolean> {
+    // Admins nunca se limpian
+    if (ADMIN_PHONES.includes(phoneDigits) || ADMIN_PHONES.includes(normalizeCR(phoneDigits))) return true;
+
+    // Si está pausado, igual es “conocido” (es un contacto gestionado), entonces lo dejamos
+    try {
+      const paused = await apiClient.checkPausedContact(phoneDigits);
+      if (paused) return true;
+    } catch {
+      // ignore
+    }
+
+    // Cliente existente
+    try {
+      const client = await apiClient.findCustomerByPhone(phoneDigits);
+      return Boolean(client);
+    } catch {
+      // Si backend no responde, no limpiamos por seguridad
+      return true;
+    }
+  }
+
   // Timeouts: default 10 minutes for bot menu inactivity
   const BOT_TIMEOUT_MS = Number(process.env.BOT_TIMEOUT_MS || 10 * 60 * 1000);
   const _AGENT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS || 60 * 60 * 1000);
@@ -211,6 +233,16 @@ async function main(): Promise<void> {
 
   // --- Menu resolver: intenta API -> BOT_MENU_PATH -> local cache (bot/data/menu.json)
   async function resolveMenu(): Promise<Array<any> | null> {
+    // Cache en memoria para evitar tocar red/FS en cada request de menú.
+    // Esto mejora mucho la latencia percibida en el primer saludo/"menu".
+    const now = Date.now();
+    const ttlMs = Number(process.env.BOT_MENU_CACHE_TTL_MS || 5 * 60 * 1000); // 5 min
+    // @ts-ignore: cache estática sobre la función
+    if ((resolveMenu as any)._cache && (now - (resolveMenu as any)._cacheAt) < ttlMs) {
+      // @ts-ignore: cache estática sobre la función
+      return (resolveMenu as any)._cache;
+    }
+
     const DATA_DIR = path.join(process.cwd(), 'data');
     const localMenuPath = path.join(DATA_DIR, 'menu.json');
     // 1) Try API
@@ -223,6 +255,10 @@ async function main(): Promise<void> {
         } catch (e) {
           logger.debug({ e }, 'No se pudo persistir menú remoto en cache local');
         }
+        // @ts-ignore: cache estática sobre la función
+        (resolveMenu as any)._cache = remote;
+        // @ts-ignore: cache estática sobre la función
+        (resolveMenu as any)._cacheAt = Date.now();
         return remote;
       }
     } catch (e) {
@@ -234,7 +270,13 @@ async function main(): Promise<void> {
       try {
         const raw = await fs.readFile(config.menuPath, { encoding: 'utf8' });
         const parsed = JSON.parse(raw) as Array<any>;
-        if (Array.isArray(parsed) && parsed.length) return parsed;
+        if (Array.isArray(parsed) && parsed.length) {
+          // @ts-ignore: cache estática sobre la función
+          (resolveMenu as any)._cache = parsed;
+          // @ts-ignore: cache estática sobre la función
+          (resolveMenu as any)._cacheAt = Date.now();
+          return parsed;
+        }
       } catch (err) {
         logger.debug({ err }, 'No se pudo leer BOT_MENU_PATH');
       }
@@ -244,7 +286,13 @@ async function main(): Promise<void> {
     try {
       const raw = await fs.readFile(localMenuPath, { encoding: 'utf8' });
       const parsed = JSON.parse(raw) as Array<any>;
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (Array.isArray(parsed) && parsed.length) {
+        // @ts-ignore: cache estática sobre la función
+        (resolveMenu as any)._cache = parsed;
+        // @ts-ignore: cache estática sobre la función
+        (resolveMenu as any)._cacheAt = Date.now();
+        return parsed;
+      }
     } catch {
       // ignore
     }
@@ -254,22 +302,89 @@ async function main(): Promise<void> {
 
 
   whatsappClient.registerInboundHandler(async (message) => {
+  const t0 = Date.now();
+  const timings: Record<string, number> = {};
+  const mark = (k: string) => {
+    timings[k] = Date.now() - t0;
+  };
   // Ignore WhatsApp 'status' / broadcast messages (ej: status@broadcast)
   if (String(message.from || '').endsWith('@broadcast')) return;
 
-  logger.info({ from: message.from, body: message.body }, 'Mensaje entrante de WhatsApp');
+  // Evitar logging pesado del body completo (puede ser grande y mete I/O).
+  // Log muestreado y truncado.
+  try {
+    const sampleRate = Number(process.env.BOT_INBOUND_LOG_SAMPLE_RATE || 0.1); // 10%
+    if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
+      logger.info({ from: message.from }, 'Mensaje entrante de WhatsApp');
+    } else if (Math.random() < Math.min(1, sampleRate)) {
+      const b = String(message.body ?? '');
+      logger.info({ from: message.from, body: b.slice(0, 200) }, 'Mensaje entrante de WhatsApp');
+    }
+  } catch {
+    logger.info({ from: message.from }, 'Mensaje entrante de WhatsApp');
+  }
 
   const body = String(message.body ?? '').trim();
   // allow empty textual body if there's media attached (media-only messages)
   if (!body && !((message as any).hasMedia)) return;
 
   const lc = body.toLowerCase();
+  mark('parsed');
     const chatId = message.from;
     const fromUser = String(chatId || '').replace(/@c\.us$/, '');
     const fromNorm = normalizeCR(fromUser);
+    const slowMs = Number(process.env.BOT_SLOW_MESSAGE_MS || 2500);
     const send = async (text: string) => {
-      await whatsappClient.sendText(chatId, text);
+      const tSend0 = Date.now();
+      try {
+        await whatsappClient.sendText(chatId, text);
+      } finally {
+        timings.sendTextMs = (timings.sendTextMs || 0) + (Date.now() - tSend0);
+        mark('sent');
+        const total = Date.now() - t0;
+        // Log sólo si es lento o si está habilitada la traza
+        const traceLatency = (() => {
+          const v = String(process.env.BOT_TRACE_LATENCY || '').trim().toLowerCase();
+          return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+        })();
+
+        if (traceLatency || (Number.isFinite(slowMs) && total >= slowMs)) {
+          logger.info(
+            {
+              chatId,
+              fromNorm,
+              totalMs: total,
+              timings
+            },
+            'Latencia handler WhatsApp'
+          );
+        }
+      }
     };
+
+    // Admin definido temprano para poder aplicar reglas de silencio.
+    const isAdminUserEarly = isAdminChatId(chatId) || fromNorm === '50672140974';
+
+    // Modo silencio por contacto pausado: si un número está en paused-contacts, el bot NO responde.
+    // Esto está pensado para que puedas chatear manualmente con el cliente sin que el bot "se meta".
+    // Excepciones: admins siempre pasan; y permitimos comandos explícitos de unpause.
+    try {
+      if (!isAdminUserEarly) {
+        // Permitir que un admin pueda escribir "unpause" aunque el contacto esté pausado
+        // (si alguien reenvía mensajes, etc.). Para usuarios normales, nada.
+        const allowIfUserWantsUnpause = (lc === 'unpause' || lc === 'reanudar');
+        if (!allowIfUserWantsUnpause) {
+          const paused = await apiClient.checkPausedContact(fromNorm);
+          mark('pausedCheck');
+          if (paused) {
+            logger.info({ chatId, fromNorm }, 'Contacto pausado: bot en silencio (no se responde)');
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      // best-effort: si falla el check, continuar normal
+    }
 
     // Mantener timeout por chat y detectar admin
     try {
@@ -281,7 +396,6 @@ async function main(): Promise<void> {
   // Business hours check: admins and ongoing processes always bypass
   // Regular users can now use the menu and automatic options 24/7, but agent requests notify about off-hours
   try {
-    const isAdminUserEarly = isAdminChatId(chatId) || fromNorm === '50672140974';
     const isInActiveProcess = awaitingReceipt.get(chatId) || pendingConfirmReceipt.has(chatId) || awaitingMonths.has(chatId) || agentMode.get(chatId) || menuShown.get(chatId);
     const isMediaUpload = !!(message as any).hasMedia;
     
@@ -295,19 +409,7 @@ async function main(): Promise<void> {
     logger.debug({ e }, 'error verificando horario de atención');
   }
 
-  // Check if contact is paused (whitelist): if paused and not admin, don't show menu
-  // Note: isAdminUser is declared later, so we check isAdminChatId directly here
-  if (!isAdminChatId(chatId) && fromNorm !== '50672140974') {
-    try {
-      const isPaused = await apiClient.checkPausedContact(fromUser);
-      if (isPaused) {
-        logger.info({ chatId, fromUser }, 'Contacto está pausado, ignorando mensaje');
-        return;
-      }
-    } catch (e: any) {
-      logger.debug({ e, chatId }, 'Error verificando si el contacto está pausado (continuando normally)');
-    }
-  }
+  // (silencio por contacto pausado) manejado arriba, para no duplicar llamadas.
 
   // If we're awaiting a receipt from this chat, handle media uploads first
     if (awaitingReceipt.get(chatId)) {
@@ -442,6 +544,209 @@ async function main(): Promise<void> {
     if (isAdminUser && adminFlows.has(chatId) && !lc.startsWith('*')) {
       const flow = adminFlows.get(chatId);
       try {
+        // cleanup_chats flow (limpieza/archivo de chats no-clientes)
+        if (flow.type === 'cleanup_chats') {
+          if (flow.step === 1) {
+            const ans = (body || '').trim().toLowerCase();
+            if (ans === '1' || ans === 'simular' || ans === 'dry' || ans === 'dryrun') {
+              const summary = await whatsappClient.cleanupChats({
+                dryRun: true,
+                includeUnread: Boolean(flow.data?.includeUnread),
+                includeGroups: Boolean(flow.data?.includeGroups),
+                limit: 200,
+                isAllowedNumber: isAllowedForChatCleanup,
+              });
+
+              adminFlows.delete(chatId);
+              const lines: string[] = [];
+              lines.push('🧹 *Limpieza de chats (SIMULACIÓN)*');
+              lines.push('');
+              lines.push(`Chats revisados: ${summary.scanned}`);
+              lines.push(`Candidatos a limpiar (no-clientes): ${summary.candidates}`);
+              lines.push(`Saltados por no leídos: ${summary.skippedUnread}`);
+              lines.push(`Saltados por grupos: ${summary.skippedGroup}`);
+              lines.push(`Errores: ${summary.errors}`);
+              lines.push('');
+              if (summary.sample?.length) {
+                lines.push('*Muestra (hasta 20):*');
+                for (const s of summary.sample.slice(0, 20)) {
+                  const who = s.phone ? s.phone : s.chatId;
+                  lines.push(`• ${who}: ${s.action}${s.reason ? ` (${s.reason})` : ''}`);
+                }
+              }
+              lines.push('');
+              lines.push('Escribe *adminmenu* para volver');
+              await message.reply(lines.join('\n'));
+              return;
+            }
+
+            if (ans === '3') {
+              flow.data.includeUnread = !Boolean(flow.data?.includeUnread);
+              await message.reply(`✅ includeUnread ahora es: ${flow.data.includeUnread ? 'SI' : 'NO'}\n\nResponde 1 (simular) o 2 (ejecutar) o 4 (grupos).`);
+              return;
+            }
+
+            if (ans === '4') {
+              flow.data.includeGroups = !Boolean(flow.data?.includeGroups);
+              await message.reply(`✅ includeGroups ahora es: ${flow.data.includeGroups ? 'SI' : 'NO'}\n\nResponde 1 (simular) o 2 (ejecutar) o 3 (no leídos).`);
+              return;
+            }
+
+            if (ans === '2' || ans === 'ejecutar' || ans === 'run') {
+              flow.step = 2;
+              await message.reply([
+                '⚠️ *Confirmación requerida*',
+                '',
+                'Esto intentará limpiar mensajes y/o archivar chats NO-clientes en el WhatsApp del bot.',
+                `Configuración: includeUnread=${Boolean(flow.data?.includeUnread) ? 'SI' : 'NO'}, includeGroups=${Boolean(flow.data?.includeGroups) ? 'SI' : 'NO'}.`,
+                '',
+                'Responde *CONFIRMAR* para ejecutar, o *cancelar* para salir.'
+              ].join('\n'));
+              return;
+            }
+
+            await message.reply('Responde 1 (simular), 2 (ejecutar), 3 (toggle no leídos) o 4 (toggle grupos).');
+            return;
+          }
+
+          if (flow.step === 2) {
+            const ans = (body || '').trim().toLowerCase();
+            if (ans === 'cancelar' || ans === 'salir' || ans === 'no') {
+              adminFlows.delete(chatId);
+              await message.reply('Operación cancelada. Escribe *adminmenu* para volver');
+              return;
+            }
+
+            if (ans !== 'confirmar') {
+              await message.reply('Responde *CONFIRMAR* para ejecutar o *cancelar* para salir.');
+              return;
+            }
+
+            const summary = await whatsappClient.cleanupChats({
+              dryRun: false,
+              includeUnread: Boolean(flow.data?.includeUnread),
+              includeGroups: Boolean(flow.data?.includeGroups),
+              limit: 200,
+              isAllowedNumber: isAllowedForChatCleanup,
+            });
+
+            adminFlows.delete(chatId);
+            const lines: string[] = [];
+            lines.push('🧹 *Limpieza de chats (EJECUTADA)*');
+            lines.push('');
+            lines.push(`Chats revisados: ${summary.scanned}`);
+            lines.push(`Candidatos detectados: ${summary.candidates}`);
+            lines.push(`Acciones ejecutadas: ${summary.acted}`);
+            lines.push(`Errores: ${summary.errors}`);
+            lines.push('');
+            lines.push('Escribe *adminmenu* para volver');
+            await message.reply(lines.join('\n'));
+            return;
+          }
+        }
+
+        // pause_contact flow (silenciar bot para un cliente)
+        if (flow.type === 'pause_contact') {
+          if (flow.step === 1) {
+            let ph = body === 'yo' ? fromNorm : normalizeCR(body);
+            if (!ph || !/^\d{8,15}$/.test(ph)) {
+              await message.reply('Ingresa un teléfono válido (8 dígitos CR o con código de país).');
+              return;
+            }
+            if (ph.length === 8) ph = (config.defaultCountryCode || '506') + ph;
+            flow.data.phone = ph;
+            flow.step = 2;
+            await message.reply('¿Qué deseas hacer? Responde con:\n1) Pausar (silenciar bot)\n2) Reanudar (activar bot)\n3) Ver estado');
+            return;
+          }
+
+          if (flow.step === 2) {
+            const ans = (body || '').trim().toLowerCase();
+            let action: 'pause' | 'resume' | 'status' | null = null;
+            if (ans === '1' || ans === 'pausar' || ans === 'pause') action = 'pause';
+            if (ans === '2' || ans === 'reanudar' || ans === 'unpause' || ans === 'resume') action = 'resume';
+            if (ans === '3' || ans === 'estado' || ans === 'status') action = 'status';
+            if (!action) {
+              await message.reply('Responde 1 (pausar), 2 (reanudar) o 3 (estado).');
+              return;
+            }
+
+            const phone = String(flow.data.phone || '');
+            if (!phone) {
+              adminFlows.delete(chatId);
+              await message.reply('❌ Faltó el teléfono. Escribe *adminmenu* para volver.');
+              return;
+            }
+
+            if (action === 'status') {
+              try {
+                const paused = await apiClient.checkPausedContact(phone);
+                adminFlows.delete(chatId);
+                await message.reply(`📌 Estado para ${phone}: ${paused ? '⏸️ PAUSADO (bot en silencio)' : '✅ ACTIVO'}.\n\nEscribe *adminmenu* para volver`);
+                return;
+              } catch (e: any) {
+                adminFlows.delete(chatId);
+                await message.reply(`❌ No pude verificar el estado ahora. Error: ${String(e?.message || e)}\n\nEscribe *adminmenu* para volver`);
+                return;
+              }
+            }
+
+            // Intentar resolver client_id, pero NO es obligatorio.
+            let client: any = null;
+            try {
+              client = await apiClient.findCustomerByPhone(phone);
+            } catch (e) {
+              // ignore – puede no existir en el sistema
+            }
+
+            if (action === 'pause') {
+              try {
+                await apiClient.pauseContact({
+                  client_id: client?.id,
+                  whatsapp_number: phone,
+                  reason: 'paused via whatsapp admin menu',
+                });
+                const pausedNow = await apiClient.checkPausedContact(phone);
+                adminFlows.delete(chatId);
+                await message.reply(
+                  `✅ Contacto ${phone} pausado.\nEstado actual: ${pausedNow ? '⏸️ PAUSADO (silencio)' : '⚠️ AÚN ACTIVO'}\n\nEscribe *adminmenu* para volver`
+                );
+                return;
+              } catch (e: any) {
+                logger.error({ err: e, phone, clientId: client?.id }, 'Error pausando contacto');
+                adminFlows.delete(chatId);
+                await message.reply(
+                  `❌ No pude pausar el contacto ${phone}.\nError: ${String(e?.response?.data?.message || e?.message || e)}\n\nEscribe *adminmenu* para volver`
+                );
+                return;
+              }
+            }
+
+            if (action === 'resume') {
+              try {
+                if (client?.id) {
+                  await apiClient.resumeContact({ client_id: client.id, whatsapp_number: phone });
+                } else {
+                  await apiClient.resumeContactByNumber({ whatsapp_number: phone });
+                }
+                const pausedNow = await apiClient.checkPausedContact(phone);
+                adminFlows.delete(chatId);
+                await message.reply(
+                  `✅ Contacto ${phone} reanudado.\nEstado actual: ${pausedNow ? '⚠️ AÚN PAUSADO' : '✅ ACTIVO'}\n\nEscribe *adminmenu* para volver`
+                );
+                return;
+              } catch (e: any) {
+                logger.error({ err: e, phone, clientId: client?.id }, 'Error reanudando contacto');
+                adminFlows.delete(chatId);
+                await message.reply(
+                  `❌ No pude reanudar el contacto ${phone}.\nError: ${String(e?.response?.data?.message || e?.message || e)}\n\nEscribe *adminmenu* para volver`
+                );
+                return;
+              }
+            }
+          }
+        }
+
         // create_subscription flow
         if (flow.type === 'create_subscription') {
           if (flow.step === 1) {
@@ -1214,6 +1519,8 @@ async function main(): Promise<void> {
         '1️⃣4️⃣ Eliminar transacción',
         '',
         '1️⃣5️⃣ Estado del bot',
+        '1️⃣6️⃣ Pausar / reanudar contacto (silenciar bot)',
+        '1️⃣7️⃣ Limpiar chats no-clientes (archivar/limpiar)',
         '',
         '📋 Escribe *help para ver comandos de texto',
         '❌ Escribe salir para cancelar',
@@ -1227,7 +1534,7 @@ async function main(): Promise<void> {
 
     // If admin menu is active, process numeric selections
     if (isAdminUser && menuShown.get(chatId) && lastMenuItems.get(chatId)?.[0]?.type === 'admin_menu') {
-      const selection = body.trim();
+      const selection = (body || '').trim().replace(/\s+/g, '');
       
       if (selection === '1') {
         // Crear cliente + suscripción
@@ -1287,6 +1594,42 @@ async function main(): Promise<void> {
           logger.error({ e, phone: fromUser }, 'Error consultando mis detalles');
           await message.reply(`❌ Error consultando detalles: ${String(e && e.message ? e.message : e)}`);
         }
+        return;
+      }
+
+  if (selection === '16') {
+        // Pausar / reanudar contacto (silenciar bot)
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        adminFlows.set(chatId, { type: 'pause_contact', step: 1, data: {} });
+        await message.reply([
+          'Pausar/Reanudar contacto (silenciar bot).',
+          '',
+          '1) Enviame el teléfono del cliente (8 dígitos CR o con código de país, ej: 5067xxxxxxx).',
+          'También puedes escribir "yo" para usar tu número.'
+        ].join('\n'));
+        return;
+      }
+
+      if (selection === '17') {
+        // Limpiar chats no-clientes
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        adminFlows.set(chatId, { type: 'cleanup_chats', step: 1, data: { dryRun: true, includeUnread: false } });
+        await message.reply([
+          '🧹 Limpieza de chats (no-clientes)',
+          '',
+          'Esto revisa los chats del WhatsApp del BOT y limpia/archiva chats que NO sean clientes.',
+          'Por seguridad primero corre en modo simulación (dry-run).',
+          '',
+          'Selecciona una opción:',
+          '1) Simular (dry-run) y mostrar resumen',
+          '2) Ejecutar limpieza REAL (requiere confirmación)',
+          '3) Configurar: incluir chats con NO LEÍDOS (por defecto NO)',
+          '4) Configurar: incluir GRUPOS (por defecto NO)',
+          '',
+          'Escribe *adminmenu* para volver'
+        ].join('\n'));
         return;
       }
       
@@ -1945,6 +2288,11 @@ async function main(): Promise<void> {
 
           if (isOptionEight) {
             try {
+              // Mensaje corto inmediato para que el usuario sepa que estamos trabajando.
+              // Importante: NO dependemos del reply_message almacenado en BD (que hoy dice "Consultando...")
+              // porque si el flujo falla quedaría la sensación de que se quedó pegado.
+              await message.reply('🔍 Consultando tu información, un momento por favor...');
+
               // Get client by phone
               const client = await apiClient.findCustomerByPhone(fromUser);
               
@@ -2348,7 +2696,7 @@ async function main(): Promise<void> {
 
   // --- small webhook receiver so backend/admin can notify the bot about reconciled receipts
   function startWebhookServer() {
-    const port = Number(process.env.BOT_WEBHOOK_PORT || 3001);
+    const basePort = Number(process.env.BOT_WEBHOOK_PORT || 3001);
     const server = http.createServer(async (req, res) => {
       try {
         const remoteAddress = req.socket?.remoteAddress || '';
@@ -2582,12 +2930,26 @@ async function main(): Promise<void> {
       }
     });
 
-    // Avoid crashing the whole bot on listen errors (e.g. EADDRINUSE)
-    server.on('error', (err: any) => {
-      logger.error({ err, port }, 'Webhook server error');
-    });
+    const tryListen = (port: number) => {
+      server.once('error', (err: any) => {
+        if (err && (err.code === 'EADDRINUSE' || err.code === 'EACCES')) {
+          logger.warn({ err, port }, 'Webhook server no pudo abrir puerto; intentando alternativo');
+          // Intentar 3002 y luego un puerto efímero
+          const next = port === basePort ? basePort + 1 : 0;
+          // Si next=0, el OS asigna uno libre
+          tryListen(next);
+          return;
+        }
+        logger.error({ err, port }, 'Webhook server error');
+      });
 
-    server.listen(port, () => logger.info({ port }, 'Webhook server listening'));
+      server.listen(port, () => {
+        const addr = server.address();
+        logger.info({ port, addr }, 'Webhook server listening');
+      });
+    };
+
+    tryListen(basePort);
   }
 
   startWebhookServer();
