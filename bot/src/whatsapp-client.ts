@@ -52,6 +52,12 @@ export class WhatsAppClient {
             // algunos builds referencian markedUnread; asegurar que exista
             (window as any).WWebJS.markedUnread = false;
 
+            // Evitar que whatsapp-web.js explote al intentar hacer sendSeen.
+            // En builds recientes hemos visto errores tipo: reading 'markedUnread'.
+            (window as any).WWebJS.sendSeen = async () => {
+              return;
+            };
+
             // En algunos builds recientes, whatsapp-web.js asume módulos de Store que no existen
             // (p.ej. Store.GroupMetadata.update), lo que rompe getChats()/fetchMessages.
             // Creamos stubs mínimos para evitar TypeError: reading 'update'.
@@ -209,10 +215,11 @@ export class WhatsAppClient {
             const unreadCount = Math.min(Number(c.unreadCount || 0), Math.max(1, maxPerChat));
             if (unreadCount <= 0) continue;
 
+            let chat: any | null = null;
             let messages: pkg.Message[] = [];
             try {
               // Resolver el chat solo para los no leídos (evita serializar 500+ chats cada tick)
-              const chat = await (this.client as any).getChatById?.(c.id);
+              chat = await (this.client as any).getChatById?.(c.id);
               if (!chat) continue;
 
               // Traer un poco más por si hay mensajes sin marcar como leídos todavía
@@ -232,7 +239,7 @@ export class WhatsAppClient {
 
               this.markProcessedMessage(id);
               logger.info(
-                { id, from: (message as any).from, unreadCount: chat.unreadCount },
+                { id, from: (message as any).from, chatId: c.id, unreadCount: chat?.unreadCount ?? unreadCount },
                 'Procesando mensaje vía polling (fallback)'
               );
 
@@ -349,8 +356,16 @@ export class WhatsAppClient {
     const originalSendMessage = (this.client as any).sendMessage?.bind(this.client);
     if (originalSendMessage) {
       (this.client as any).sendMessage = async (...args: any[]) => {
+        const patchedArgs = [...args];
+        // whatsapp-web.js suele hacer sendSeen() por defecto al enviar; en algunos builds eso truena con markedUnread.
+        // Forzamos sendSeen:false para evitar el bug y mejorar performance.
+        if (patchedArgs.length >= 2) {
+          const opts = patchedArgs[2];
+          if (!opts || typeof opts !== 'object') patchedArgs[2] = { sendSeen: false };
+          else patchedArgs[2] = { ...(opts as any), sendSeen: false };
+        }
         try {
-          return await originalSendMessage(...args);
+          return await originalSendMessage(...patchedArgs);
         } catch (err: any) {
           const msg = err?.message || String(err);
           if (msg.includes('markedUnread') || msg.includes('marked unread')) {
@@ -358,8 +373,14 @@ export class WhatsAppClient {
             // No queremos que el bot se caiga o quede en loop reintentando; registramos y continuamos.
             logger.warn({ err }, 'Interceptado markedUnread error en sendMessage — ignorando para mantener el bot operativo');
 
-            void this.applyWwebjsSafetyStubs();
-            return;
+            // Aplicar stubs y reintentar una vez. Si sigue fallando, no botar el proceso.
+            await this.applyWwebjsSafetyStubs();
+            try {
+              return await originalSendMessage(...patchedArgs);
+            } catch (err2: any) {
+              logger.error({ err: err2 }, 'sendMessage sigue fallando tras stubs; se ignora para no tumbar el bot');
+              return;
+            }
           }
           throw err;
         }
