@@ -35,6 +35,18 @@ Thumbs.db
 /bot_staging/node_modules
 /bot_custom_20260203/node_modules
 
+# Runtime / backups del bot (muy pesado, no es código)
+/bot_custom_20260203/storage/session-backups/
+/bot_custom_20260203/storage/*.pid
+/bot_custom_20260203/storage/**/*.log
+
+# Caches típicos de Chromium/Playwright dentro de backups
+**/Code Cache/
+**/Cache/
+**/CacheStorage/
+**/*-wal
+**/*-shm
+
 # Bot runtime data (no source)
 /bot/data/receipts/
 /bot/data/backend_sim/
