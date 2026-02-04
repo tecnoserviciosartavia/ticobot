@@ -1,0 +1,19 @@
+[
+  {
+    "type": "receipt_created",
+    "id": "50661784023-1762311383947",
+    "backend_id": 1,
+    "phone": "50661784023",
+    "months": 3,
+    "total_amount": 24000,
+    "ts": 1762311383947
+  },
+  {
+    "type": "receipt_reconciled",
+    "id": "50661784023-1762311383947",
+    "backend_id": 1,
+    "phone": "50661784023",
+    "reconciled_pdf": "/home/fabian/ticobot/bot/data/receipts/reconciled-50661784023-1762311383947.pdf",
+    "ts": 1762311383961
+  }
+]

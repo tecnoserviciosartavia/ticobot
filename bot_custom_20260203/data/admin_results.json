@@ -1,0 +1,20 @@
+{
+  "state-1768945465128": {
+    "ok": true,
+    "state": "CONNECTED",
+    "info": {
+      "pushname": "Tecno Servicios Artavia",
+      "wid": {
+        "server": "c.us",
+        "user": "50688525881",
+        "_serialized": "50688525881@c.us"
+      },
+      "me": {
+        "server": "c.us",
+        "user": "50688525881",
+        "_serialized": "50688525881@c.us"
+      },
+      "platform": "smba"
+    }
+  }
+}

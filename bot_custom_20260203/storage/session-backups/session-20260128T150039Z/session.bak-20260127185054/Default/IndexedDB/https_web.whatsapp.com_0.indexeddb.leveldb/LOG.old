@@ -1,0 +1,24 @@
+2026/01/27-18:16:35.692 21d333 Reusing MANIFEST /home/fabian/ticobot/bot/storage/whatsapp-session/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/01/27-18:16:35.700 21d333 Recovering log #5016
+2026/01/27-18:16:35.700 21d333 Reusing old log /home/fabian/ticobot/bot/storage/whatsapp-session/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/005016.log 
+2026/01/27-18:16:35.702 21d333 Delete type=2 #5015
+2026/01/27-18:16:35.703 21d333 Delete type=0 #5013
+2026/01/27-18:16:35.704 21d333 Delete type=2 #5006
+2026/01/27-18:16:35.705 21d333 Delete type=2 #5011
+2026/01/27-18:16:36.353 21d33a Level-0 table #5020: started
+2026/01/27-18:16:36.427 21d33a Level-0 table #5020: 380 bytes OK
+2026/01/27-18:16:36.830 21d33a Delete type=0 #5016
+2026/01/27-18:16:36.833 21d33b Manual compaction at level-0 from ' \x1c\x05\x00\x00\x00' @ 72057594037927935 : 1 .. ' \x1d\x05\x00\x00\x00' @ 0 : 0; will stop at ' \x1c\x05\x04\x01\x01\x0e\x00w\x00h\x00a\x00t\x00s\x00a\x00p\x00p\x00-\x00m\x00u\x00t\x00e\x00x' @ 927460 : 1
+2026/01/27-18:16:36.833 21d33b Compacting 2@0 + 1@1 files
+2026/01/27-18:16:37.148 21d33b Generated table #5021@0: 499 keys, 4625 bytes
+2026/01/27-18:16:37.154 21d33b Compacted 2@0 + 1@1 files => 4625 bytes
+2026/01/27-18:16:38.284 21d33b compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/01/27-18:16:38.284 21d33b Delete type=2 #5020
+2026/01/27-18:16:38.285 21d33a Manual compaction at level-0 from ' \x1c\x05\x04\x01\x01\x0e\x00w\x00h\x00a\x00t\x00s\x00a\x00p\x00p\x00-\x00m\x00u\x00t\x00e\x00x' @ 927460 : 1 .. ' \x1d\x05\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/01/27-18:16:39.735 21d33a Level-0 table #5023: started
+2026/01/27-18:16:40.411 21d33a Level-0 table #5023: 7872 bytes OK
+2026/01/27-18:16:40.997 21d33a Delete type=2 #5017
+2026/01/27-18:16:40.997 21d33a Delete type=0 #5019
+2026/01/27-18:16:40.997 21d33a Delete type=2 #5014
+2026/01/27-18:16:40.999 21d33a Manual compaction at level-0 from ' \x1d\x05\x00\x00\x00' @ 72057594037927935 : 1 .. ' \x1e\x05\x00\x00\x00' @ 0 : 0; will stop at ' \x1e\x05\x00\x00\x05' @ 928172 : 1
+2026/01/27-18:16:40.999 21d33a Compacting 1@0 + 1@1 files
