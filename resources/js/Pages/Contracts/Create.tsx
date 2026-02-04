@@ -5,11 +5,12 @@ import { Head, useForm } from '@inertiajs/react';
 
 interface ContractsCreateProps extends PageProps<{
     clients: Array<{ id: number; name: string }>;
+    services: Array<{ id: number; name: string; price: string; currency: string }>;
     defaultCurrency: string;
     defaultBillingCycle: string;
 }> {}
 
-export default function ContractsCreate({ clients, defaultCurrency, defaultBillingCycle }: ContractsCreateProps) {
+export default function ContractsCreate({ clients, services, defaultCurrency, defaultBillingCycle }: ContractsCreateProps) {
     const form = useForm({
         client_id: '',
         name: '',
@@ -19,6 +20,7 @@ export default function ContractsCreate({ clients, defaultCurrency, defaultBilli
         next_due_date: '',
         notes: '',
         grace_period_days: '0',
+        service_ids: [] as number[],
     });
 
     const submit: React.FormEventHandler<HTMLFormElement> = (event) => {
@@ -44,6 +46,7 @@ export default function ContractsCreate({ clients, defaultCurrency, defaultBilli
                             data={form.data}
                             errors={form.errors}
                             clients={clients}
+                            services={services}
                             processing={form.processing}
                             submitLabel="Guardar contrato"
                             onSubmit={submit}

@@ -109,7 +109,7 @@ class ReminderController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Supported recurrence options (hard-coded to keep UI consistent)
+    // Supported recurrence options (hard-coded to keep UI consistent)
         $recurrences = collect(['weekly', 'biweekly', 'monthly', 'one_time']);
 
         return Inertia::render('Reminders/Index', [

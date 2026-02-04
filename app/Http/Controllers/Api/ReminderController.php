@@ -42,11 +42,11 @@ class ReminderController extends Controller
         }
 
         if ($request->filled('scheduled_from')) {
-            $query->where('scheduled_for', '>=', Carbon::parse($request->input('scheduled_from')));
+            $query->where('scheduled_for', '>=', Carbon::parse($request->input('scheduled_from'), config('app.timezone')));
         }
 
         if ($request->filled('scheduled_to')) {
-            $query->where('scheduled_for', '<=', Carbon::parse($request->input('scheduled_to')));
+            $query->where('scheduled_for', '<=', Carbon::parse($request->input('scheduled_to'), config('app.timezone')));
         }
 
         $reminders = $query

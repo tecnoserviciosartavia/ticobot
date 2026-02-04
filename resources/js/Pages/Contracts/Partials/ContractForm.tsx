@@ -20,17 +20,20 @@ interface ContractFormData {
     next_due_date: string;
     grace_period_days: string;
     notes?: string;
+    service_ids?: number[];
 }
 
 interface ContractFormProps {
     data: ContractFormData;
     errors: Record<string, string | undefined>;
     clients: ClientOption[];
+    services: Array<{ id: number; name: string; price: string; currency: string }>;
     processing: boolean;
     submitLabel: string;
     onSubmit: FormEventHandler<HTMLFormElement>;
-    onChange: (key: keyof ContractFormData, value: string) => void;
+    onChange: (key: keyof ContractFormData, value: any) => void;
     cancelHref: string;
+    onCancel?: () => void;
 }
 
 const formatValue = (value: string) =>
@@ -40,12 +43,15 @@ export default function ContractForm({
     data,
     errors,
     clients,
+    services,
     processing,
     submitLabel,
     onSubmit,
     onChange,
     cancelHref,
+    onCancel,
 }: ContractFormProps) {
+    const lockClient = clients.length === 1 && String(clients[0]?.id) === String(data.client_id);
     const [search, setSearch] = useState('');
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -93,9 +99,23 @@ export default function ContractForm({
             setHighlighted(-1);
         }
     };
+    const selectedIds = (data.service_ids ?? []) as number[];
+    const selectedServices = services.filter((s) => selectedIds.includes(s.id));
+    const computedTotal = selectedServices.reduce((sum, s) => sum + Number.parseFloat(s.price || '0'), 0);
+
+    // Mantener amount en sync (solo visual, backend recalcula)
+    useEffect(() => {
+        const asStr = computedTotal.toFixed(2);
+        if (data.amount !== asStr) {
+            onChange('amount', asStr);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [computedTotal]);
+
     return (
         <form onSubmit={onSubmit} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {!lockClient && (
                 <div ref={containerRef}>
                     <InputLabel htmlFor="client_id" value="Cliente" />
 
@@ -160,6 +180,7 @@ export default function ContractForm({
 
                     <InputError message={errors.client_id} className="mt-2" />
                 </div>
+                )}
 
                 <div>
                     <InputLabel htmlFor="name" value="Nombre del contrato" />
@@ -175,20 +196,39 @@ export default function ContractForm({
                     <InputError message={errors.name} className="mt-2" />
                 </div>
 
-                <div>
-                    <InputLabel htmlFor="amount" value="Monto" />
-                    <TextInput
-                        id="amount"
-                        name="amount"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={data.amount}
-                        onChange={(event) => onChange('amount', event.target.value)}
-                        className="mt-1 block w-full"
+                <div className="md:col-span-2">
+                    <InputLabel htmlFor="service_ids" value="Servicios / plataformas" />
+                    <select
+                        id="service_ids"
+                        name="service_ids"
+                        multiple
+                        value={selectedIds.map(String)}
+                        onChange={(e) => {
+                            const values = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
+                            onChange('service_ids', values);
+                        }}
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
                         required
-                    />
-                    <InputError message={errors.amount} className="mt-2" />
+                        size={Math.min(8, Math.max(4, services.length || 4))}
+                    >
+                        {services.map((s) => (
+                            <option key={s.id} value={s.id}>
+                                {s.name} — {s.currency} {Number.parseFloat(s.price || '0').toFixed(2)}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Tip: usa Ctrl/Cmd para seleccionar múltiples.
+                            <span className="ml-2">
+                                <a href={route('settings.services.index')} className="text-indigo-600 hover:underline">Configurar servicios</a>
+                            </span>
+                        </div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            Total: {data.currency} {computedTotal.toFixed(2)}
+                        </div>
+                    </div>
+                    <InputError message={errors.service_ids} className="mt-2" />
                 </div>
 
                 <div>
@@ -306,14 +346,24 @@ export default function ContractForm({
             </div>
 
             <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
-                <Link
-                    href={cancelHref}
-                    className="text-sm font-medium text-gray-600 dark:text-gray-400 transition hover:text-gray-800 dark:text-gray-100"
-                    preserveState
-                    preserveScroll
-                >
-                    Cancelar
-                </Link>
+                {onCancel ? (
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="text-sm font-medium text-gray-600 dark:text-gray-400 transition hover:text-gray-800 dark:text-gray-100"
+                    >
+                        Cancelar
+                    </button>
+                ) : (
+                    <Link
+                        href={cancelHref}
+                        className="text-sm font-medium text-gray-600 dark:text-gray-400 transition hover:text-gray-800 dark:text-gray-100"
+                        preserveState
+                        preserveScroll
+                    >
+                        Cancelar
+                    </Link>
+                )}
                 <PrimaryButton disabled={processing}>{formatValue(submitLabel)}</PrimaryButton>
             </div>
         </form>

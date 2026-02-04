@@ -31,6 +31,18 @@ export default function SettingsIndex({ settings, whatsapp }: Props) {
                     )}
 
                     <div className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">General</h3>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Ajustes generales del sistema.</p>
+                            </div>
+                            <a
+                                href={route('settings.services.index')}
+                                className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
+                            >
+                                Configurar servicios
+                            </a>
+                        </div>
                         <form onSubmit={submit} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre del servicio</label>

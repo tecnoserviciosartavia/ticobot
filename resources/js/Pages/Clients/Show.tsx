@@ -1,5 +1,6 @@
 import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import PrimaryButton from '@/Components/PrimaryButton';
 import type { PageProps } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 
@@ -118,8 +119,11 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                             Seguimiento detallado del cliente y sus operaciones de cobranza.
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <StatusBadge status={client.status} />
+                        <Link href={route('clients.contracts.create', client.id)}>
+                            <PrimaryButton>+ Contrato</PrimaryButton>
+                        </Link>
                         <Link
                             href={route('clients.edit', client.id)}
                             className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700"

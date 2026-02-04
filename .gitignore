@@ -36,6 +36,9 @@ Thumbs.db
 /bot_custom_20260203/node_modules
 
 # Runtime / backups del bot (muy pesado, no es código)
+/bot_custom_20260203/.env
+/bot_custom_20260203/dev.log
+/bot_custom_20260203/storage/
 /bot_custom_20260203/storage/session-backups/
 /bot_custom_20260203/storage/*.pid
 /bot_custom_20260203/storage/**/*.log

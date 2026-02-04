@@ -8,6 +8,14 @@ use Carbon\Carbon;
 
 class ContractObserver
 {
+    private function normalizeScheduledFor(Carbon $date): Carbon
+    {
+        $tz = config('app.timezone');
+        $time = (string) config('reminders.send_time', '09:00');
+        // Guarantee we produce a datetime in the app timezone at a stable hour.
+        return $date->copy()->timezone($tz)->startOfDay()->setTimeFromTimeString($time);
+    }
+
     /**
      * Handle the Contract "created" event.
      */
@@ -18,12 +26,12 @@ class ContractObserver
             // Parse in app timezone to avoid UTC midnight issues
             $dueDate = Carbon::parse($contract->next_due_date, config('app.timezone'));
             
-            // Schedule reminder for the same day as due date (not 3 days before)
-            $scheduledFor = $dueDate->copy()->startOfDay();
+            // Schedule reminder for the due date at configured send_time
+            $scheduledFor = $this->normalizeScheduledFor($dueDate);
 
             // If scheduled date is in the past, schedule for today
             if ($scheduledFor->isPast()) {
-                $scheduledFor = Carbon::today(config('app.timezone'));
+                $scheduledFor = $this->normalizeScheduledFor(Carbon::today(config('app.timezone')));
             }
 
             // Map billing_cycle to recurrence
@@ -52,9 +60,10 @@ class ContractObserver
     public function updated(Contract $contract): void
     {
         // Update pending reminders if next_due_date changes
-        if ($contract->wasChanged('next_due_date') && $contract->next_due_date) {
-            $newScheduledFor = Carbon::parse($contract->next_due_date, config('app.timezone'))
-                ->startOfDay();
+        if ($contract->client_id && $contract->wasChanged('next_due_date') && $contract->next_due_date) {
+            $newScheduledFor = $this->normalizeScheduledFor(
+                Carbon::parse($contract->next_due_date, config('app.timezone'))
+            );
 
             if ($newScheduledFor->isFuture() || $newScheduledFor->isToday()) {
                 // Update pending reminders for this contract

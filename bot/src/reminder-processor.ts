@@ -25,8 +25,16 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   // Get due date from payload or contract
   let dueDate = payload.due_date ?? '';
   if (!dueDate && reminder.contract?.next_due_date) {
-    const dueDateObj = new Date(reminder.contract.next_due_date);
-    dueDate = dueDateObj.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const raw = String(reminder.contract.next_due_date);
+    // If backend returns a date-only string (YYYY-MM-DD), avoid JS Date() UTC shifting.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        const [y, m, d] = raw.split('-').map((v) => Number(v));
+        const local = new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0); // midday to avoid DST edge
+        dueDate = local.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
+    } else {
+        const dueDateObj = new Date(raw);
+        dueDate = dueDateObj.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
+    }
   }
   
   // amount: prefer contract amount (from contract summary), then payload.amount

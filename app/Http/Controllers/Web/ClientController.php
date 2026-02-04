@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\Reminder;
+use App\Models\Service;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -84,17 +85,38 @@ class ClientController extends Controller
             $statuses->prepend('active');
         }
 
+        $services = Service::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Service $s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'price' => (string) $s->price,
+                'currency' => $s->currency,
+            ]);
+
         return Inertia::render('Clients/Create', [
             'statuses' => $statuses,
             'defaultStatus' => 'active',
+            'services' => $services,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validatedData($request);
+        $contractId = (int) $request->input('contract_id', 0) ?: null;
 
         $client = Client::create($data);
+
+        if ($contractId) {
+            // Reasignar contrato temporal al cliente recién creado.
+            Contract::query()
+                ->whereKey($contractId)
+                ->whereNull('client_id')
+                ->update(['client_id' => $client->id]);
+        }
 
         return redirect()->route('clients.show', $client);
     }
@@ -393,6 +415,7 @@ class ClientController extends Controller
             'phone' => ['nullable', 'string', 'max:50'],
             'status' => ['required', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
+            'contract_id' => ['nullable', 'integer', 'exists:contracts,id'],
         ]);
     }
 

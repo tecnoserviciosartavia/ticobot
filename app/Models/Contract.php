@@ -50,4 +50,9 @@ class Contract extends Model
     {
         return $this->belongsTo(ContractType::class);
     }
+
+    public function services()
+    {
+        return $this->belongsToMany(Service::class)->withTimestamps();
+    }
 }

@@ -10,6 +10,7 @@ interface ContractResource {
     notes?: string | null;
     amount: string;
     currency: string | null;
+    services?: Array<{ id: number; name: string; price: string; currency: string }>;
     billing_cycle: string;
     next_due_date: string | null;
     grace_period_days: number;
@@ -141,6 +142,25 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                 <div className="flex justify-between">
                                     <dt className="text-gray-500 dark:text-gray-400">Monto</dt>
                                     <dd className="font-medium text-gray-900 dark:text-gray-100">{formatCurrency(contract.amount, contract.currency)}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-gray-500 dark:text-gray-400">Servicios</dt>
+                                    <dd className="mt-1">
+                                        {(contract.services ?? []).length ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {(contract.services ?? []).map((s) => (
+                                                    <span
+                                                        key={s.id}
+                                                        className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200"
+                                                    >
+                                                        {s.name} ({s.currency} {Number.parseFloat(s.price || '0').toFixed(2)})
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-sm text-gray-500 dark:text-gray-400">—</span>
+                                        )}
+                                    </dd>
                                 </div>
                                 <div className="flex justify-between">
                                     <dt className="text-gray-500 dark:text-gray-400">Ciclo</dt>

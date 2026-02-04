@@ -13,6 +13,62 @@ use Inertia\Response;
 
 class PaymentController extends Controller
 {
+    /**
+     * Al verificar un pago, marcar como "paid" (o al menos no enviables) los
+     * recordatorios pendientes relacionados para evitar reenvíos/duplicados.
+     */
+    private function settleRemindersForVerifiedPayment(Payment $payment): void
+    {
+        if ($payment->status !== 'verified') {
+            return;
+        }
+
+        // Si el pago ya está ligado a un recordatorio específico, liquidarlo.
+        if ($payment->reminder_id) {
+            Reminder::query()
+                ->whereKey($payment->reminder_id)
+                ->whereIn('status', ['pending', 'queued', 'sent'])
+                ->update([
+                    'status' => 'paid',
+                    'acknowledged_at' => now(config('app.timezone')),
+                ]);
+            return;
+        }
+
+        // Caso común: pago manual/conciliado sin reminder_id.
+        // Estrategia conservadora: para el mismo cliente/contrato, marcar como "paid"
+        // el próximo recordatorio pendiente/queued y cualquier recordatorio "sent" del día
+        // (para que el bot no lo reenvíe como impago).
+        $query = Reminder::query()->where('client_id', $payment->client_id);
+        if ($payment->contract_id) {
+            $query->where('contract_id', $payment->contract_id);
+        }
+
+        // 1) Liquidar el recordatorio pendiente más cercano (si existe)
+        $nextPending = (clone $query)
+            ->whereIn('status', ['pending', 'queued'])
+            ->orderBy('scheduled_for')
+            ->first();
+
+        if ($nextPending) {
+            $nextPending->forceFill([
+                'status' => 'paid',
+                'acknowledged_at' => now(config('app.timezone')),
+            ])->save();
+        }
+
+        // 2) Si hoy se envió un recordatorio y se verificó el pago el mismo día, marcarlo paid
+        $todayStart = Carbon::today(config('app.timezone'))->startOfDay();
+        $todayEnd = Carbon::today(config('app.timezone'))->endOfDay();
+        (clone $query)
+            ->where('status', 'sent')
+            ->whereBetween('sent_at', [$todayStart, $todayEnd])
+            ->update([
+                'status' => 'paid',
+                'acknowledged_at' => now(config('app.timezone')),
+            ]);
+    }
+
     public function index(Request $request): Response
     {
         $status = trim((string) $request->query('status', ''));
@@ -163,6 +219,9 @@ class PaymentController extends Controller
 
         // Auto-create conciliation if payment is verified
         if ($validated['status'] === 'verified') {
+            // Detener envíos/reenvíos: liquidar recordatorios relacionados
+            $this->settleRemindersForVerifiedPayment($payment);
+
             $conciliation = \App\Models\Conciliation::create([
                 'payment_id' => $payment->id,
                 'contract_id' => $validated['contract_id'] ?? null,
@@ -364,11 +423,4 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Render the pending payments page (React component).
-     */
-    public function pending(): Response
-    {
-        return Inertia::render('Payments/PendingPayments');
-    }
 }

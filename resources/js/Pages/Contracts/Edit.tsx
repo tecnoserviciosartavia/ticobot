@@ -13,14 +13,16 @@ interface ContractResource {
     billing_cycle: string;
     next_due_date: string | null;
     grace_period_days: number;
+    service_ids?: number[];
 }
 
 interface ContractsEditProps extends PageProps<{
     contract: ContractResource;
     clients: Array<{ id: number; name: string }>;
+    services: Array<{ id: number; name: string; price: string; currency: string }>;
 }> {}
 
-export default function ContractsEdit({ contract, clients }: ContractsEditProps) {
+export default function ContractsEdit({ contract, clients, services }: ContractsEditProps) {
     const form = useForm({
         client_id: contract.client_id.toString(),
         notes: contract.notes ?? '',
@@ -30,6 +32,7 @@ export default function ContractsEdit({ contract, clients }: ContractsEditProps)
         billing_cycle: contract.billing_cycle ?? '',
         next_due_date: contract.next_due_date ?? '',
         grace_period_days: contract.grace_period_days?.toString() ?? '0',
+        service_ids: (contract.service_ids ?? []) as number[],
     });
 
     const submit: React.FormEventHandler<HTMLFormElement> = (event) => {
@@ -55,6 +58,7 @@ export default function ContractsEdit({ contract, clients }: ContractsEditProps)
                             data={form.data}
                             errors={form.errors}
                             clients={clients}
+                            services={services}
                             processing={form.processing}
                             submitLabel="Actualizar contrato"
                             onSubmit={submit}

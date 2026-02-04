@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Contract;
+use App\Models\Service;
 use App\Models\Payment;
 use App\Models\Reminder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,6 +18,107 @@ use Carbon\Carbon;
 
 class ContractController extends Controller
 {
+    public function quickStore(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'currency' => ['required', Rule::in(['CRC', 'USD'])],
+            'billing_cycle' => ['required', 'string', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
+            'next_due_date' => ['required', 'date'],
+            'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'notes' => ['nullable', 'string'],
+            'service_ids' => ['nullable', 'array'],
+            'service_ids.*' => ['integer', 'exists:services,id'],
+        ]);
+
+        $contract = Contract::create([
+            'client_id' => null,
+            'name' => $data['name'],
+            'amount' => $data['amount'],
+            'currency' => $data['currency'],
+            'billing_cycle' => $data['billing_cycle'],
+            'next_due_date' => $data['next_due_date'],
+            'grace_period_days' => $data['grace_period_days'] ?? 0,
+            'notes' => $data['notes'] ?? null,
+        ]);
+
+        if (! empty($data['service_ids'])) {
+            $contract->services()->sync($data['service_ids']);
+            $total = Service::query()->whereIn('id', $data['service_ids'])->sum('price');
+            $contract->forceFill(['amount' => $total])->save();
+        }
+
+        // Devolver una vista compacta para UI
+        return response()->json([
+            'id' => $contract->id,
+            'name' => $contract->name,
+            'amount' => (string) $contract->amount,
+            'currency' => $contract->currency,
+            'billing_cycle' => $contract->billing_cycle,
+            'next_due_date' => $contract->next_due_date?->toDateString(),
+        ], 201);
+    }
+
+    public function createForClient(Client $client): Response
+    {
+        $services = Service::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Service $s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'price' => (string) $s->price,
+                'currency' => $s->currency,
+            ]);
+
+        return Inertia::render('Clients/Contracts/Create', [
+            'client' => $client->only(['id', 'name']),
+            'services' => $services,
+            'defaultCurrency' => 'CRC',
+            'defaultBillingCycle' => 'monthly',
+            'returnTo' => route('clients.show', $client),
+        ]);
+    }
+
+    public function storeForClient(Request $request, Client $client): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'currency' => ['required', Rule::in(['CRC', 'USD'])],
+            'billing_cycle' => ['required', 'string', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
+            'next_due_date' => ['required', 'date'],
+            'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'notes' => ['nullable', 'string'],
+            'service_ids' => ['nullable', 'array'],
+            'service_ids.*' => ['integer', 'exists:services,id'],
+        ]);
+
+        $contract = Contract::create([
+            'client_id' => $client->id,
+            'name' => $data['name'],
+            'amount' => $data['amount'],
+            'currency' => $data['currency'],
+            'billing_cycle' => $data['billing_cycle'],
+            'next_due_date' => $data['next_due_date'],
+            'grace_period_days' => $data['grace_period_days'] ?? 0,
+            'notes' => $data['notes'] ?? null,
+        ]);
+
+        if (! empty($data['service_ids'])) {
+            $contract->services()->sync($data['service_ids']);
+            // Backend recalcula el total a partir de servicios activos (si aplica)
+            $total = Service::query()->whereIn('id', $data['service_ids'])->sum('price');
+            $contract->forceFill(['amount' => $total])->save();
+        }
+
+        return redirect()
+            ->route('clients.show', $client)
+            ->with('success', 'Contrato creado y asignado al cliente.');
+    }
+
     public function index(Request $request): Response
     {
         $clientId = (int) $request->query('client_id', 0) ?: null;
@@ -81,8 +184,20 @@ class ContractController extends Controller
             ->orderBy('name')
             ->get();
 
+        $services = Service::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Service $s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'price' => (string) $s->price,
+                'currency' => $s->currency,
+            ]);
+
         return Inertia::render('Contracts/Create', [
             'clients' => $clients,
+            'services' => $services,
             'defaultCurrency' => 'CRC',
             'defaultBillingCycle' => 'monthly',
         ]);
@@ -276,6 +391,13 @@ class ContractController extends Controller
     {
         $data = $this->validatedData($request);
 
+        $serviceIds = $data['service_ids'] ?? [];
+        unset($data['service_ids']);
+
+        // Calcular monto por suma de servicios (misma moneda en UI por ahora)
+        $amount = Service::query()->whereIn('id', $serviceIds)->sum('price');
+        $data['amount'] = $amount;
+
         // If next_due_date is not provided, compute based on billing_cycle
         if (empty($data['next_due_date'])) {
             $data['next_due_date'] = $this->computeNextDueDate($data['billing_cycle']);
@@ -283,12 +405,14 @@ class ContractController extends Controller
 
         $contract = Contract::create($data);
 
+        $contract->services()->sync($serviceIds);
+
         return redirect()->route('contracts.show', $contract);
     }
 
     public function show(Contract $contract): Response
     {
-        $contract->load(['client:id,name,email,phone']);
+        $contract->load(['client:id,name,email,phone', 'services:id,name,price,currency']);
 
         $reminders = Reminder::query()
             ->where('contract_id', $contract->id)
@@ -328,6 +452,15 @@ class ContractController extends Controller
                 'notes' => $contract->notes,
                 'amount' => $contract->amount,
                 'currency' => $contract->currency,
+                'services' => $contract->services
+                    ->sortBy('name')
+                    ->values()
+                    ->map(fn (Service $s) => [
+                        'id' => $s->id,
+                        'name' => $s->name,
+                        'price' => (string) $s->price,
+                        'currency' => $s->currency,
+                    ]),
                 'billing_cycle' => $contract->billing_cycle,
                 'next_due_date' => $contract->next_due_date?->toDateString(),
                 'grace_period_days' => $contract->grace_period_days,
@@ -347,6 +480,19 @@ class ContractController extends Controller
             ->orderBy('name')
             ->get();
 
+        $services = Service::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Service $s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'price' => (string) $s->price,
+                'currency' => $s->currency,
+            ]);
+
+        $selectedServiceIds = $contract->services()->pluck('services.id')->values();
+
         return Inertia::render('Contracts/Edit', [
             'contract' => [
                 'id' => $contract->id,
@@ -359,8 +505,10 @@ class ContractController extends Controller
                 'next_due_date' => $contract->next_due_date?->toDateString(),
                 'grace_period_days' => $contract->grace_period_days,
                 'metadata' => $contract->metadata,
+                'service_ids' => $selectedServiceIds,
             ],
             'clients' => $clients,
+            'services' => $services,
         ]);
     }
 
@@ -368,7 +516,15 @@ class ContractController extends Controller
     {
         $data = $this->validatedData($request, $contract);
 
+        $serviceIds = $data['service_ids'] ?? [];
+        unset($data['service_ids']);
+
+        $amount = Service::query()->whereIn('id', $serviceIds)->sum('price');
+        $data['amount'] = $amount;
+
         $contract->update($data);
+
+        $contract->services()->sync($serviceIds);
 
         return redirect()->route('contracts.show', $contract);
     }
@@ -378,23 +534,26 @@ class ContractController extends Controller
         $data = $request->validate([
             'client_id' => ['required', Rule::exists('clients', 'id')],
             'name' => ['required', 'string', 'max:255'],
-            'amount' => ['required', 'numeric', 'min:0'],
+            // amount se calcula a partir de service_ids
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'billing_cycle' => ['required', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'next_due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:60'],
+            'service_ids' => ['required', 'array', 'min:1'],
+            'service_ids.*' => ['integer', Rule::exists('services', 'id')],
         ]);
 
         return [
             'client_id' => $data['client_id'],
             'name' => $data['name'],
             'notes' => $data['notes'] ?? null,
-            'amount' => $data['amount'],
+            'amount' => 0,
             'currency' => strtoupper($data['currency']),
             'billing_cycle' => $data['billing_cycle'],
             'next_due_date' => $data['next_due_date'] ?? null,
             'grace_period_days' => $data['grace_period_days'] ?? 0,
+            'service_ids' => $data['service_ids'],
         ];
     }
 
