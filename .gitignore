@@ -31,6 +31,10 @@ Thumbs.db
 /bot/storage
 /bot/bot.log
 
+# Subproyectos / variantes del bot (no versionar dependencias)
+/bot_staging/node_modules
+/bot_custom_20260203/node_modules
+
 # Bot runtime data (no source)
 /bot/data/receipts/
 /bot/data/backend_sim/
