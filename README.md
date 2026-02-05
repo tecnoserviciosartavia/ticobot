@@ -117,6 +117,12 @@ Si ya canceló, omita el mensaje
 
 ## 🚀 Guía de Instalación Completa
 
+> Esta guía cubre:
+> 1) descargar el software,
+> 2) instalar dependencias,
+> 3) publicarlo con Apache,
+> 4) configurar los datos de la empresa y el mensaje desde la UI.
+
 ### Paso 1: Clonar el Repositorio
 
 ```bash
@@ -418,6 +424,23 @@ sudo apache2ctl configtest
 sudo systemctl restart apache2
 ```
 
+##### Apache - Publicar el sistema (checklist rápido)
+
+Antes de dar por listo el sitio en Apache, revisa:
+
+- **DocumentRoot** debe apuntar a `.../ticobot/public` (no a la raíz del proyecto).
+- `AllowOverride All` para que funcione `.htaccess`.
+- `mod_rewrite` y `headers` habilitados.
+- `APP_URL` en `.env` debe ser el dominio final (https si aplica).
+- Permisos de `storage/` y `bootstrap/cache/` (ver Paso 6).
+- Assets compilados: existe `public/build/manifest.json` (ver Paso 7).
+
+Si cambiaste el dominio o la ruta, ejecuta:
+
+- `php artisan config:clear`
+- `php artisan route:clear`
+- `php artisan view:clear`
+
 ##### Nginx - Configuración Básica
 
 Crear `/etc/nginx/sites-available/ticobot`:
@@ -492,6 +515,47 @@ npm run build
 ```
 
 ### Paso 8: Configurar Queue Worker (Producción)
+
+---
+
+## 🏢 Configurar empresas (remitente, pagos y mensaje) desde la UI
+
+En TicoBOT, lo que usualmente llamamos “empresa” (remitente) **se configura desde la UI**. Esto controla el nombre que aparece en los recordatorios y el contenido completo del mensaje.
+
+1) Inicia sesión en el panel.
+
+2) Ve a:
+
+**Configuración del sistema → General**
+
+3) Completa estos campos:
+
+- **Nombre de la empresa** (`company_name`): se usa dentro de la plantilla con `{company_name}`.
+- **Plantilla global de recordatorio** (`reminder_template`): mensaje completo que enviará el bot.
+- **Sinpe / contacto de pago** (`payment_contact`): se usa con `{payment_contact}`.
+- **Cuentas bancarias** (`bank_accounts`): se usa con `{bank_accounts}`.
+- **Beneficiario** (`beneficiary_name`): se usa con `{beneficiary_name}`.
+
+Notas importantes:
+
+- La **plantilla es obligatoria**. Si está vacía, el bot no enviará recordatorios.
+- La plantilla acepta **placeholders** como `{client_name}`, `{due_date}`, `{amount}`, etc. (ver sección “Configuración del mensaje de recordatorio (UI)”).
+
+### Enviar un recordatorio de prueba (sin tinker)
+
+En la misma pantalla **Configuración del sistema → General**, encontrarás:
+
+**“Enviar recordatorio de prueba”**
+
+Ahí podés ingresar un número (ej. `61784023` o `50661784023`) y presionar **Enviar prueba**.
+
+Esto encola un recordatorio inmediato en estado `pending`, y el bot lo enviará cuando haga el siguiente ciclo de polling.
+
+---
+
+## 🧾 Nota sobre multi-empresa / multi-tenant
+
+Actualmente, la configuración de `company_name` y `reminder_template` es **global** (aplica a todo el sistema). Si en el futuro necesitás manejar múltiples empresas con configuraciones distintas, hay que extender el modelo para guardar settings por “tenant/empresa” y hacer que el bot consulte settings por tenant.
 
 #### Opción A: Supervisor (Recomendado)
 
