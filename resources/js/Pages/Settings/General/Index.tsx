@@ -28,6 +28,8 @@ const currencySymbol = (currency: string) => {
 
 export default function SettingsIndex({ settings, whatsapp, services }: Props) {
     const [activeTab, setActiveTab] = useState<'whatsapp' | 'general' | 'services'>(() => (whatsapp ? 'whatsapp' : 'general'));
+    const [testSending, setTestSending] = useState(false);
+    const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     const form = useForm({
         company_name: settings.company_name ?? '',
@@ -35,6 +37,10 @@ export default function SettingsIndex({ settings, whatsapp, services }: Props) {
         payment_contact: settings.payment_contact ?? '',
         bank_accounts: settings.bank_accounts ?? '',
         beneficiary_name: settings.beneficiary_name ?? '',
+    });
+
+    const testForm = useForm({
+        phone: '',
     });
 
     const templateRef = useRef<HTMLTextAreaElement | null>(null);
@@ -65,6 +71,33 @@ export default function SettingsIndex({ settings, whatsapp, services }: Props) {
     const submit: React.FormEventHandler<HTMLFormElement> = (e) => {
         e.preventDefault();
         form.post(route('settings.update'));
+    };
+
+    const sendTest = async () => {
+        setTestResult(null);
+        const phone = String(testForm.data.phone || '').trim();
+        if (!phone) {
+            setTestResult({ type: 'error', message: 'Ingresá un número para enviar la prueba.' });
+            return;
+        }
+
+        testForm.setData('phone', phone);
+
+        setTestSending(true);
+        try {
+            await testForm.post(route('settings.sendTestReminder'), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setTestResult({ type: 'success', message: 'Prueba encolada. El bot la enviará en segundos.' });
+                },
+                onError: (errors: Record<string, unknown>) => {
+                    const msg = (errors as any)?.phone ? String((errors as any).phone) : 'No se pudo encolar la prueba.';
+                    setTestResult({ type: 'error', message: msg });
+                },
+            } as any);
+        } finally {
+            setTestSending(false);
+        }
     };
 
     return (
@@ -147,6 +180,46 @@ export default function SettingsIndex({ settings, whatsapp, services }: Props) {
                                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                     Este nombre se usará como remitente en los recordatorios enviados por WhatsApp.
                                 </p>
+                            </div>
+
+                            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                                <div className="mb-2">
+                                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Enviar recordatorio de prueba</h4>
+                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Encola un recordatorio inmediato usando la <strong>plantilla global</strong> actual. Útil para probar sin usar tinker.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <input
+                                        value={testForm.data.phone}
+                                        onChange={(e) => testForm.setData('phone', e.target.value)}
+                                        placeholder="Ej: 61784023 o 50661784023"
+                                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={sendTest}
+                                        disabled={testSending}
+                                        className={`inline-flex items-center justify-center rounded-md px-4 py-2 text-white font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                                            testSending ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400'
+                                        }`}
+                                    >
+                                        {testSending ? 'Enviando…' : 'Enviar prueba'}
+                                    </button>
+                                </div>
+
+                                {testResult && (
+                                    <div
+                                        className={`mt-3 rounded-md px-3 py-2 text-sm ${
+                                            testResult.type === 'success'
+                                                ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                                                : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-200'
+                                        }`}
+                                    >
+                                        {testResult.message}
+                                    </div>
+                                )}
                             </div>
 
                             <div>

@@ -7,6 +7,10 @@ use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Models\Setting;
 use App\Models\Service;
+use App\Models\Client;
+use App\Models\Contract;
+use App\Models\Reminder;
+use Carbon\Carbon;
 use App\Support\WhatsAppStatus;
 
 class SettingsController extends Controller
@@ -69,5 +73,56 @@ class SettingsController extends Controller
         }
 
         return redirect()->back()->with('success', 'Configuración guardada.');
+    }
+
+    public function sendTestReminder(Request $request)
+    {
+        $data = $request->validate([
+            // Permite 8 dígitos (CR) o 10+ con código país (ej 506XXXXXXXX)
+            'phone' => ['required', 'string', 'regex:/^\d{8,15}$/'],
+        ]);
+
+        $raw = preg_replace('/[^0-9]/', '', $data['phone'] ?? '');
+        // Si viene como 8 dígitos, asumimos CR y agregamos 506.
+        $phone = strlen($raw) === 8 ? ('506' . $raw) : $raw;
+
+        // Crear/obtener cliente de prueba por teléfono
+        $client = Client::firstOrCreate(
+            ['phone' => $raw],
+            [
+                'name' => 'Cliente de Prueba',
+                'email' => "test_{$raw}@test.com",
+                'address' => 'Dirección de prueba',
+                'identification' => 'TEST-' . substr($raw, -8),
+            ]
+        );
+
+        // Crear/obtener contrato de prueba para ese cliente
+        $contract = Contract::firstOrCreate(
+            ['client_id' => $client->id],
+            [
+                'name' => 'Contrato de Prueba - Sistema',
+                'amount' => 0.00,
+                'currency' => 'CRC',
+                'billing_cycle' => 'monthly',
+                'next_due_date' => now()->addMonth(),
+                'grace_period_days' => 0,
+            ]
+        );
+
+        // Crear recordatorio inmediato. El bot se encarga del contenido vía reminder_template.
+        $reminder = Reminder::create([
+            'contract_id' => $contract->id,
+            'client_id' => $client->id,
+            'channel' => 'whatsapp',
+            'scheduled_for' => Carbon::now(),
+            'status' => 'pending',
+            'payload' => [
+                // Importante: guardamos el teléfono con código país por si el bot lo usa.
+                'phone' => $phone,
+            ],
+        ]);
+
+        return redirect()->back()->with('success', "Recordatorio de prueba encolado para +{$phone}.")->with('reminder_id', $reminder->id);
     }
 }

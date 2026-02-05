@@ -26,6 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
 
     Route::get('/settings', [\App\Http\Controllers\Web\SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings', [\App\Http\Controllers\Web\SettingsController::class, 'update'])->name('settings.update');
+    Route::post('/settings/send-test', [\App\Http\Controllers\Web\SettingsController::class, 'sendTestReminder'])->name('settings.sendTestReminder');
 
     // Configuración: catálogo de servicios
     Route::get('/settings/services', [\App\Http\Controllers\Web\ServiceController::class, 'index'])->name('settings.services.index');
