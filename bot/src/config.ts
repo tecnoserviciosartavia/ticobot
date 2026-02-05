@@ -30,7 +30,8 @@ const configSchema = z.object({
   paymentContact: z.string().optional(),
   bankAccountsRaw: z.string().optional(),
   beneficiaryName: z.string().optional(),
-  serviceName: z.string().optional()
+  serviceName: z.string().optional(),
+  companyName: z.string().optional()
 });
 
 const parsed = configSchema.parse({
@@ -48,7 +49,8 @@ const parsed = configSchema.parse({
   paymentContact: process.env.BOT_PAYMENT_CONTACT,
   bankAccountsRaw: process.env.BOT_BANK_ACCOUNTS,
   beneficiaryName: process.env.BOT_BENEFICIARY_NAME,
-  serviceName: process.env.BOT_SERVICE_NAME
+  serviceName: process.env.BOT_SERVICE_NAME,
+  companyName: process.env.BOT_COMPANY_NAME
 });
 
 export type AppConfig = z.infer<typeof configSchema> & {
@@ -59,6 +61,8 @@ export type AppConfig = z.infer<typeof configSchema> & {
   paymentContact?: string;
   beneficiaryName?: string;
   serviceName?: string;
+  companyName?: string;
+  reminderTemplate?: string;
 };
 
 export const config: AppConfig = {
@@ -77,5 +81,8 @@ export const config: AppConfig = {
   paymentContact: (parsed as any).paymentContact ?? ''
   ,
   beneficiaryName: (parsed as any).beneficiaryName ?? '',
-  serviceName: (parsed as any).serviceName ?? ''
+  serviceName: (parsed as any).serviceName ?? '',
+  companyName: (parsed as any).companyName ?? ''
+  ,
+  reminderTemplate: ''
 };

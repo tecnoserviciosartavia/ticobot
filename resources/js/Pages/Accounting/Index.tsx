@@ -90,45 +90,33 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
             </div>
           </div>
 
-          {/* Clientes con recordatorios enviados pero sin pagos verificados */}
+          {/* Recordatorio enviado y sin pago verificado */}
           <div className="bg-white shadow rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Clientes con recordatorios enviados y sin pago conciliado</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Recordatorio enviado y sin pago verificado</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Clientes con al menos un recordatorio enviado durante el período, y sin pagos con estado &quot;verified&quot; en el mismo período.
+            </p>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="py-2 px-3 text-left font-semibold text-gray-600">Cliente</th>
                     <th className="py-2 px-3 text-left font-semibold text-gray-600">Contacto</th>
-                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Recordatorios enviados</th>
+                      <th className="py-2 px-3 text-right font-semibold text-gray-600">Recordatorios</th>
                     <th className="py-2 px-3 text-left font-semibold text-gray-600">Último recordatorio</th>
-                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Monto pendiente</th>
                     <th className="py-2 px-3 text-left font-semibold text-gray-600">Contratos</th>
                     <th className="py-2 px-3 text-left font-semibold text-gray-600">Acción</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(clients_unpaid_after_reminder || []).map(c => {
-                    // compute a simple string for pending amounts (list currencies)
-                    const pending = c.pending_by_currency || {};
-                    const pendingStr = Object.keys(pending).length
-                      ? Object.entries(pending).map(([cur, amt]) => `${cur} ${formatMoney(amt)}`).join(' / ')
-                      : '-';
-
                     const sendNow = (e: React.MouseEvent) => {
                       e.preventDefault();
-                      const contractId = c.contracts[0]?.id ?? '';
-                      if (!contractId) {
-                        // fallback: open create page if no contract
-                        window.location.href = route('reminders.create') + `?client_id=${c.id}`;
+                      if (!c.id) {
+                        alert('Este comprobante no está asociado a un cliente. Primero crea el cliente en el dashboard y luego asigna el pago.');
                         return;
                       }
-
-                      router.post(route('reminders.store'), {
-                        client_id: c.id,
-                        contract_id: contractId,
-                        channel: 'whatsapp',
-                        scheduled_for: new Date().toISOString(),
-                      });
+                      window.location.href = route('clients.show', c.id);
                     };
 
                     const lastReminderId = c.last_reminder_id;
@@ -159,12 +147,11 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
                       <tr key={c.id} className="border-b last:border-b-0 hover:bg-gray-50">
                         <td className="py-2 px-3 font-medium text-indigo-700">{c.name}</td>
                         <td className="py-2 px-3 text-sm text-gray-600">{c.phone}{c.email ? ` — ${c.email}` : ''}</td>
-                        <td className="py-2 px-3 text-right font-mono">{c.sent_reminders_count}</td>
+                          <td className="py-2 px-3 text-right font-mono">{c.sent_reminders_count ?? 0}</td>
                         <td className="py-2 px-3 text-sm">{c.last_sent_at || '-'}</td>
-                        <td className="py-2 px-3 text-right font-mono text-red-700">{pendingStr}</td>
                         <td className="py-2 px-3 text-sm">{c.contracts.map(ct => ct.name).join(', ')}</td>
                         <td className="py-2 px-3 text-sm">
-                          <button onClick={sendNow} className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700">Enviar recordatorio</button>
+                          <button onClick={sendNow} className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700">Ver cliente</button>
                         </td>
                       </tr>
                     );
@@ -172,13 +159,9 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={4} className="py-2 px-3 text-right font-semibold">Total</td>
-                    <td className="py-2 px-3 text-right font-mono text-red-700">
-                      {(clients_unpaid_total && Object.keys(clients_unpaid_total).length)
-                        ? Object.entries(clients_unpaid_total).map(([cur, amt]) => `${cur} ${formatMoney(amt)}`).join(' / ')
-                        : '-'}
+                    <td colSpan={7} className="py-2 px-3 text-right text-gray-500">
+                      Total clientes: {(clients_unpaid_after_reminder || []).length}
                     </td>
-                    <td colSpan={2}></td>
                   </tr>
                 </tfoot>
               </table>

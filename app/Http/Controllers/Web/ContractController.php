@@ -32,6 +32,8 @@ class ContractController extends Controller
             'notes' => ['nullable', 'string'],
             'service_ids' => ['nullable', 'array'],
             'service_ids.*' => ['integer', 'exists:services,id'],
+            // Opcional: cantidades por servicio. Ej: { "12": 2, "15": 1 }
+            'service_quantities' => ['nullable', 'array'],
         ]);
 
         $discount = (float) ($data['discount_amount'] ?? 0);
@@ -49,8 +51,24 @@ class ContractController extends Controller
         ]);
 
         if (! empty($data['service_ids'])) {
-            $contract->services()->sync($data['service_ids']);
-            $total = Service::query()->whereIn('id', $data['service_ids'])->sum('price');
+            $serviceIds = collect($data['service_ids'])->map(fn ($v) => (int) $v)->filter()->values();
+            $qty = collect(($data['service_quantities'] ?? []))
+                ->mapWithKeys(fn ($v, $k) => [(int) $k => max(1, (int) $v)]);
+
+            // Guardar pivot con quantity.
+            $syncData = [];
+            foreach ($serviceIds as $sid) {
+                $syncData[$sid] = ['quantity' => (int) ($qty[$sid] ?? 1)];
+            }
+            $contract->services()->sync($syncData);
+
+            // Recalcular total: sum(price * quantity)
+            $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'price']);
+            $total = 0.0;
+            foreach ($services as $s) {
+                $q = (int) ($qty[(int) $s->id] ?? 1);
+                $total += ((float) $s->price) * $q;
+            }
             $net = max(0, (float) $total - (float) $contract->discount_amount);
             $contract->forceFill(['amount' => $net])->save();
         }
@@ -101,6 +119,8 @@ class ContractController extends Controller
             'notes' => ['nullable', 'string'],
             'service_ids' => ['nullable', 'array'],
             'service_ids.*' => ['integer', 'exists:services,id'],
+            // Opcional: cantidades por servicio. Ej: { "12": 2, "15": 1 }
+            'service_quantities' => ['nullable', 'array'],
         ]);
 
         $discount = (float) ($data['discount_amount'] ?? 0);
@@ -118,9 +138,22 @@ class ContractController extends Controller
         ]);
 
         if (! empty($data['service_ids'])) {
-            $contract->services()->sync($data['service_ids']);
-            // Backend recalcula el total a partir de servicios activos (si aplica)
-            $total = Service::query()->whereIn('id', $data['service_ids'])->sum('price');
+            $serviceIds = collect($data['service_ids'])->map(fn ($v) => (int) $v)->filter()->values();
+            $qty = collect(($data['service_quantities'] ?? []))
+                ->mapWithKeys(fn ($v, $k) => [(int) $k => max(1, (int) $v)]);
+
+            $syncData = [];
+            foreach ($serviceIds as $sid) {
+                $syncData[$sid] = ['quantity' => (int) ($qty[$sid] ?? 1)];
+            }
+            $contract->services()->sync($syncData);
+
+            $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'price']);
+            $total = 0.0;
+            foreach ($services as $s) {
+                $q = (int) ($qty[(int) $s->id] ?? 1);
+                $total += ((float) $s->price) * $q;
+            }
             $net = max(0, (float) $total - (float) $contract->discount_amount);
             $contract->forceFill(['amount' => $net])->save();
         }
@@ -403,11 +436,20 @@ class ContractController extends Controller
         $data = $this->validatedData($request);
 
         $serviceIds = $data['service_ids'] ?? [];
+        $serviceQuantities = $data['service_quantities'] ?? [];
         unset($data['service_ids']);
+        unset($data['service_quantities']);
 
         // Calcular monto por suma de servicios (misma moneda en UI por ahora)
-        $amount = Service::query()->whereIn('id', $serviceIds)->sum('price');
-    $data['amount'] = max(0, (float) $amount - (float) ($data['discount_amount'] ?? 0));
+        $qty = collect($serviceQuantities)
+            ->mapWithKeys(fn ($v, $k) => [(int) $k => max(1, (int) $v)]);
+        $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'price']);
+        $amount = 0.0;
+        foreach ($services as $s) {
+            $q = (int) ($qty[(int) $s->id] ?? 1);
+            $amount += ((float) $s->price) * $q;
+        }
+        $data['amount'] = max(0, (float) $amount - (float) ($data['discount_amount'] ?? 0));
 
         // If next_due_date is not provided, compute based on billing_cycle
         if (empty($data['next_due_date'])) {
@@ -416,7 +458,14 @@ class ContractController extends Controller
 
         $contract = Contract::create($data);
 
-        $contract->services()->sync($serviceIds);
+        // Guardar pivot con quantity.
+        $syncData = [];
+        foreach ($serviceIds as $sid) {
+            $sid = (int) $sid;
+            if (! $sid) continue;
+            $syncData[$sid] = ['quantity' => (int) ($qty[$sid] ?? 1)];
+        }
+        $contract->services()->sync($syncData);
 
         return redirect()->route('contracts.show', $contract);
     }
@@ -472,6 +521,7 @@ class ContractController extends Controller
                         'name' => $s->name,
                         'price' => (string) $s->price,
                         'currency' => $s->currency,
+                        'quantity' => (int) ($s->pivot?->quantity ?? 1),
                     ]),
                 'billing_cycle' => $contract->billing_cycle,
                 'next_due_date' => $contract->next_due_date?->toDateString(),
@@ -504,6 +554,10 @@ class ContractController extends Controller
             ]);
 
         $selectedServiceIds = $contract->services()->pluck('services.id')->values();
+        $selectedServiceQuantities = $contract->services()
+            ->pluck('contract_service.quantity', 'services.id')
+            ->map(fn ($v) => (int) $v)
+            ->toArray();
 
         return Inertia::render('Contracts/Edit', [
             'contract' => [
@@ -519,6 +573,7 @@ class ContractController extends Controller
                 'grace_period_days' => $contract->grace_period_days,
                 'metadata' => $contract->metadata,
                 'service_ids' => $selectedServiceIds,
+                'service_quantities' => $selectedServiceQuantities,
             ],
             'clients' => $clients,
             'services' => $services,
@@ -530,14 +585,29 @@ class ContractController extends Controller
         $data = $this->validatedData($request, $contract);
 
         $serviceIds = $data['service_ids'] ?? [];
+        $serviceQuantities = $data['service_quantities'] ?? [];
         unset($data['service_ids']);
+        unset($data['service_quantities']);
 
-        $amount = Service::query()->whereIn('id', $serviceIds)->sum('price');
-    $data['amount'] = max(0, (float) $amount - (float) ($data['discount_amount'] ?? 0));
+        $qty = collect($serviceQuantities)
+            ->mapWithKeys(fn ($v, $k) => [(int) $k => max(1, (int) $v)]);
+        $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'price']);
+        $amount = 0.0;
+        foreach ($services as $s) {
+            $q = (int) ($qty[(int) $s->id] ?? 1);
+            $amount += ((float) $s->price) * $q;
+        }
+        $data['amount'] = max(0, (float) $amount - (float) ($data['discount_amount'] ?? 0));
 
         $contract->update($data);
 
-        $contract->services()->sync($serviceIds);
+        $syncData = [];
+        foreach ($serviceIds as $sid) {
+            $sid = (int) $sid;
+            if (! $sid) continue;
+            $syncData[$sid] = ['quantity' => (int) ($qty[$sid] ?? 1)];
+        }
+        $contract->services()->sync($syncData);
 
         return redirect()->route('contracts.show', $contract);
     }
@@ -586,6 +656,8 @@ class ContractController extends Controller
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:60'],
             'service_ids' => ['required', 'array', 'min:1'],
             'service_ids.*' => ['integer', Rule::exists('services', 'id')],
+            // Cantidad por servicio (para permitir repetir el mismo servicio en un contrato)
+            'service_quantities' => ['nullable', 'array'],
         ]);
 
         $discount = (float) ($data['discount_amount'] ?? 0);

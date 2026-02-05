@@ -35,7 +35,7 @@ export class WhatsAppClient {
   private lastRestartAt: number | null = null;
   private restartCountWindow: Array<number> = [];
   private readonly debugMessages: boolean;
-  private readonly enableMessagePolling: boolean;
+  private enableMessagePolling: boolean;
   private readonly markMessagesRead: boolean;
   private readonly enableAutoRestartOnStuck: boolean;
   private readonly stuckCheckIntervalMs: number;
@@ -347,7 +347,10 @@ export class WhatsAppClient {
 
     const disableWwebjsPatches = parseEnvBool(process.env.BOT_DISABLE_WWEBJS_PATCHES, false);
     this.debugMessages = parseEnvBool(process.env.BOT_DEBUG_MESSAGES, false);
-    this.enableMessagePolling = parseEnvBool(process.env.BOT_ENABLE_MESSAGE_POLLING, false);
+  // Por defecto lo activamos para resiliencia: cuando WhatsApp Web cambia, a veces se rompen
+  // los eventos y el bot deja de procesar mensajes. El polling fallback permite seguir
+  // respondiendo leyendo chats no leídos.
+  this.enableMessagePolling = parseEnvBool(process.env.BOT_ENABLE_MESSAGE_POLLING, true);
     this.markMessagesRead = parseEnvBool(process.env.BOT_MARK_MESSAGES_READ, true);
     // Auto-restart can cause Puppeteer session locks ("browser already running") if Chrome doesn't exit cleanly.
     // Keep it OFF by default; can be enabled when the environment is stable.
@@ -438,6 +441,19 @@ export class WhatsAppClient {
             // En algunos entornos este error ocurre *después* de que WhatsApp envía el mensaje.
             // No queremos que el bot se caiga o quede en loop reintentando; registramos y continuamos.
             logger.warn({ err }, 'Interceptado markedUnread error en sendMessage — ignorando para mantener el bot operativo');
+
+            // Si WhatsApp Web está rompiendo sendSeen/markedUnread, a veces también rompe eventos
+            // de mensajes entrantes (message / message_create). Como red de seguridad, activamos
+            // el polling fallback para seguir procesando mensajes no leídos.
+            if (!this.enableMessagePolling) {
+              this.enableMessagePolling = true;
+              logger.warn('Activando BOT_ENABLE_MESSAGE_POLLING automáticamente por error markedUnread');
+              try {
+                this.startMessagePolling();
+              } catch (e) {
+                logger.debug({ err: e }, 'No se pudo iniciar polling automáticamente');
+              }
+            }
 
             // Aplicar stubs y reintentar una vez. Si sigue fallando, no botar el proceso.
             await this.applyWwebjsSafetyStubs();

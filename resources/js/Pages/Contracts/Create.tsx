@@ -22,6 +22,7 @@ export default function ContractsCreate({ clients, services, defaultCurrency, de
         notes: '',
         grace_period_days: '0',
         service_ids: [] as number[],
+        service_quantities: {} as Record<string, number>,
     });
 
     const submit: React.FormEventHandler<HTMLFormElement> = (event) => {

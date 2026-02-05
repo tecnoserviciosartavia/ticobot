@@ -15,6 +15,7 @@ interface ContractResource {
     next_due_date: string | null;
     grace_period_days: number;
     service_ids?: number[];
+    service_quantities?: Record<string, number>;
 }
 
 interface ContractsEditProps extends PageProps<{
@@ -35,6 +36,7 @@ export default function ContractsEdit({ contract, clients, services }: Contracts
         next_due_date: contract.next_due_date ?? '',
         grace_period_days: contract.grace_period_days?.toString() ?? '0',
         service_ids: (contract.service_ids ?? []) as number[],
+        service_quantities: (contract.service_quantities ?? {}) as Record<string, number>,
     });
 
     const submit: React.FormEventHandler<HTMLFormElement> = (event) => {
