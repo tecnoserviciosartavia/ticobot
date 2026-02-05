@@ -251,6 +251,53 @@ npm run build
 cd ..
 ```
 
+#### 4.5 (Recomendado Producción) Ejecutar el bot con PM2 (proceso `ticobot-bot`)
+
+En servidores sin interfaz gráfica (sin X server), el bot debe correr en modo **headless**.
+
+1) Asegúrate de tener en `bot/.env`:
+
+```env
+# Importante en servidores sin GUI
+BOT_HEADLESS=true
+```
+
+2) Inicia el bot con PM2 desde la raíz del repo:
+
+```bash
+# Construye el bot
+cd bot
+npm run build
+
+# Vuelve a la raíz e inicia con PM2
+cd ..
+pm2 start bot/dist/index.js --name ticobot-bot --cwd ./bot --update-env
+```
+
+3) Ver logs y estado:
+
+```bash
+pm2 status
+pm2 logs ticobot-bot
+```
+
+4) Reiniciar tras cambios:
+
+```bash
+pm2 restart ticobot-bot --update-env
+```
+
+5) Persistir procesos tras reinicio del servidor:
+
+```bash
+pm2 save
+```
+
+Notas:
+- `pm2 status` lista *todos* los procesos del usuario (por ejemplo `ticobot`, `ticobot_2`, `ticobot-bot`).
+- El bot usa `BOT_SESSION_PATH` (por defecto `storage/whatsapp-session`). Evita correr dos bots apuntando a la misma ruta de sesión.
+- No pegues tokens reales en documentación; usa valores de ejemplo.
+
 ### Paso 5: Configurar Servidor Web
 
 Tienes dos opciones principales: **servidor local** (desarrollo) o **Apache/Nginx** (producción).
