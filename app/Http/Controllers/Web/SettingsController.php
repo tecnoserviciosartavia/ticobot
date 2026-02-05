@@ -40,7 +40,10 @@ class SettingsController extends Controller
     public function update(Request $request)
     {
         $data = $request->validate([
+            // "service_name" se mantiene solo por compatibilidad; ya no se configura desde la UI.
             'service_name' => 'nullable|string',
+            'company_name' => 'nullable|string',
+            'reminder_template' => 'nullable|string',
             'payment_contact' => 'nullable|string',
             'bank_accounts' => 'nullable|string',
             'beneficiary_name' => 'nullable|string',
@@ -48,6 +51,12 @@ class SettingsController extends Controller
 
         if (array_key_exists('service_name', $data)) {
             Setting::set('service_name', $data['service_name'] ?? '');
+        }
+        if (array_key_exists('company_name', $data)) {
+            Setting::set('company_name', $data['company_name'] ?? '');
+        }
+        if (array_key_exists('reminder_template', $data)) {
+            Setting::set('reminder_template', $data['reminder_template'] ?? '');
         }
         if (array_key_exists('payment_contact', $data)) {
             Setting::set('payment_contact', $data['payment_contact'] ?? '');

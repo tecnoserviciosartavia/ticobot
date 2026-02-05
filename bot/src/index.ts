@@ -426,6 +426,11 @@ async function main(): Promise<void> {
       // best-effort: si falla el check, continuar normal
     }
 
+    // Detectar si esta conversación está "idle" ANTES de tocar el timer.
+    // Si llamamos touchTimer primero, `chatTimers.get(chatId)` ya existe y el bot
+    // creería que la sesión está activa, evitando mostrar el menú en el primer mensaje.
+    const wasSessionIdleBeforeTouch = !chatTimers.get(chatId) && !menuShown.get(chatId);
+
     // Mantener timeout por chat y detectar admin
     try {
       touchTimer(chatId);
@@ -463,12 +468,9 @@ async function main(): Promise<void> {
           // We'll attach the PDF if it's already a PDF; otherwise admin will receive the media via WhatsApp.
           let backendPaymentId: number | null = null;
           try {
-            // Ensure client exists
+            // Importante: NO autocrear clientes. Solo asociar el pago si el cliente ya existe.
             let client: any = null;
             try { client = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
-            if (!client) {
-              try { client = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser }); } catch (e) { /* ignore */ }
-            }
 
             const paymentPayload: any = {
               client_id: client && client.id ? client.id : undefined,
@@ -860,16 +862,7 @@ async function main(): Promise<void> {
               await message.reply('Responde "si" para confirmar o "no" para cancelar.');
               return;
             }
-            try {
-              const d = flow.data;
-              // Upsert customer and create subscription via API
-              await apiClient.upsertCustomer({ phone: d.phone, name: d.name, active: 1 });
-              await apiClient.createSubscription({ phone: d.phone, day_of_month: d.day_of_month, due_time: d.due_time, amount: d.amount, concept: d.concept, active: 1, name: d.name });
-              // Intentar materializar pagos es responsabilidad del backend
-              await message.reply(`✅ Cliente y suscripción creados para ${d.name} (${d.phone}).`);
-            } catch (e: any) {
-              await message.reply(`Error creando registro: ${String(e && e.message ? e.message : e)}`);
-            }
+            await message.reply('Esta opción fue deshabilitada. Los clientes y suscripciones deben crearse desde el dashboard (web) para evitar altas automáticas desde WhatsApp.');
             adminFlows.delete(chatId);
             return;
           }
@@ -1290,7 +1283,7 @@ async function main(): Promise<void> {
           let client: any = null;
           try { client = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
           if (!client) {
-            try { client = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser }); } catch (e) { /* ignore */ }
+              // No autocrear clientes
           }
 
           const paymentPayload: any = {
@@ -1379,9 +1372,7 @@ async function main(): Promise<void> {
             // Try to find client and contract to infer monthly amount
             let clientForAmount: any = null;
             try { clientForAmount = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
-            if (!clientForAmount) {
-              try { clientForAmount = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser }); } catch (e) { /* ignore */ }
-            }
+            // No autocrear clientes
             if (clientForAmount && clientForAmount.id) {
               const contracts = await apiClient.listContracts({ client_id: clientForAmount.id });
               if (Array.isArray(contracts) && contracts.length) {
@@ -1395,20 +1386,14 @@ async function main(): Promise<void> {
             logger.debug({ e, chatId }, 'No se pudo obtener contrato para calcular monto mensual');
           }
 
-          // Resolve or create client in backend
+              // Resolver cliente en backend (sin autocrear)
           let client: any = null;
           try {
             client = await apiClient.findCustomerByPhone(fromNorm);
           } catch (e: any) {
             logger.debug({ e, fromNorm }, 'findCustomerByPhone fallo');
           }
-          if (!client) {
-            try {
-              client = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser });
-            } catch (e: any) {
-              logger.warn({ e, fromNorm }, 'No se pudo upsertCustomer, continuando sin cliente backend');
-            }
-          }
+          // Si no existe cliente, continuamos sin asociarlo (no autocrear)
 
           // Compute amount
           const amount = monthlyAmount ? monthlyAmount * asNum : 0;
@@ -1491,7 +1476,7 @@ async function main(): Promise<void> {
                 let clientRetry: any = null;
                 try { clientRetry = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
                 if (!clientRetry) {
-                  try { clientRetry = await apiClient.upsertCustomer({ phone: fromNorm, name: fromUser }); } catch (e) { /* ignore */ }
+                  // No autocrear clientes
                 }
                 const amountRetry = monthlyAmount ? monthlyAmount * asNum : 0;
                 const paymentPayloadRetry: any = {
@@ -2114,11 +2099,14 @@ async function main(): Promise<void> {
       menuShown.delete(chatId);
       lastMenuItems.delete(chatId);
       agentMode.delete(chatId);
+      awaitingReceipt.delete(chatId);
+      awaitingMonths.delete(chatId);
+      pendingConfirmReceipt.delete(chatId);
       // reset any per-chat timeout to default
       chatTimeoutMs.delete(chatId);
       clearTimer(chatId);
       if (wasAgent) {
-        await message.reply('Has salido del modo agente. Si deseas volver a ver las opciones escribe "menu".');
+        await message.reply('Has salido del menú. Si deseas volver a ver las opciones escribe "menu".');
       } else {
         await message.reply('Has salido del menú. Si deseas volver a ver las opciones escribe "menu".');
       }
@@ -2461,11 +2449,14 @@ async function main(): Promise<void> {
         return;
       }
 
-      // Si el usuario no pidió explícitamente el menú y no está en un proceso,
-      // no enviamos el menú automáticamente para evitar que vuelva a aparecer tras una respuesta válida.
-      // (En modo polling fallback esto se siente como "spam".)
-      if (!(lc === 'menu' || lc === 'inicio' || lc === 'help')) {
-        logger.debug({ chatId, lc }, 'No mostrar menú automáticamente (usuario no lo pidió)');
+      // Mostrar menú automáticamente SOLO en el primer mensaje de la sesión (o después del timeout),
+      // para que con cualquier palabra el usuario vea opciones al inicio.
+      // Luego, durante la sesión activa, evitamos spamear el menú y el usuario puede escribir "menu".
+  const isExplicitMenuRequest = (lc === 'menu' || lc === 'inicio' || lc === 'help');
+  const isSessionIdle = wasSessionIdleBeforeTouch;
+
+      if (!isExplicitMenuRequest && !isSessionIdle) {
+        logger.debug({ chatId, lc }, 'No mostrar menú automáticamente (sesión activa; usuario no lo pidió)');
         return;
       }
       const menuToUse = await resolveMenu();
@@ -2991,8 +2982,11 @@ async function main(): Promise<void> {
           .map((x: string) => x.trim())
           .filter(Boolean);
       }
-      if (s.service_name) {
-        (config as any).serviceName = String(s.service_name);
+      if (s.company_name) {
+        (config as any).companyName = String(s.company_name);
+      }
+      if (s.reminder_template) {
+        (config as any).reminderTemplate = String(s.reminder_template);
       }
       if (s.beneficiary_name) {
         (config as any).beneficiaryName = String(s.beneficiary_name);

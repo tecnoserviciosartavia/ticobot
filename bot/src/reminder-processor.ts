@@ -9,18 +9,75 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   const payload = reminder.payload ?? {};
   const lines: string[] = [];
 
+  // Best-effort: intentar inferir los servicios/productos cobrados desde el payload.
+  // Soporta varios nombres comunes porque el backend puede variar el shape.
+  const resolveServicesLine = (): string => {
+    const candidates: unknown[] = [];
+    const p: any = payload as any;
+    if (p) {
+      candidates.push(p.services);
+      candidates.push(p.service_names);
+      candidates.push(p.service_list);
+      candidates.push(p.items);
+      candidates.push(p.products);
+      candidates.push(p.subscriptions);
+    }
+
+    for (const c of candidates) {
+      if (!c) continue;
+      if (typeof c === 'string') {
+        const s = c.trim();
+        if (s) return s;
+      }
+      if (Array.isArray(c)) {
+        const names = c
+          .map((x) => {
+            if (typeof x === 'string') return x.trim();
+            if (x && typeof x === 'object') {
+              const o: any = x;
+              const name = String(o.name ?? o.service_name ?? o.label ?? o.title ?? '').trim();
+              const qRaw = o.quantity ?? o.qty ?? o.count;
+              const q = Number(qRaw);
+              if (name && Number.isFinite(q) && q > 1) return `${name} x${q}`;
+              return name;
+            }
+            return '';
+          })
+          .filter(Boolean);
+        if (names.length) return names.join(', ');
+      }
+    }
+
+    return '';
+  };
+
   // Helper: render a template replacing known tags with actual values
-  function renderTemplate(tpl: string) {
-    return String(tpl)
-      .replace(/\{client_name\}/g, reminder.client?.name ?? '')
-      .replace(/\{amount\}/g, String(payload.amount ?? ''))
-      .replace(/\{due_date\}/g, String(payload.due_date ?? ''));
+  function renderTemplate(tpl: string, vars?: Record<string, string>) {
+    const baseVars: Record<string, string> = {
+      client_name: reminder.client?.name ?? '',
+      contract_name: reminder.contract?.name ?? '',
+      amount: amountFmt,
+      amount_raw: amountNumberFmt,
+      currency,
+      due_date: String(payload.due_date ?? ''),
+      services: '',
+      company_name: '',
+      payment_contact: String(config.paymentContact ?? ''),
+      bank_accounts: Array.isArray(config.bankAccounts) ? config.bankAccounts.join('\n') : '',
+      beneficiary_name: String(config.beneficiaryName ?? ''),
+      ...vars,
+    };
+
+    return String(tpl).replace(/\{([a-zA-Z0-9_]+)\}/g, (_m, key) => {
+      const k = String(key);
+      return Object.prototype.hasOwnProperty.call(baseVars, k) ? String(baseVars[k] ?? '') : `{${k}}`;
+    });
   }
 
   // Build a detailed subscription reminder similar to the provided template
   const clientName = reminder.client?.name ?? '';
-  // service name: prefer payload, then config, then fallback
-  const serviceName = payload.service_name ?? (config.serviceName || 'TicoCast');
+  // Nombre de empresa: solo desde settings/UI (company_name). Si no existe, usar fallback mínimo.
+  const companyName = String((config as any).companyName ?? '').trim() || 'Empresa';
   
   // Get due date from payload or contract
   let dueDate = payload.due_date ?? '';
@@ -41,42 +98,45 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   const rawAmount = reminder.contract?.amount ?? payload.amount ?? '0';
   // normalize string like "10000" or "10000.00" or with currency symbols
   const amountNum = Number(String(rawAmount).replace(/[^0-9\.\-]/g, '')) || 0;
-  const amountFmt = amountNum ? amountNum.toLocaleString('es-CR') : '0';
+  const currency = String((reminder.contract as any)?.currency ?? (payload as any)?.currency ?? 'CRC')
+    .trim()
+    .toUpperCase();
+  const amountNumberFmt = amountNum ? amountNum.toLocaleString('es-CR') : '0';
+  const amountFmt = currency === 'USD' ? `$${amountNumberFmt}` : `₡${amountNumberFmt}`;
 
-  lines.push(`${serviceName}, le informa que su Suscripción de Servicios de Entretenimiento:\n`);
-  if (dueDate) lines.push(`Ha Vencido ${dueDate}`);
-  lines.push(`Total: ₡${amountFmt}`);
-  lines.push('');
-  lines.push('En caso de no recibir respuesta, nos vemos en la necesidad de Liberar el Perfil de su Suscripción.');
-  lines.push('');
-  lines.push('Si desea volver a disfrutar de nuestros servicios, puede realizar el pago correspondiente y con gusto le proporcionaremos una Cuenta Nueva.');
-  lines.push('');
-  lines.push('Renovarla es fácil!, solo realice el pago y envíenos el comprobante.');
-  lines.push('');
-  if (config.paymentContact && String(config.paymentContact).trim()) {
-    lines.push(`Sinpemóvil: ${String(config.paymentContact).trim()}`);
+  const servicesLine = resolveServicesLine();
+
+  // Plantilla global (desde UI/settings) = ÚNICA fuente del mensaje principal.
+  const template = String((config as any).reminderTemplate ?? '').trim();
+  if (!template) {
+    throw new Error('No hay reminder_template configurada en Settings. Configure la plantilla global de recordatorio desde la UI.');
   }
-  lines.push('');
-  lines.push('Para depósitos:');
-  lines.push('');
-  // Use configured bank accounts from system settings (no hardcoded fallbacks)
-  if (Array.isArray(config.bankAccounts) && config.bankAccounts.length) {
-    for (const acct of config.bankAccounts) {
-      lines.push(acct);
-    }
-  }
-  lines.push('');
-  // Beneficiario: use configured beneficiary name when available
-  if (config.beneficiaryName && String(config.beneficiaryName).trim()) {
-    lines.push(`Todas a nombre de ${String(config.beneficiaryName).trim()}`);
-  }
-  lines.push('');
-  lines.push('Si ya canceló, omita el mensaje');
+
+  const rendered = renderTemplate(template, {
+    company_name: String(companyName),
+    due_date: String(dueDate),
+    amount: String(amountFmt),
+    amount_raw: String(amountNumberFmt),
+    currency: String(currency),
+    services: servicesLine,
+    payment_contact: String(config.paymentContact ?? '').trim(),
+    bank_accounts: Array.isArray(config.bankAccounts) ? config.bankAccounts.join('\n') : '',
+    beneficiary_name: String(config.beneficiaryName ?? '').trim(),
+    contract_name: reminder.contract?.name ?? '',
+  });
+  lines.push(rendered);
 
   // If backend provided a custom message template, append it rendered
   if (payload.message) {
     lines.push('');
-    lines.push(renderTemplate(String(payload.message)));
+    lines.push(renderTemplate(String(payload.message), {
+      company_name: String(companyName),
+      due_date: String(dueDate),
+      amount: String(amountFmt),
+      amount_raw: String(amountNumberFmt),
+      currency: String(currency),
+      services: servicesLine,
+    }));
   }
 
   if (payload.options?.length) {

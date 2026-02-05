@@ -16,5 +16,9 @@
       },
       "platform": "smba"
     }
+  },
+  "testReminder-1770314132814-db3c34803ffc1": {
+    "ok": true,
+    "sent": true
   }
 }

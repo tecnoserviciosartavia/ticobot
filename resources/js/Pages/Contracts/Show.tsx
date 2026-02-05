@@ -11,7 +11,7 @@ interface ContractResource {
     notes?: string | null;
     amount: string;
     currency: string | null;
-    services?: Array<{ id: number; name: string; price: string; currency: string }>;
+    services?: Array<{ id: number; name: string; price: string; currency: string; quantity?: number }>;
     billing_cycle: string;
     next_due_date: string | null;
     grace_period_days: number;
@@ -59,6 +59,19 @@ const formatCurrency = (amount: string, currency: string | null | undefined) =>
         currency: resolveCurrency(currency),
         minimumFractionDigits: 2,
     }).format(Number.parseFloat(amount));
+
+const formatServicePriceLabel = (amount: string, currency: string | null | undefined) => {
+    const resolved = resolveCurrency(currency);
+    const numeric = Number.parseFloat(amount);
+
+    if (resolved === 'CRC') {
+        // En CR, normalmente se muestra el símbolo de colones.
+        return `₡${Number.isFinite(numeric) ? numeric.toFixed(2) : '0.00'}`;
+    }
+
+    // Fallback genérico para otras monedas.
+    return `${resolved} ${Number.isFinite(numeric) ? numeric.toFixed(2) : '0.00'}`;
+};
 
 const formatDate = (value: string | null) => {
     if (!value) {
@@ -154,7 +167,12 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                                         key={s.id}
                                                         className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200"
                                                     >
-                                                        {s.name} ({s.currency} {Number.parseFloat(s.price || '0').toFixed(2)})
+                                                        {s.name}
+                                                        {Number(s.quantity ?? 1) > 1 ? ` x${Number(s.quantity ?? 1)}` : ''}
+                                                        {' '}({formatServicePriceLabel(
+                                                            String(Number.parseFloat(s.price || '0') * Number(s.quantity ?? 1)),
+                                                            s.currency,
+                                                        )})
                                                     </span>
                                                 ))}
                                             </div>

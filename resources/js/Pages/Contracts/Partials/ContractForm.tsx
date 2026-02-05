@@ -22,6 +22,7 @@ interface ContractFormData {
     grace_period_days: string;
     notes?: string;
     service_ids?: number[];
+    service_quantities?: Record<string, number>;
 }
 
 interface ContractFormProps {
@@ -113,7 +114,16 @@ export default function ContractForm({
     };
     const selectedIds = (data.service_ids ?? []) as number[];
     const selectedServices = services.filter((s) => selectedIds.includes(s.id));
-    const computedTotal = selectedServices.reduce((sum, s) => sum + Number.parseFloat(s.price || '0'), 0);
+    const quantities = (data.service_quantities ?? {}) as Record<string, number>;
+    const getQty = (serviceId: number) => {
+        const q = Number((quantities as any)[String(serviceId)] ?? 1);
+        return Number.isFinite(q) && q > 0 ? Math.floor(q) : 1;
+    };
+
+    const computedTotal = selectedServices.reduce(
+        (sum, s) => sum + Number.parseFloat(s.price || '0') * getQty(s.id),
+        0,
+    );
 
     const discount = Math.max(0, Number.parseFloat((data.discount_amount ?? '0') as string) || 0);
     const computedNetTotal = Math.max(0, computedTotal - discount);
@@ -221,6 +231,20 @@ export default function ContractForm({
                         onChange={(e) => {
                             const values = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
                             onChange('service_ids', values);
+
+                            // Inicializar cantidades para los servicios seleccionados (si falta alguno),
+                            // y limpiar cantidades de los no seleccionados.
+                            const nextQ: Record<string, number> = { ...(data.service_quantities ?? {}) };
+                            for (const id of values) {
+                                const key = String(id);
+                                const q = Number(nextQ[key] ?? 1);
+                                nextQ[key] = Number.isFinite(q) && q > 0 ? Math.floor(q) : 1;
+                            }
+                            for (const key of Object.keys(nextQ)) {
+                                const idNum = Number(key);
+                                if (!values.includes(idNum)) delete nextQ[key];
+                            }
+                            onChange('service_quantities', nextQ);
                         }}
                         className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
                         required
@@ -232,6 +256,44 @@ export default function ContractForm({
                             </option>
                         ))}
                     </select>
+
+                    {selectedServices.length > 0 && (
+                        <div className="mt-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20 p-3">
+                            <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">Cantidades</div>
+                            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                                {selectedServices
+                                    .slice()
+                                    .sort((a, b) => a.name.localeCompare(b.name))
+                                    .map((s) => {
+                                        const q = getQty(s.id);
+                                        return (
+                                            <label key={s.id} className="flex items-center justify-between gap-3 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2">
+                                                <span className="text-sm text-gray-700 dark:text-gray-200">{s.name}</span>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    step={1}
+                                                    value={q}
+                                                    onChange={(ev) => {
+                                                        const next = Math.max(1, Math.floor(Number(ev.target.value || 1)));
+                                                        onChange('service_quantities', {
+                                                            ...(data.service_quantities ?? {}),
+                                                            [String(s.id)]: next,
+                                                        });
+                                                    }}
+                                                    className="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    aria-label={`Cantidad para ${s.name}`}
+                                                />
+                                            </label>
+                                        );
+                                    })}
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                Usa esto cuando un contrato lleva el mismo servicio varias veces (ej: Netflix x2).
+                            </div>
+                        </div>
+                    )}
+
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                             Tip: usa Ctrl/Cmd para seleccionar múltiples.

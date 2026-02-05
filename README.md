@@ -24,6 +24,50 @@ Sistema automatizado de recordatorios de pagos vía WhatsApp para gestión de cl
 
 ---
 
+## 🧩 Configuración del mensaje de recordatorio (UI)
+
+El contenido del recordatorio **ya no se arma con un mensaje hardcodeado en el bot**. Ahora se define desde la UI en:
+
+**Configuración del sistema → General → “Plantilla global de recordatorio”**
+
+### Campos
+
+- **Nombre de la empresa (`company_name`)**: se usa como remitente dentro del mensaje (ej: *“TecnoServicios Artavia”*).
+- **Plantilla global de recordatorio (`reminder_template`)**: es el texto completo que enviará el bot.
+
+> Importante: la **plantilla es obligatoria**. Si está vacía, el bot no enviará recordatorios.
+
+### Variables disponibles (placeholders)
+
+Dentro de la plantilla podés insertar cualquiera de estas variables (incluyendo las llaves):
+
+- `{client_name}`: nombre del cliente
+- `{company_name}`: nombre de la empresa (remitente)
+- `{due_date}`: fecha de vencimiento (formateada)
+- `{amount}`: monto formateado con símbolo según moneda (₡ CRC / $ USD)
+- `{services}`: servicios/planes (si el backend los incluye en el payload)
+- `{contract_name}`: nombre del contrato
+- `{payment_contact}`: Sinpe / contacto de pago (desde Settings)
+- `{bank_accounts}`: cuentas bancarias (desde Settings)
+- `{beneficiary_name}`: beneficiario (desde Settings)
+
+### Ejemplo de plantilla
+
+```text
+{company_name}, le informa a {client_name} que:
+Ha vencido el {due_date}
+Servicios: {services}
+Total: {amount}
+
+Sinpemóvil: {payment_contact}
+{bank_accounts}
+Todas a nombre de {beneficiary_name}
+
+Si ya canceló, omita el mensaje
+```
+
+---
+
 ## 🛠️ Stack Tecnológico
 
 ### Backend
