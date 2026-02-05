@@ -4,6 +4,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { Link } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
+import { labelForStatus } from '@/lib/labels';
 
 interface ContractOption {
     id: number;
@@ -31,11 +32,6 @@ interface ClientFormProps {
     onChange: (key: keyof ClientFormData, value: string) => void;
     cancelHref: string;
 }
-
-const formatStatusLabel = (value: string) =>
-    value
-        .replace(/[_-]+/g, ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
 
 export default function ClientForm({
     data,
@@ -108,7 +104,7 @@ export default function ClientForm({
                     >
                         {statusOptions.map((status) => (
                             <option key={status} value={status}>
-                                {formatStatusLabel(status)}
+                                {labelForStatus(status)}
                             </option>
                         ))}
                     </select>

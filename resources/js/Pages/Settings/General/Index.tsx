@@ -3,9 +3,29 @@ import { Head, useForm } from '@inertiajs/react';
 import type { PageProps } from '@/types';
 import WhatsAppConnectionCard, { WhatsAppStatus } from '@/Pages/Profile/Partials/WhatsAppConnectionCard';
 
-type Props = PageProps<{ settings: Record<string, string>; whatsapp?: WhatsAppStatus }>;
+type ServiceItem = {
+    id: number;
+    name: string;
+    price: string;
+    currency: 'CRC' | 'USD';
+    is_active: boolean;
+    updated_at?: string | null;
+};
 
-export default function SettingsIndex({ settings, whatsapp }: Props) {
+type Props = PageProps<{ settings: Record<string, string>; whatsapp?: WhatsAppStatus; services: ServiceItem[] }>;
+
+const currencySymbol = (currency: string) => {
+    switch (currency) {
+        case 'CRC':
+            return '₡';
+        case 'USD':
+            return '$';
+        default:
+            return currency;
+    }
+};
+
+export default function SettingsIndex({ settings, whatsapp, services }: Props) {
     const form = useForm({
         service_name: settings.service_name ?? '',
         payment_contact: settings.payment_contact ?? '',
@@ -36,12 +56,6 @@ export default function SettingsIndex({ settings, whatsapp }: Props) {
                                 <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">General</h3>
                                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Ajustes generales del sistema.</p>
                             </div>
-                            <a
-                                href={route('settings.services.index')}
-                                className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
-                            >
-                                Configurar servicios
-                            </a>
                         </div>
                         <form onSubmit={submit} className="space-y-4">
                             <div>
@@ -85,6 +99,54 @@ export default function SettingsIndex({ settings, whatsapp }: Props) {
                                 <button type="submit" className="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 px-4 py-2 text-white font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Guardar</button>
                             </div>
                         </form>
+                    </div>
+
+                    <div className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50 mt-6">
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Servicios</h3>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Servicios disponibles para seleccionar en contratos.</p>
+                            </div>
+                            <a
+                                href={route('settings.services.index')}
+                                className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
+                            >
+                                Administrar servicios
+                            </a>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead>
+                                    <tr className="text-left text-sm text-gray-600 dark:text-gray-300">
+                                        <th className="py-2 pr-4">Nombre</th>
+                                        <th className="py-2 pr-4">Monto</th>
+                                        <th className="py-2 pr-4">Moneda</th>
+                                        <th className="py-2">Activo</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    {services.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="py-6 text-sm text-gray-500">
+                                                No hay servicios configurados.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        services.map((s) => (
+                                            <tr key={s.id} className="text-sm">
+                                                <td className="py-2 pr-4">
+                                                    <span className={!s.is_active ? 'text-gray-400 line-through' : ''}>{s.name}</span>
+                                                </td>
+                                                <td className="py-2 pr-4">{s.price}</td>
+                                                <td className="py-2 pr-4">{currencySymbol(s.currency)}</td>
+                                                <td className="py-2">{s.is_active ? 'Sí' : 'No'}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>

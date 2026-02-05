@@ -16,6 +16,7 @@ class Contract extends Model
         'client_id',
         'name',
         'amount',
+        'discount_amount',
         'currency',
         'billing_cycle',
         'next_due_date',
@@ -27,6 +28,7 @@ class Contract extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
         'next_due_date' => 'date',
         'metadata' => 'array',
     ];

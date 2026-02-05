@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { usePage } from '@inertiajs/react';
 import type { PageProps } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { labelForStatus } from '@/lib/labels';
 import { FormEvent, useState } from 'react';
 
 interface Client {
@@ -163,8 +164,8 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
                                     >
                                         <option value="">Todos</option>
                                         {statuses.map((status) => (
-                                            <option key={status} value={status}>
-                                                {status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+                                                <option key={status} value={status}>
+                                                    {labelForStatus(status)}
                                             </option>
                                         ))}
                                     </select>

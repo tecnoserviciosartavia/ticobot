@@ -2,6 +2,7 @@ import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, Link } from '@inertiajs/react';
+import { labelForChannel } from '@/lib/labels';
 
 interface ReminderShowProps extends PageProps<{
     reminder: {
@@ -85,7 +86,7 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                             Recordatorio #{reminder.id}
                         </h2>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Programado para {formatDateTime(reminder.scheduled_for)} por {reminder.channel}
+                            Programado para {formatDateTime(reminder.scheduled_for)} por {labelForChannel(reminder.channel)}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -151,7 +152,7 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                     <section className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Detalle del mensaje</h3>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">{reminder.channel}</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">{labelForChannel(reminder.channel)}</span>
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
                             <article>
@@ -253,7 +254,9 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                                             <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
                                                 {formatCurrency(payment.amount, payment.currency)}
                                             </td>
-                                            <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{payment.status}</td>
+                                            <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                                                <StatusBadge status={payment.status} />
+                                            </td>
                                             <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{payment.reference ?? '—'}</td>
                                             <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{formatDateTime(payment.paid_at)}</td>
                                         </tr>

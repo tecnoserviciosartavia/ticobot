@@ -16,6 +16,7 @@ interface ContractFormData {
     name: string;
     amount: string;
     currency: string;
+    discount_amount?: string;
     billing_cycle: string;
     next_due_date: string;
     grace_period_days: string;
@@ -38,6 +39,17 @@ interface ContractFormProps {
 
 const formatValue = (value: string) =>
     value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+
+const currencySymbol = (currency: string | null | undefined) => {
+    switch ((currency ?? '').toUpperCase()) {
+        case 'CRC':
+            return '₡';
+        case 'USD':
+            return '$';
+        default:
+            return (currency ?? '').toUpperCase() || '';
+    }
+};
 
 export default function ContractForm({
     data,
@@ -103,14 +115,17 @@ export default function ContractForm({
     const selectedServices = services.filter((s) => selectedIds.includes(s.id));
     const computedTotal = selectedServices.reduce((sum, s) => sum + Number.parseFloat(s.price || '0'), 0);
 
+    const discount = Math.max(0, Number.parseFloat((data.discount_amount ?? '0') as string) || 0);
+    const computedNetTotal = Math.max(0, computedTotal - discount);
+
     // Mantener amount en sync (solo visual, backend recalcula)
     useEffect(() => {
-        const asStr = computedTotal.toFixed(2);
+        const asStr = computedNetTotal.toFixed(2);
         if (data.amount !== asStr) {
             onChange('amount', asStr);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [computedTotal]);
+    }, [computedNetTotal]);
 
     return (
         <form onSubmit={onSubmit} className="space-y-6">
@@ -213,7 +228,7 @@ export default function ContractForm({
                     >
                         {services.map((s) => (
                             <option key={s.id} value={s.id}>
-                                {s.name} — {s.currency} {Number.parseFloat(s.price || '0').toFixed(2)}
+                                {s.name} — {currencySymbol(s.currency)} {Number.parseFloat(s.price || '0').toFixed(2)}
                             </option>
                         ))}
                     </select>
@@ -225,10 +240,29 @@ export default function ContractForm({
                             </span>
                         </div>
                         <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            Total: {data.currency} {computedTotal.toFixed(2)}
+                            Total: {currencySymbol(data.currency)} {computedNetTotal.toFixed(2)}
                         </div>
                     </div>
                     <InputError message={errors.service_ids} className="mt-2" />
+                </div>
+
+                <div>
+                    <InputLabel htmlFor="discount_amount" value="Descuento (monto fijo)" />
+                    <TextInput
+                        id="discount_amount"
+                        name="discount_amount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={(data.discount_amount ?? '') as any}
+                        onChange={(event) => onChange('discount_amount', event.target.value)}
+                        className="mt-1 block w-full"
+                        placeholder={`Ej: 500 (${currencySymbol(data.currency)})`}
+                    />
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Se resta del total de servicios. No es porcentaje.
+                    </div>
+                    <InputError message={errors.discount_amount} className="mt-2" />
                 </div>
 
                 <div>

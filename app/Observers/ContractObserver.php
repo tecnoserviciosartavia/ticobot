@@ -59,6 +59,37 @@ class ContractObserver
      */
     public function updated(Contract $contract): void
     {
+        // If a previously unassigned contract gets assigned to a client, ensure it has an initial reminder.
+        if ($contract->wasChanged('client_id') && $contract->client_id && $contract->next_due_date) {
+            $hasAnyReminder = Reminder::where('contract_id', $contract->id)->exists();
+
+            if (! $hasAnyReminder) {
+                $dueDate = Carbon::parse($contract->next_due_date, config('app.timezone'));
+                $scheduledFor = $this->normalizeScheduledFor($dueDate);
+
+                if ($scheduledFor->isPast()) {
+                    $scheduledFor = $this->normalizeScheduledFor(Carbon::today(config('app.timezone')));
+                }
+
+                $recurrence = match($contract->billing_cycle) {
+                    'weekly' => 'weekly',
+                    'biweekly' => 'biweekly',
+                    'monthly' => 'monthly',
+                    'one_time' => 'once',
+                    default => 'once',
+                };
+
+                Reminder::create([
+                    'client_id' => $contract->client_id,
+                    'contract_id' => $contract->id,
+                    'scheduled_for' => $scheduledFor,
+                    'status' => 'pending',
+                    'channel' => 'whatsapp',
+                    'recurrence' => $recurrence,
+                ]);
+            }
+        }
+
         // Update pending reminders if next_due_date changes
         if ($contract->client_id && $contract->wasChanged('next_due_date') && $contract->next_due_date) {
             $newScheduledFor = $this->normalizeScheduledFor(
@@ -67,9 +98,29 @@ class ContractObserver
 
             if ($newScheduledFor->isFuture() || $newScheduledFor->isToday()) {
                 // Update pending reminders for this contract
-                Reminder::where('contract_id', $contract->id)
+                $updated = Reminder::where('contract_id', $contract->id)
                     ->where('status', 'pending')
                     ->update(['scheduled_for' => $newScheduledFor]);
+
+                // If there are no pending reminders yet, create one.
+                if ($updated === 0) {
+                    $recurrence = match($contract->billing_cycle) {
+                        'weekly' => 'weekly',
+                        'biweekly' => 'biweekly',
+                        'monthly' => 'monthly',
+                        'one_time' => 'once',
+                        default => 'once',
+                    };
+
+                    Reminder::create([
+                        'client_id' => $contract->client_id,
+                        'contract_id' => $contract->id,
+                        'scheduled_for' => $newScheduledFor,
+                        'status' => 'pending',
+                        'channel' => 'whatsapp',
+                        'recurrence' => $recurrence,
+                    ]);
+                }
             }
         }
 

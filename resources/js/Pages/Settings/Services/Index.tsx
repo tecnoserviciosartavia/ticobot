@@ -14,6 +14,17 @@ type ServiceItem = {
 
 type Props = PageProps<{ services: ServiceItem[] }>;
 
+const currencySymbol = (currency: string) => {
+    switch (currency) {
+        case 'CRC':
+            return '₡';
+        case 'USD':
+            return '$';
+        default:
+            return currency;
+    }
+};
+
 export default function ServicesSettingsIndex({ services }: Props) {
     const createForm = useForm({
         name: '',
@@ -216,7 +227,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                                                 <option value="USD">USD</option>
                                                             </select>
                                                         ) : (
-                                                            s.currency
+                                                            currencySymbol(s.currency)
                                                         )}
                                                         {isEditing && editForm.errors.currency && (
                                                             <div className="mt-1 text-xs text-red-600">{editForm.errors.currency}</div>

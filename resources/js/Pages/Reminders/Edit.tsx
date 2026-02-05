@@ -2,6 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import ReminderForm, { ReminderFormData } from '@/Pages/Reminders/Partials/ReminderForm';
 import type { PageProps } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
+import { labelForStatus } from '@/lib/labels';
 
 interface RemindersEditProps extends PageProps<{
     reminder: {
@@ -43,9 +44,7 @@ export default function RemindersEdit({ reminder, clients, channels }: Reminders
         recurrence: (reminder as any).recurrence ?? '',
     });
 
-    const statusLabel = reminder.status
-        ? reminder.status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-        : 'Desconocido';
+    const statusLabel = reminder.status ? labelForStatus(reminder.status) : 'Desconocido';
 
     const handleChange = (field: keyof ReminderFormData, value: string) => {
         form.setData(field as never, value as never);

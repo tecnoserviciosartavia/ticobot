@@ -17,6 +17,7 @@ export default function CreateClientContract({ client, services, defaultCurrency
         name: '',
         amount: '0.00',
         currency: defaultCurrency ?? 'CRC',
+        discount_amount: '0',
         billing_cycle: defaultBillingCycle ?? 'monthly',
         next_due_date: '',
         grace_period_days: '0',

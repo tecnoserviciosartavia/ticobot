@@ -5,6 +5,7 @@ import TextInput from '@/Components/TextInput';
 import { Link } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEventHandler } from 'react';
+import { labelForChannel } from '@/lib/labels';
 
 interface ReminderClientOption {
     id: number;
@@ -35,8 +36,7 @@ interface ReminderFormProps {
     cancelHref: string;
 }
 
-const formatLabel = (value: string) =>
-    value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+const formatLabel = (value: string) => labelForChannel(value);
 
 export default function ReminderForm({
     data,

@@ -3,6 +3,7 @@ import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { labelForBillingCycle, labelForChannel, labelForStatus } from '@/lib/labels';
 import { FormEvent } from 'react';
 
 interface Reminder {
@@ -155,7 +156,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         <option value="">Todos</option>
                                         {statuses.map((statusOption) => (
                                             <option key={statusOption} value={statusOption}>
-                                                {statusOption.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+                                                {labelForStatus(statusOption)}
                                             </option>
                                         ))}
                                     </select>
@@ -202,7 +203,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                         <option value="">Todos</option>
                                         {channels.map((channelOption) => (
                                             <option key={channelOption} value={channelOption}>
-                                                {channelOption.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+                                                {labelForChannel(channelOption)}
                                             </option>
                                         ))}
                                     </select>
@@ -382,15 +383,15 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                                     </div>
                                                 )}
                                             </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                    {(() => {
-                                                        const r: string | null | undefined = (reminder as any).recurrence;
-                                                        if (!r) return '—';
-                                                        return r === 'weekly' ? 'Semanal' : r === 'biweekly' ? 'Quincenal' : r === 'monthly' ? 'Mensual' : r === 'one_time' ? 'Un solo pago' : r;
-                                                    })()}
-                                                </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                {reminder.channel}
+                                                {(() => {
+                                                    const r: string | null | undefined = (reminder as any).recurrence;
+                                                    if (!r) return '—';
+                                                    return labelForBillingCycle(r);
+                                                })()}
+                                            </td>
+                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                                {labelForChannel(reminder.channel)}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4">
                                                 <StatusBadge status={reminder.status} />

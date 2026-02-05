@@ -16,6 +16,7 @@ export default function ContractsCreate({ clients, services, defaultCurrency, de
         name: '',
         amount: '',
         currency: defaultCurrency ?? 'CRC',
+        discount_amount: '0',
         billing_cycle: defaultBillingCycle ?? 'monthly',
         next_due_date: '',
         notes: '',

@@ -108,14 +108,20 @@ class ClientController extends Controller
         $data = $this->validatedData($request);
         $contractId = (int) $request->input('contract_id', 0) ?: null;
 
+        unset($data['contract_id']);
+
         $client = Client::create($data);
 
         if ($contractId) {
             // Reasignar contrato temporal al cliente recién creado.
-            Contract::query()
+            $contract = Contract::query()
                 ->whereKey($contractId)
                 ->whereNull('client_id')
-                ->update(['client_id' => $client->id]);
+                ->first();
+
+            if ($contract) {
+                $contract->update(['client_id' => $client->id]);
+            }
         }
 
         return redirect()->route('clients.show', $client);
@@ -127,6 +133,7 @@ class ClientController extends Controller
 
         $contracts = Contract::query()
             ->where('client_id', $client->id)
+            ->withCount(['payments'])
             ->latest('updated_at')
             ->limit(5)
             ->get()
@@ -137,6 +144,7 @@ class ClientController extends Controller
                 'currency' => $contract->currency,
                 'billing_cycle' => $contract->billing_cycle,
                 'next_due_date' => $contract->next_due_date?->toDateString(),
+                'payments_count' => (int) $contract->payments_count,
                 'updated_at' => $contract->updated_at?->toIso8601String(),
             ]);
 
@@ -208,6 +216,17 @@ class ClientController extends Controller
             $statuses->prepend('active');
         }
 
+        $services = Service::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Service $s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'price' => (string) $s->price,
+                'currency' => $s->currency,
+            ]);
+
         return Inertia::render('Clients/Edit', [
             'client' => [
                 'id' => $client->id,
@@ -218,6 +237,7 @@ class ClientController extends Controller
                 'notes' => $client->notes,
             ],
             'statuses' => $statuses,
+            'services' => $services,
         ]);
     }
 
@@ -225,9 +245,27 @@ class ClientController extends Controller
     {
         $data = $this->validatedData($request, $client);
 
+        $contractId = isset($data['contract_id']) ? (int) $data['contract_id'] : null;
+        unset($data['contract_id']);
+
         $client->update($data);
 
-        return redirect()->route('clients.show', $client);
+        if ($contractId) {
+            $contract = Contract::query()->whereKey($contractId)->first();
+            if ($contract) {
+                if ($contract->client_id !== null && (int) $contract->client_id !== (int) $client->id) {
+                    return redirect()
+                        ->back()
+                        ->with('error', 'No se puede asignar el contrato porque ya está asignado a otro cliente.');
+                }
+
+                $contract->update(['client_id' => $client->id]);
+            }
+        }
+
+        return redirect()
+            ->route('clients.show', $client)
+            ->with('success', 'Cliente actualizado.');
     }
 
     public function importForm(): Response

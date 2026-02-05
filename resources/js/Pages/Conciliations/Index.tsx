@@ -3,6 +3,7 @@ import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
+import { labelForStatus } from '@/lib/labels';
 import { FormEvent } from 'react';
 
 interface Conciliation {
@@ -145,7 +146,7 @@ export default function ConciliationsIndex({ conciliations, filters, statuses }:
                                         <option value="">Todos</option>
                                         {statuses.map((statusOption) => (
                                             <option key={statusOption} value={statusOption}>
-                                                {statusOption.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+                                                {labelForStatus(statusOption)}
                                             </option>
                                         ))}
                                     </select>

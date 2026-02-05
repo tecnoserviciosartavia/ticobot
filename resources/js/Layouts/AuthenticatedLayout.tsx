@@ -70,12 +70,6 @@ export default function Authenticated({
                                 >
                                     Contabilidad
                                 </NavLink>
-                                <NavLink
-                                    href={route('settings.index')}
-                                    active={route().current('settings.*')}
-                                >
-                                    Configuración
-                                </NavLink>
                             </div>
                         </div>
 
@@ -220,12 +214,6 @@ export default function Authenticated({
                         >
                             Contabilidad
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('settings.index')}
-                            active={route().current('settings.*')}
-                        >
-                            Configuración
-                        </ResponsiveNavLink>
                     </div>
 
                     <div className="border-t border-gray-200 pb-1 pt-4">
@@ -241,6 +229,12 @@ export default function Authenticated({
                         <div className="mt-3 space-y-1">
                             <ResponsiveNavLink href={route('profile.edit')}>
                                 Profile
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                href={route('settings.index')}
+                                active={route().current('settings.*')}
+                            >
+                                Configuración
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 method="post"

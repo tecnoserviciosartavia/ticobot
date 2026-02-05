@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use App\Models\Setting;
+use App\Models\Service;
 use App\Support\WhatsAppStatus;
 
 class SettingsController extends Controller
@@ -16,9 +17,23 @@ class SettingsController extends Controller
             return [$s->key => $s->value];
         })->toArray();
 
+        $services = Service::query()
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Service $s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'price' => (string) $s->price,
+                'currency' => $s->currency,
+                'is_active' => (bool) $s->is_active,
+                'updated_at' => $s->updated_at?->toIso8601String(),
+            ]);
+
         return Inertia::render('Settings/General/Index', [
             'settings' => $all,
             'whatsapp' => WhatsAppStatus::snapshot(),
+            'services' => $services,
         ]);
     }
 

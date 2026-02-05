@@ -2,6 +2,7 @@ import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, Link } from '@inertiajs/react';
+import { labelForBillingCycle, labelForStatus } from '@/lib/labels';
 
 interface ContractResource {
     id: number;
@@ -165,20 +166,7 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                 <div className="flex justify-between">
                                     <dt className="text-gray-500 dark:text-gray-400">Ciclo</dt>
                                     <dd className="font-medium text-gray-900 dark:text-gray-100">
-                                        {(() => {
-                                            switch (contract.billing_cycle) {
-                                                case 'weekly':
-                                                    return 'Semanal';
-                                                case 'biweekly':
-                                                    return 'Quincenal';
-                                                case 'monthly':
-                                                    return 'Mensual';
-                                                case 'one_time':
-                                                    return 'Un solo pago';
-                                                default:
-                                                    return contract.billing_cycle;
-                                            }
-                                        })()}
+                                        {labelForBillingCycle(contract.billing_cycle)}
                                     </dd>
                                 </div>
                                 <div className="flex justify-between">
@@ -267,7 +255,9 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                             <p className="text-xs text-gray-500 dark:text-gray-400">Pagado: {formatDate(payment.paid_at)}</p>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">Referencia: {payment.reference ?? '—'}</p>
                                             {payment.conciliation_status && (
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Conciliación: {payment.conciliation_status}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    Conciliación: {labelForStatus(payment.conciliation_status)}
+                                                </p>
                                             )}
                                         </li>
                                     ))

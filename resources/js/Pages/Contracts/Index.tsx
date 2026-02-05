@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
+import { labelForBillingCycle } from '@/lib/labels';
 
 interface ContractSummary {
     id: number;
@@ -152,7 +153,7 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
                                         <option value="">Todos</option>
                                         {billingCycles.map((cycle) => (
                                             <option key={cycle} value={cycle}>
-                                                {cycle}
+                                                {labelForBillingCycle(cycle)}
                                             </option>
                                         ))}
                                     </select>
@@ -200,7 +201,7 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
                                                 {contract.client?.name ?? 'Cliente eliminado'}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                <div>{contract.billing_cycle}</div>
+                                                <div>{labelForBillingCycle(contract.billing_cycle)}</div>
                                                 <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">Actualizado: {formatDate(contract.updated_at)}</div>
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">

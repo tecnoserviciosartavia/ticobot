@@ -3,6 +3,7 @@ import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
+import { labelForChannel, labelForStatus } from '@/lib/labels';
 import { useState, useEffect, Fragment } from 'react';
 import { FormEvent } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
@@ -182,7 +183,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         <option value="">Todos</option>
                                         {statuses.map((statusOption) => (
                                             <option key={statusOption} value={statusOption}>
-                                                {statusOption.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+                                                {labelForStatus(statusOption)}
                                             </option>
                                         ))}
                                     </select>
@@ -205,7 +206,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         <option value="">Todos</option>
                                         {channels.map((channelOption) => (
                                             <option key={channelOption} value={channelOption}>
-                                                {channelOption.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
+                                                {labelForChannel(channelOption)}
                                             </option>
                                         ))}
                                     </select>
@@ -311,7 +312,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                                 {payment.contract?.name ?? '—'}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                {payment.channel}
+                                                {labelForChannel(payment.channel)}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4">
                                                 <div className="flex flex-col gap-1">

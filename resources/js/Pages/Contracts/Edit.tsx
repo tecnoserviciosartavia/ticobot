@@ -9,6 +9,7 @@ interface ContractResource {
     notes?: string;
     name: string;
     amount: string;
+    discount_amount?: string | number | null;
     currency: string;
     billing_cycle: string;
     next_due_date: string | null;
@@ -29,6 +30,7 @@ export default function ContractsEdit({ contract, clients, services }: Contracts
         name: contract.name ?? '',
         amount: contract.amount?.toString() ?? '',
         currency: contract.currency ?? 'CRC',
+        discount_amount: (contract.discount_amount ?? 0).toString(),
         billing_cycle: contract.billing_cycle ?? '',
         next_due_date: contract.next_due_date ?? '',
         grace_period_days: contract.grace_period_days?.toString() ?? '0',

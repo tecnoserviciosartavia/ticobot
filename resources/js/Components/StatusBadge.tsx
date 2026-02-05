@@ -1,3 +1,5 @@
+import { labelForStatus } from '@/lib/labels';
+
 interface StatusBadgeProps {
     status: string | null | undefined;
 }
@@ -5,12 +7,16 @@ interface StatusBadgeProps {
 const classForStatus = (status: string) => {
     const normalized = status.toLowerCase();
 
-    if (['pending', 'queued', 'unverified', 'in_review'].includes(normalized)) {
-        return 'bg-amber-100 text-amber-800 ring-amber-500/40';
+    if (['active', 'verified', 'approved', 'paid', 'acknowledged', 'sent'].includes(normalized)) {
+        return 'bg-emerald-100 text-emerald-800 ring-emerald-500/40';
     }
 
-    if (['sent', 'acknowledged', 'approved', 'verified'].includes(normalized)) {
-        return 'bg-emerald-100 text-emerald-800 ring-emerald-500/40';
+    if (['inactive'].includes(normalized)) {
+        return 'bg-slate-100 text-slate-800 ring-slate-500/40';
+    }
+
+    if (['paused', 'pending', 'queued', 'unverified', 'in_review'].includes(normalized)) {
+        return 'bg-amber-100 text-amber-800 ring-amber-500/40';
     }
 
     if (['rejected', 'failed', 'cancelled', 'canceled'].includes(normalized)) {
@@ -19,11 +25,6 @@ const classForStatus = (status: string) => {
 
     return 'bg-slate-100 text-slate-800 ring-slate-500/40';
 };
-
-const formatLabel = (status: string) =>
-    status
-        .replace(/[_-]+/g, ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
     if (!status) {
@@ -34,7 +35,7 @@ export default function StatusBadge({ status }: StatusBadgeProps) {
         <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${classForStatus(status)}`}
         >
-            {formatLabel(status)}
+            {labelForStatus(status)}
         </span>
     );
 }

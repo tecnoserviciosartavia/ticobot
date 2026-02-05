@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Carbon\Carbon;
@@ -24,6 +25,7 @@ class ContractController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'billing_cycle' => ['required', 'string', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'next_due_date' => ['required', 'date'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:365'],
@@ -32,10 +34,13 @@ class ContractController extends Controller
             'service_ids.*' => ['integer', 'exists:services,id'],
         ]);
 
+        $discount = (float) ($data['discount_amount'] ?? 0);
+
         $contract = Contract::create([
             'client_id' => null,
             'name' => $data['name'],
             'amount' => $data['amount'],
+            'discount_amount' => max(0, $discount),
             'currency' => $data['currency'],
             'billing_cycle' => $data['billing_cycle'],
             'next_due_date' => $data['next_due_date'],
@@ -46,7 +51,8 @@ class ContractController extends Controller
         if (! empty($data['service_ids'])) {
             $contract->services()->sync($data['service_ids']);
             $total = Service::query()->whereIn('id', $data['service_ids'])->sum('price');
-            $contract->forceFill(['amount' => $total])->save();
+            $net = max(0, (float) $total - (float) $contract->discount_amount);
+            $contract->forceFill(['amount' => $net])->save();
         }
 
         // Devolver una vista compacta para UI
@@ -88,6 +94,7 @@ class ContractController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'billing_cycle' => ['required', 'string', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'next_due_date' => ['required', 'date'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:365'],
@@ -96,10 +103,13 @@ class ContractController extends Controller
             'service_ids.*' => ['integer', 'exists:services,id'],
         ]);
 
+        $discount = (float) ($data['discount_amount'] ?? 0);
+
         $contract = Contract::create([
             'client_id' => $client->id,
             'name' => $data['name'],
             'amount' => $data['amount'],
+            'discount_amount' => max(0, $discount),
             'currency' => $data['currency'],
             'billing_cycle' => $data['billing_cycle'],
             'next_due_date' => $data['next_due_date'],
@@ -111,7 +121,8 @@ class ContractController extends Controller
             $contract->services()->sync($data['service_ids']);
             // Backend recalcula el total a partir de servicios activos (si aplica)
             $total = Service::query()->whereIn('id', $data['service_ids'])->sum('price');
-            $contract->forceFill(['amount' => $total])->save();
+            $net = max(0, (float) $total - (float) $contract->discount_amount);
+            $contract->forceFill(['amount' => $net])->save();
         }
 
         return redirect()
@@ -396,7 +407,7 @@ class ContractController extends Controller
 
         // Calcular monto por suma de servicios (misma moneda en UI por ahora)
         $amount = Service::query()->whereIn('id', $serviceIds)->sum('price');
-        $data['amount'] = $amount;
+    $data['amount'] = max(0, (float) $amount - (float) ($data['discount_amount'] ?? 0));
 
         // If next_due_date is not provided, compute based on billing_cycle
         if (empty($data['next_due_date'])) {
@@ -451,6 +462,7 @@ class ContractController extends Controller
                 'name' => $contract->name,
                 'notes' => $contract->notes,
                 'amount' => $contract->amount,
+                'discount_amount' => $contract->discount_amount,
                 'currency' => $contract->currency,
                 'services' => $contract->services
                     ->sortBy('name')
@@ -500,6 +512,7 @@ class ContractController extends Controller
                 'notes' => $contract->notes,
                 'name' => $contract->name,
                 'amount' => $contract->amount,
+                'discount_amount' => $contract->discount_amount,
                 'currency' => $contract->currency,
                 'billing_cycle' => $contract->billing_cycle,
                 'next_due_date' => $contract->next_due_date?->toDateString(),
@@ -520,13 +533,43 @@ class ContractController extends Controller
         unset($data['service_ids']);
 
         $amount = Service::query()->whereIn('id', $serviceIds)->sum('price');
-        $data['amount'] = $amount;
+    $data['amount'] = max(0, (float) $amount - (float) ($data['discount_amount'] ?? 0));
 
         $contract->update($data);
 
         $contract->services()->sync($serviceIds);
 
         return redirect()->route('contracts.show', $contract);
+    }
+
+    public function destroy(Request $request, Contract $contract): RedirectResponse
+    {
+        $clientId = $contract->client_id;
+
+        if ($contract->payments()->exists()) {
+            return redirect()
+                ->back()
+                ->with('error', 'No se puede eliminar el contrato porque tiene pagos asociados.');
+        }
+
+        DB::transaction(function () use ($contract): void {
+            // Soft-delete reminders first (so the client view stops counting them)
+            $contract->reminders()->delete();
+            // Remove service pivot rows
+            $contract->services()->detach();
+            // Soft-delete contract
+            $contract->delete();
+        });
+
+        if ($clientId) {
+            return redirect()
+                ->route('clients.show', $clientId)
+                ->with('success', 'Contrato eliminado.');
+        }
+
+        return redirect()
+            ->route('contracts.index')
+            ->with('success', 'Contrato eliminado.');
     }
 
     private function validatedData(Request $request, ?Contract $contract = null): array
@@ -536,6 +579,7 @@ class ContractController extends Controller
             'name' => ['required', 'string', 'max:255'],
             // amount se calcula a partir de service_ids
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
+            'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'billing_cycle' => ['required', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'next_due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:65535'],
@@ -544,11 +588,14 @@ class ContractController extends Controller
             'service_ids.*' => ['integer', Rule::exists('services', 'id')],
         ]);
 
+        $discount = (float) ($data['discount_amount'] ?? 0);
+
         return [
             'client_id' => $data['client_id'],
             'name' => $data['name'],
             'notes' => $data['notes'] ?? null,
             'amount' => 0,
+            'discount_amount' => max(0, $discount),
             'currency' => strtoupper($data['currency']),
             'billing_cycle' => $data['billing_cycle'],
             'next_due_date' => $data['next_due_date'] ?? null,

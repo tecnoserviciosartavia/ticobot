@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { labelForChannel } from '@/lib/labels';
 import { FormEventHandler, useEffect, useState } from 'react';
 import axios from 'axios';
 
@@ -268,9 +269,7 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
                                 >
                                     {channels.map((channel) => (
                                         <option key={channel} value={channel}>
-                                            {channel.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) =>
-                                                char.toUpperCase()
-                                            )}
+                                            {labelForChannel(channel)}
                                         </option>
                                     ))}
                                 </select>

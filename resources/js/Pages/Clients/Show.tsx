@@ -2,7 +2,8 @@ import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import type { PageProps } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { labelForBillingCycle, labelForStatus } from '@/lib/labels';
 
 interface ClientResource {
     id: number;
@@ -24,6 +25,7 @@ interface ContractSummary {
     currency: string | null;
     billing_cycle: string;
     next_due_date: string | null;
+    payments_count: number;
     updated_at: string | null;
 }
 
@@ -107,6 +109,24 @@ const formatAmount = (amount: string, currency: string | null | undefined) =>
     }).format(Number.parseFloat(amount));
 
 export default function ClientShow({ client, stats, contracts, reminders, payments }: ClientShowPageProps) {
+    const page = usePage();
+    const flashSuccess = (page.props as any)?.flash?.success as string | undefined;
+    const flashError = (page.props as any)?.flash?.error as string | undefined;
+
+    const removeContract = (contract: ContractSummary) => {
+        if ((contract.payments_count ?? 0) > 0) {
+            alert('No se puede eliminar el contrato porque tiene pagos asociados.');
+            return;
+        }
+        if (!confirm('¿Eliminar este contrato? Esta acción no se puede deshacer.')) return;
+        router.delete(route('contracts.destroy', contract.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                router.reload({ only: ['contracts', 'stats'] });
+            },
+        });
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -138,6 +158,16 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
 
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
+                    {flashSuccess && (
+                        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                            {flashSuccess}
+                        </div>
+                    )}
+                    {flashError && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                            {flashError}
+                        </div>
+                    )}
                     <section className="grid gap-6 md:grid-cols-3">
                         <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Contratos</h3>
@@ -224,7 +254,7 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                                     </p>
                                                     {payment.conciliation_status && (
                                                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                                            Conciliación: {payment.conciliation_status}
+                                                            Conciliación: {labelForStatus(payment.conciliation_status)}
                                                         </p>
                                                     )}
                                                 </li>
@@ -258,6 +288,7 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                         <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Monto</th>
                                         <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Ciclo</th>
                                         <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Próximo vencimiento</th>
+                                        <th className="px-4 py-2 text-right font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -268,13 +299,27 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                                 <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
                                                     {formatAmount(contract.amount, contract.currency)}
                                                 </td>
-                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{contract.billing_cycle}</td>
+                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{labelForBillingCycle(contract.billing_cycle)}</td>
                                                 <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{contract.next_due_date ? formatDate(contract.next_due_date) : '—'}</td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeContract(contract)}
+                                                        disabled={(contract.payments_count ?? 0) > 0}
+                                                        className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold ${
+                                                            (contract.payments_count ?? 0) > 0
+                                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                                : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200'
+                                                        }`}
+                                                    >
+                                                        Eliminar
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td className="px-4 py-6 text-center text-gray-400" colSpan={4}>
+                                            <td className="px-4 py-6 text-center text-gray-400" colSpan={5}>
                                                 Aún no hay contratos registrados para este cliente.
                                             </td>
                                         </tr>
