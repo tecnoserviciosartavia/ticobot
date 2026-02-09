@@ -46,6 +46,8 @@ class WhatsAppNotificationService
             $payload = [
                 'backend_id' => $payment->id,
                 'receipt_local_id' => $receiptLocalId,
+                // Fallback: si el bot no tiene el receipt en su index, puede enviar directo al número.
+                'phone' => $payment->client?->phone,
                 'pdf_base64' => "data:application/pdf;base64,{$pdfBase64}",
                 // Enviar también la ruta absoluta como respaldo (el bot la soporta)
                 'pdf_path' => $pdfPath,
@@ -54,6 +56,13 @@ class WhatsAppNotificationService
 
             // Enviar al webhook del bot
             $response = Http::timeout(10)
+                // Si el bot está levantando o WhatsApp aún no está listo, puede responder 503.
+                // Reintentamos un par de veces para cubrir condiciones transitorias.
+                ->retry(2, 500, function ($exception, $request) {
+                    return $exception instanceof \Illuminate\Http\Client\RequestException
+                        && $exception->response
+                        && $exception->response->status() === 503;
+                })
                 ->post("{$this->botWebhookUrl}/webhook/receipt_reconciled", $payload);
 
             if ($response->successful()) {

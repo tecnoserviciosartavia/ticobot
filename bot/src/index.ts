@@ -456,6 +456,30 @@ async function main(): Promise<void> {
 
   // (silencio por contacto pausado) manejado arriba, para no duplicar llamadas.
 
+  // Adjuntos: solo se procesan cuando el usuario está en el flujo de comprobantes (opción 6).
+  // Si llega un archivo fuera de ese flujo, lo ignoramos (y guiamos al usuario).
+  // Caso especial: si el usuario envía "6" junto con el adjunto, activamos el flujo y lo procesamos.
+  try {
+    const hasMedia = !!(message as any).hasMedia;
+    if (hasMedia && !isAdminUserEarly && !agentMode.get(chatId) && !awaitingReceipt.get(chatId)) {
+      if (lc === '6') {
+        awaitingReceipt.set(chatId, true);
+        chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
+        try { touchTimer(chatId); } catch { /* ignore */ }
+      } else {
+        const looksLikeMenuSelection = Boolean(menuShown.get(chatId)) && /^\d{1,2}$/.test(lc);
+        const looksLikeMenuCommand = (lc === 'menu' || lc === 'inicio' || lc === 'help');
+        const looksLikeAgentCommand = (lc === 'agente' || lc === 'asesor');
+        if (!(looksLikeMenuSelection || looksLikeMenuCommand || looksLikeAgentCommand)) {
+          await message.reply('Para enviar un comprobante, escribe "menu" y elige la opción 6. Luego adjunta la foto o PDF.');
+          return;
+        }
+      }
+    }
+  } catch (e: any) {
+    logger.debug({ e }, 'Error aplicando política de adjuntos');
+  }
+
   // If we're awaiting a receipt from this chat, handle media uploads first
     if (awaitingReceipt.get(chatId)) {
       try {
@@ -559,25 +583,6 @@ async function main(): Promise<void> {
         await message.reply('❌ Ocurrió un error procesando el comprobante. Intenta de nuevo o escribe "salir" para cancelar.');
         return;
       }
-    }
-
-    // If user sent media but we are NOT in awaitingReceipt and NOT in agentMode, offer to register it as comprobante
-    try {
-      if (!(awaitingReceipt.get(chatId)) && !(agentMode.get(chatId)) && ((message as any).hasMedia)) {
-        // download and keep in-memory until user confirms
-        try {
-          const media = await (message as any).downloadMedia();
-          const fname = (media.filename && media.filename.trim()) ? media.filename : `receipt-${chatId.replace(/[^0-9]/g,'')}-${Date.now()}`;
-          pendingConfirmReceipt.set(chatId, { data: media.data, mimetype: media.mimetype, filename: fname, text: body });
-          await message.reply('Veo que enviaste un archivo. ¿Es un comprobante de pago? Responde "si" para registrarlo y notificar a un asesor, o "no" para cancelar.');
-          return;
-        } catch (e: any) {
-          logger.warn({ e, chatId }, 'Error descargando media para confirmación');
-          // continue to normal flow
-        }
-      }
-    } catch (e: any) {
-      logger.debug({ e }, 'Error en flujo de detección de media');
     }
 
   const isAdminUser = isAdminChatId(chatId) || fromNorm === '50672140974';
@@ -2365,10 +2370,10 @@ async function main(): Promise<void> {
 
           await message.reply(replyText);
 
-          // Heurística para detectar acciones especiales en el reply
-          const lower = String(replyText || '').toLowerCase();
-          // If this option expects a payment receipt (ej: opción 6), enter awaitingReceipt mode
-          const isAwaitingReceipt = (matched.keyword && String(matched.keyword).toLowerCase() === '6') || (matched.key && String(matched.key).toLowerCase() === '6') || /comprobante|recibo|pago|comprobante de pago|enviar comprobante/i.test(lower);
+          // Si esta opción es la 6, entramos en modo de recepción de comprobante.
+          const isAwaitingReceipt = (typeof asNum === 'number' && asNum === 6)
+            || (matched.keyword && String(matched.keyword).trim().toLowerCase() === '6')
+            || (matched.key && String(matched.key).trim().toLowerCase() === '6');
           if (isAwaitingReceipt) {
             awaitingReceipt.set(chatId, true);
             // keep short timeout for receipt upload
@@ -2774,6 +2779,7 @@ async function main(): Promise<void> {
           const payload = raw ? JSON.parse(raw) : {};
           const backendId = payload.backend_id ?? payload.receipt_id ?? null;
           const localId = payload.receipt_local_id ?? payload.receipt_id_local ?? null;
+          const phone = payload.phone ?? null;
           const pdfBase64 = payload.pdf_base64 ?? null;
           const pdfUrl = payload.pdf_url ?? null;
           const pdfPath = payload.pdf_path ?? null;
@@ -2785,23 +2791,9 @@ async function main(): Promise<void> {
             return;
           }
 
-          // find local receipt entry
-          let indexRaw = '[]';
-          try { indexRaw = await fs.readFile(RECEIPTS_INDEX, { encoding: 'utf8' }); } catch {}
-          const arr = JSON.parse(indexRaw || '[]');
-          const entry = arr.find((r: any) => 
-            (localId && r.id === localId) || 
-            (backendId && (r.backend_id === backendId || r.backend_payment_id === backendId))
-          );
-          if (!entry) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: 'receipt not found' }));
-            return;
-          }
-
-          // determine PDF base64
+          // Determinar PDF (cuando el backend lo incluye). Esto permite fallback aunque no exista receipt local.
           let base64data: string | null = null;
-          let filename = `reconciled-${entry.id}.pdf`;
+          let filename = `reconciled-${localId || backendId || Date.now()}.pdf`;
           if (pdfBase64) {
             base64data = pdfBase64.replace(/^data:application\/(pdf);base64,/, '');
           } else if (pdfPath) {
@@ -2821,7 +2813,17 @@ async function main(): Promise<void> {
             } catch (e) {
               // ignore
             }
-          } else if (entry.reconciled_pdf) {
+          }
+
+          // find local receipt entry
+          let indexRaw = '[]';
+          try { indexRaw = await fs.readFile(RECEIPTS_INDEX, { encoding: 'utf8' }); } catch {}
+          const arr = JSON.parse(indexRaw || '[]');
+          const entry = arr.find((r: any) => 
+            (localId && r.id === localId) || 
+            (backendId && (r.backend_id === backendId || r.backend_payment_id === backendId))
+          );
+          if (entry && entry.reconciled_pdf && !base64data) {
             try {
               const buff = await fs.readFile(entry.reconciled_pdf);
               base64data = buff.toString('base64');
@@ -2833,7 +2835,9 @@ async function main(): Promise<void> {
 
           if (!base64data) {
             // no pdf available to send
-            await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: false });
+            if (entry) {
+              await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: false });
+            }
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true, note: 'marked reconciled, no pdf to send' }));
             return;
@@ -2841,8 +2845,10 @@ async function main(): Promise<void> {
 
           // send to client via WhatsApp
           try {
-            const chatId = entry.chatId || entry.chat_id;
-            if (!chatId) throw new Error('chatId missing');
+            const entryChatId = entry ? (entry.chatId || entry.chat_id) : null;
+            const fallbackChatId = phone ? normalizeToChatId(String(phone)) : null;
+            const chatId = entryChatId || fallbackChatId;
+            if (!chatId) throw new Error(entry ? 'chatId missing' : 'receipt not found and phone missing');
             
             // Enviar el PDF
             await whatsappClient.sendMedia(chatId, base64data, 'application/pdf', filename);
@@ -2852,15 +2858,21 @@ async function main(): Promise<void> {
               await whatsappClient.sendText(chatId, message);
             }
             
-            await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: true, reconciled_sent_ts: Date.now() });
+            if (entry) {
+              await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: true, reconciled_sent_ts: Date.now() });
+            }
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: true }));
+            res.end(JSON.stringify({ ok: true, used_fallback_phone: Boolean(!entry && phone) }));
             return;
           } catch (e: any) {
             logger.warn({ e, entry }, 'Error enviando PDF reconciliado al cliente');
-            await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: false });
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: String(e && e.message ? e.message : e) }));
+            if (entry) {
+              await updateReceiptEntry(entry.id, { reconciled: true, reconciled_sent: false });
+            }
+            const msg = String(e && e.message ? e.message : e);
+            const status = msg.toLowerCase().includes('not ready') ? 503 : 500;
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: msg }));
             return;
           }
         }
@@ -2927,8 +2939,10 @@ async function main(): Promise<void> {
             return;
           } catch (e: any) {
             logger.warn({ e, chatId, paymentId }, 'Error enviando PDF de pago manual al cliente');
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: String(e && e.message ? e.message : e) }));
+            const msg = String(e && e.message ? e.message : e);
+            const status = msg.toLowerCase().includes('not ready') ? 503 : 500;
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: msg }));
             return;
           }
         }

@@ -8,6 +8,7 @@ import { formatWhatsAppId } from './utils/phone.js';
 import { apiClient } from './api-client.js';
 import { exec as _exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import path from 'node:path';
 
 const { Client, LocalAuth, MessageMedia } = pkg;
 
@@ -56,6 +57,24 @@ export class WhatsAppClient {
             // algunos builds referencian markedUnread; asegurar que exista
             (window as any).WWebJS.markedUnread = false;
 
+            // whatsapp-web.js (y algunos forks) esperan que exista WWebJS.getChat.
+            // En algunos builds recientes hemos visto fallos tipo: Cannot read properties of undefined (reading 'getChat').
+            if (typeof (window as any).WWebJS.getChat !== 'function') {
+              (window as any).WWebJS.getChat = async (chatId: string) => {
+                try {
+                  const Store: any = (window as any).Store;
+                  const chat =
+                    Store?.Chat?.get?.(chatId) ??
+                    Store?.Chat?.find?.(chatId) ??
+                    Store?.Chat?.getModelsArray?.()?.find?.((c: any) => String(c?.id?._serialized || '') === String(chatId)) ??
+                    null;
+                  return chat;
+                } catch {
+                  return null;
+                }
+              };
+            }
+
             // Evitar que whatsapp-web.js explote al intentar hacer sendSeen.
             // En builds recientes hemos visto errores tipo: reading 'markedUnread'.
             (window as any).WWebJS.sendSeen = async () => {
@@ -94,6 +113,11 @@ export class WhatsAppClient {
   private async ensureWwebjsStubsApplied(): Promise<void> {
     if (this.wwebjsStubsApplied) return;
     try {
+      // Importante: no marcar como “aplicado” si todavía no existe la página de WhatsApp.
+      // Si lo marcamos antes, luego no se reintenta y termina faltando WWebJS en runtime.
+      const page: any = (this.client as any).pupPage;
+      if (!page || typeof page.evaluate !== 'function') return;
+
       await this.applyWwebjsSafetyStubs();
       this.wwebjsStubsApplied = true;
     } catch {
@@ -397,6 +421,19 @@ export class WhatsAppClient {
               try {
                 if (!(window as any).WWebJS) (window as any).WWebJS = {};
                 (window as any).WWebJS.markedUnread = false;
+                if (typeof (window as any).WWebJS.getChat !== 'function') {
+                  (window as any).WWebJS.getChat = async (chatId: string) => {
+                    try {
+                      const Store: any = (window as any).Store;
+                      return Store?.Chat?.get?.(chatId) ?? Store?.Chat?.find?.(chatId) ?? null;
+                    } catch {
+                      return null;
+                    }
+                  };
+                }
+                (window as any).WWebJS.sendSeen = async () => {
+                  return;
+                };
               } catch (e) {
                 // ignore
               }
@@ -404,6 +441,8 @@ export class WhatsAppClient {
           }),
       puppeteer: {
         headless,
+        // Nota: NO fijar userDataDir cuando usamos LocalAuth.
+        // whatsapp-web.js lanza: "LocalAuth is not compatible with a user-supplied userDataDir."
         // Allow overriding Chromium/Chrome executable via env var BOT_CHROMIUM_PATH
         // If not provided, puppeteer will use the bundled or system browser.
         executablePath: process.env.BOT_CHROMIUM_PATH || undefined,
@@ -493,6 +532,16 @@ export class WhatsAppClient {
                             return;
                           };
                           (window as any).WWebJS.markedUnread = false;
+                          if (typeof (window as any).WWebJS.getChat !== 'function') {
+                            (window as any).WWebJS.getChat = async (chatId: string) => {
+                              try {
+                                const Store: any = (window as any).Store;
+                                return Store?.Chat?.get?.(chatId) ?? Store?.Chat?.find?.(chatId) ?? null;
+                              } catch {
+                                return null;
+                              }
+                            };
+                          }
                         } catch (e) {
                           // ignore
                         }
@@ -506,6 +555,16 @@ export class WhatsAppClient {
                             return;
                           };
                           (window as any).WWebJS.markedUnread = false;
+                          if (typeof (window as any).WWebJS.getChat !== 'function') {
+                            (window as any).WWebJS.getChat = async (chatId: string) => {
+                              try {
+                                const Store: any = (window as any).Store;
+                                return Store?.Chat?.get?.(chatId) ?? Store?.Chat?.find?.(chatId) ?? null;
+                              } catch {
+                                return null;
+                              }
+                            };
+                          }
                         } catch (e) {}
                       });
                     }
@@ -905,11 +964,17 @@ export class WhatsAppClient {
 
   // Enviar texto arbitrario a un chat (útil para admin queue u otros usos)
   async sendText(chatId: string, text: string): Promise<void> {
+    if (!this.isReady) {
+      throw new Error('WhatsApp client not ready');
+    }
     await this.client.sendMessage(chatId, text);
   }
 
   // Enviar media (base64) a un chat
   async sendMedia(chatId: string, base64Data: string, mimeType: string, filename?: string): Promise<void> {
+    if (!this.isReady) {
+      throw new Error('WhatsApp client not ready');
+    }
     const media = new MessageMedia(mimeType, base64Data, filename);
     await this.client.sendMessage(chatId, media);
   }
