@@ -13,17 +13,24 @@ class Service extends Model
     protected $fillable = [
         'name',
         'price',
+        'cost',
         'currency',
         'is_active',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'cost' => 'decimal:2',
         'is_active' => 'bool',
     ];
 
     public function contracts()
     {
         return $this->belongsToMany(Contract::class)->withTimestamps();
+    }
+
+    public function accounts()
+    {
+        return $this->hasMany(ServiceAccount::class);
     }
 }

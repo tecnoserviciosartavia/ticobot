@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::apiResource('clients', ClientController::class)->names('api.clients');
     Route::apiResource('contracts', ContractController::class)->names('api.contracts');
+    Route::get('services', [\App\Http\Controllers\Api\ServiceController::class, 'index']);
     Route::apiResource('reminders', ReminderController::class)->names('api.reminders');
     Route::apiResource('contract-types', ContractTypeController::class)->names('api.contract_types')->except(['show']);
     Route::apiResource('payments', PaymentController::class)->names('api.payments');

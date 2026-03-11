@@ -12,6 +12,7 @@ interface MonthlyPending {
   contracts_total: Record<string, number>;
   paid_total: Record<string, number>;
   pending_total: Record<string, number>;
+  net_by_currency?: Record<string, number>;
 }
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
   daily: Array<{ date: string; verified_amount: number; pending_amount: number }>;
   conciliation_rate: number;
   monthly_pending: MonthlyPending[];
+  services_profit?: Array<{ id: number | null; name: string; revenue: number; cost: number; net: number; monthly_total?: number }>;
   clients_unpaid_after_reminder?: Array<{
     id: number;
     name: string;
@@ -36,7 +38,7 @@ interface Props {
   clients_unpaid_total?: Record<string, number>;
 }
 
-export default function AccountingIndex({ by_status_currency, totals, total_months, daily, conciliation_rate, monthly_pending, clients_unpaid_after_reminder, clients_unpaid_total }: Props) {
+export default function AccountingIndex({ by_status_currency, totals, total_months, daily, conciliation_rate, monthly_pending, clients_unpaid_after_reminder, clients_unpaid_total, services_profit }: Props) {
   const formatMoney = (v: number) => v.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const statusLabels: Record<string, string> = {
@@ -58,6 +60,23 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
             <SummaryCard title="Meses registrados" value={total_months.toString()} subtitle={`Mes actual (metadata 'months')`} color="bg-indigo-50" />
             <SummaryCard title="% conciliado" value={`${conciliation_rate.toFixed(2)}%`} subtitle="(verificado / total contratos activos)" color="bg-blue-50" />
           </div>
+
+          {/* Ganancia por plataforma */}
+          {services_profit && services_profit.length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {services_profit.map(s => (
+                <div key={String(s.id) + s.name} className="rounded-lg p-4 border bg-white shadow">
+                  <div className="text-xs uppercase tracking-wide text-gray-500 font-semibold">{s.name}</div>
+                  <div className="text-lg font-bold text-gray-800">Ingreso: CRC {formatMoney(s.revenue)}</div>
+                  {typeof s.monthly_total === 'number' && (
+                    <div className="text-xs text-gray-500">Total mensual: CRC {formatMoney(s.monthly_total)}</div>
+                  )}
+                  <div className="text-sm text-gray-600">Costo: CRC {formatMoney(s.cost)}</div>
+                  <div className={`text-sm font-semibold ${s.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>Neto: CRC {formatMoney(s.net)}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Tabla por estado y moneda */}
           <div className="bg-white shadow rounded-lg p-4">
@@ -201,10 +220,11 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="border-b">
-                    <th className="py-2 px-3 text-left font-semibold text-gray-600">Mes</th>
-                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Contratos Activos</th>
-                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Pagado (mes)</th>
-                    <th className="py-2 px-3 text-right font-semibold text-gray-600">Diferencia</th>
+                      <th className="py-2 px-3 text-left font-semibold text-gray-600">Mes</th>
+                      <th className="py-2 px-3 text-right font-semibold text-gray-600">Contratos Activos</th>
+                      <th className="py-2 px-3 text-right font-semibold text-gray-600">Pagado (mes)</th>
+                      <th className="py-2 px-3 text-right font-semibold text-gray-600">Diferencia</th>
+                      <th className="py-2 px-3 text-right font-semibold text-gray-600">Ganancia real</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -223,6 +243,9 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
                         </td>
                         <td className="py-2 px-3 text-right font-mono font-semibold text-orange-700">
                           {currency} {formatMoney(m.pending_total[currency] || 0)}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-green-700 font-semibold">
+                          {currency} {formatMoney((m.net_by_currency && m.net_by_currency[currency]) || 0)}
                         </td>
                       </tr>
                     ));

@@ -140,6 +140,9 @@ async function main(): Promise<void> {
     6: { open: '08:00', close: '19:00' }
   };
 
+  // Bot paused state
+  let botPaused = false;
+
   // Allow override from environment variable BOT_BUSINESS_HOURS (JSON string)
   try {
     const envHours = process.env.BOT_BUSINESS_HOURS;
@@ -394,7 +397,10 @@ async function main(): Promise<void> {
         '',
         '1️⃣5️⃣ Estado del bot',
         '1️⃣6️⃣ Pausar / reanudar contacto (silenciar bot)',
-  '1️⃣7️⃣ Limpiar chats no-clientes (borrar/limpiar)',
+        '1️⃣7️⃣ Limpiar chats no-clientes (borrar/limpiar)',
+        '1️⃣8️⃣ Listar clientes por plataforma',
+        '1️⃣9️⃣ Cambiar horario de atención',
+        '2️⃣0️⃣ Pausar / reanudar bot',
         '',
         '📋 Escribe *help para ver comandos de texto',
         '❌ Escribe salir para cancelar',
@@ -424,6 +430,11 @@ async function main(): Promise<void> {
       }
     } catch (e) {
       // best-effort: si falla el check, continuar normal
+    }
+
+    // Bot paused check
+    if (botPaused && !isAdminUserEarly) {
+      return;
     }
 
     // Mantener timeout por chat y detectar admin
@@ -1272,6 +1283,39 @@ async function main(): Promise<void> {
           }
         }
 
+        // change_business_hours
+        if (flow.type === 'change_business_hours') {
+          if (flow.step === 1) {
+            const input = body.trim();
+            if (input.toLowerCase() === 'cancelar') {
+              adminFlows.delete(chatId);
+              await message.reply('❌ Operación cancelada.');
+              return;
+            }
+            try {
+              const hours = JSON.parse(input);
+              // Validar formato básico
+              for (const day of Object.keys(hours)) {
+                const d = parseInt(day);
+                if (isNaN(d) || d < 0 || d > 6) throw new Error(`Día inválido: ${day}`);
+                if (!hours[day].open || !hours[day].close) throw new Error(`Horarios incompletos para día ${day}`);
+                if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(hours[day].open)) throw new Error(`Hora de apertura inválida para día ${day}: ${hours[day].open}`);
+                if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(hours[day].close)) throw new Error(`Hora de cierre inválida para día ${day}: ${hours[day].close}`);
+              }
+              // Actualizar setting
+              await apiClient.updateSetting('business_hours', JSON.stringify(hours));
+              // Actualizar BUSINESS_HOURS global
+              BUSINESS_HOURS = Object.assign({}, BUSINESS_HOURS, hours);
+              await message.reply(`✅ Horario de atención actualizado correctamente.\n\nNuevo horario: ${formatBusinessHours()}\n\nEscribe *adminmenu* para volver.`);
+            } catch (e: any) {
+              await message.reply(`❌ Error: ${String(e && e.message ? e.message : e)}\n\nIntenta de nuevo o escribe "cancelar" para salir.`);
+              return;
+            }
+            adminFlows.delete(chatId);
+            return;
+          }
+        }
+
       } catch (e: any) {
         adminFlows.delete(chatId);
         await message.reply(`Error en asistente: ${String(e && e.message ? e.message : e)}`);
@@ -1662,6 +1706,57 @@ async function main(): Promise<void> {
           await message.reply(lines.join('\n'));
         } catch (e: any) {
           await message.reply(`❌ Error: ${String(e && e.message ? e.message : e)}`);
+        }
+        return;
+      }
+      
+      if (selection === '18') {
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        try {
+          const services: any[] = await apiClient.fetchFromBackend('services');
+          if (!services || !services.length) {
+            await message.reply('No se encontraron plataformas configuradas.');
+            return;
+          }
+
+          const lines: string[] = [];
+          lines.push('Selecciona la plataforma para listar clientes:');
+          services.forEach((s: any, idx: number) => {
+            lines.push(`${idx + 1}) ${s.name} — ₡${Number(s.price || 0).toLocaleString('es-CR')} ${s.currency || 'CRC'}`);
+          });
+          lines.push('');
+          lines.push('Responde con el número (ej: 1) o con el ID de la plataforma. Escribe cancelar para salir.');
+
+          adminFlows.set(chatId, { type: 'list_clients_by_service', step: 1, data: { services } });
+          await message.reply(lines.join('\n'));
+        } catch (e: any) {
+          await message.reply('Error obteniendo plataformas: ' + String(e && e.message ? e.message : e));
+        }
+        return;
+      }
+      
+      if (selection === '19') {
+        // Cambiar horario de atención
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        await message.reply('Ingresa el nuevo horario de atención en formato JSON.\n\nEjemplo:\n{\n  "0": {"open": "08:00", "close": "17:00"},\n  "1": {"open": "08:00", "close": "17:00"},\n  ...\n}\n\nDonde 0=Domingo, 1=Lunes, etc.\n\nEscribe "cancelar" para salir.');
+        adminFlows.set(chatId, { type: 'change_business_hours', step: 1, data: {} });
+        return;
+      }
+      
+      if (selection === '20') {
+        // Pausar / reanudar bot
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        try {
+          const newPaused = !botPaused;
+          await apiClient.updateSetting('bot_paused', String(newPaused));
+          botPaused = newPaused;
+          const status = newPaused ? '⏸️ PAUSADO' : '✅ ACTIVO';
+          await message.reply(`🤖 Estado del bot actualizado: ${status}\n\nEscribe *adminmenu* para volver.`);
+        } catch (e: any) {
+          await message.reply(`❌ Error actualizando estado del bot: ${String(e && e.message ? e.message : e)}`);
         }
         return;
       }
@@ -3014,6 +3109,10 @@ async function main(): Promise<void> {
         } catch (e) {
           logger.debug({ e }, 'invalid business_hours in settings');
         }
+      }
+
+      if (s.bot_paused !== undefined) {
+        botPaused = s.bot_paused === "1" || s.bot_paused === "true" || Boolean(s.bot_paused);
       }
 
       if (s.bot_timezone || s.timezone) {

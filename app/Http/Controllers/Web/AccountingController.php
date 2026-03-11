@@ -123,7 +123,10 @@ class AccountingController extends Controller
     // Cálculo mensual: Total contratos - Total pagado verificado
         $monthlyData = $this->calculateMonthlyPending();
 
-    $clientsUnpaid = $this->clientsWithSentRemindersWithoutVerifiedPayments($startOfMonth, $endOfMonth);
+        $clientsUnpaid = $this->clientsWithSentRemindersWithoutVerifiedPayments($startOfMonth, $endOfMonth);
+
+        // Calcular ganancias por plataforma (servicio) para el periodo (mes actual)
+        $servicesProfit = $this->calculateServiceProfits($startOfMonth, $endOfMonth);
 
         return Inertia::render('Accounting/Index', [
             'by_status_currency' => $byStatusCurrency,
@@ -135,7 +138,136 @@ class AccountingController extends Controller
             // Clientes con pendiente real en el periodo (por defecto: mes actual)
             'clients_unpaid_after_reminder' => $clientsUnpaid['clients'] ?? [],
             'clients_unpaid_total' => $clientsUnpaid['totals'] ?? [],
+            'services_profit' => $servicesProfit,
         ]);
+    }
+
+    /**
+     * Calcula ingresos, costo y ganancia neta por servicio para un rango de fechas.
+     * Método usa asignación proporcional del pago a los servicios del contrato
+     * según la participación del precio de cada servicio en el total del contrato.
+     */
+    private function calculateServiceProfits(
+        \Illuminate\Support\Carbon $startOfPeriod,
+        \Illuminate\Support\Carbon $endOfPeriod
+    ): array {
+        // Inicializar agregados con todas las plataformas existentes (incluye aquellas sin movimientos)
+        $allServices = \App\Models\Service::orderBy('name')->get();
+        // también precalcular el total de contratos activos en el mes por plataforma
+        $serviceContractTotals = array_fill_keys($allServices->pluck('id')->all(), 0.0);
+        $activeContracts = Contract::query()
+            ->where(function ($q) use ($endOfPeriod) {
+                $q->where('created_at', '<=', $endOfPeriod)
+                  ->where(function ($sq) use ($endOfPeriod) {
+                      $sq->whereNull('deleted_at')
+                        ->orWhere('deleted_at', '>', $endOfPeriod);
+                  });
+            })
+            ->with('services')
+            ->get();
+        foreach ($activeContracts as $ct) {
+            foreach ($ct->services as $svc) {
+                $sid = $svc->id;
+                $qty = (int) ($svc->pivot->quantity ?? 1);
+                $serviceContractTotals[$sid] += ((float) ($svc->price ?? 0)) * $qty;
+            }
+        }
+
+        $agg = [];
+        foreach ($allServices as $s) {
+            $agg[$s->id] = [
+                'id' => $s->id,
+                'name' => $s->name,
+                'currency' => $s->currency ?? 'CRC',
+                'revenue' => 0.0,
+                'cost' => 0.0,
+                'net' => 0.0,
+                'monthly_total' => round($serviceContractTotals[$s->id] ?? 0.0, 2),
+            ];
+        }
+
+        // Obtener pagos verificados en el periodo
+        $payments = Payment::query()
+            ->where('status', 'verified')
+            ->where(function ($q) use ($startOfPeriod, $endOfPeriod) {
+                $q->whereBetween('paid_at', [$startOfPeriod->toDateString(), $endOfPeriod->toDateString()])
+                  ->orWhere(function ($sq) use ($startOfPeriod, $endOfPeriod) {
+                      $sq->whereNull('paid_at')
+                         ->whereBetween('created_at', [$startOfPeriod, $endOfPeriod]);
+                  });
+            })
+            ->with(['contract.services'])
+            ->get();
+
+        // Aggregados por servicio id
+
+        foreach ($payments as $p) {
+            $contract = $p->contract;
+            if (! $contract) continue;
+
+            $services = $contract->services ?? collect();
+
+            // Calcular totales de precio y costo del contrato según servicios y cantidades
+            $contractPriceTotal = 0.0;
+            $contractCostTotal = 0.0;
+            foreach ($services as $s) {
+                $qty = (int) ($s->pivot->quantity ?? 1);
+                $price = (float) ($s->price ?? 0);
+                $cost = (float) ($s->cost ?? 0);
+                $contractPriceTotal += $price * $qty;
+                $contractCostTotal += $cost * $qty;
+            }
+
+            // Si no hay breakdown por servicios (contrato manual), asignar todo al "sin plataforma"
+            if ($contractPriceTotal <= 0 || $services->isEmpty()) {
+                $key = 'unassigned';
+                if (! isset($agg[$key])) {
+                    $agg[$key] = ['id' => null, 'name' => 'Sin plataforma', 'revenue' => 0.0, 'cost' => 0.0, 'net' => 0.0];
+                }
+                $agg[$key]['revenue'] += (float) $p->amount;
+                // aproximamos costo proporcionalmente si existe contractCostTotal
+                $agg[$key]['cost'] += $contractCostTotal > 0 ? ($contractCostTotal * ((float) $p->amount / max(1, $contractPriceTotal))) : 0.0;
+                $agg[$key]['net'] = $agg[$key]['revenue'] - $agg[$key]['cost'];
+                continue;
+            }
+
+            // Para cada servicio, asignar parte del pago proporcional al precio
+            foreach ($services as $s) {
+                $sid = $s->id;
+                $qty = (int) ($s->pivot->quantity ?? 1);
+                $sPriceTotal = ((float) ($s->price ?? 0)) * $qty;
+                $sCostTotal = ((float) ($s->cost ?? 0)) * $qty;
+
+                // proporción del servicio en el contrato por precio
+                $fraction = $contractPriceTotal > 0 ? ($sPriceTotal / $contractPriceTotal) : 0;
+
+                $revenue = (float) $p->amount * $fraction;
+                // cost scaled by fraction of contract covered by this payment
+                $cost = $sCostTotal * ((float) $p->amount / max(1, $contractPriceTotal));
+
+                if (! isset($agg[$sid])) {
+                    $agg[$sid] = ['id' => $sid, 'name' => $s->name ?? 'Servicio', 'currency' => $s->currency ?? 'CRC', 'revenue' => 0.0, 'cost' => 0.0, 'net' => 0.0, 'monthly_total' => round($serviceContractTotals[$sid] ?? 0.0, 2)];
+                }
+
+                $agg[$sid]['revenue'] += $revenue;
+                $agg[$sid]['cost'] += $cost;
+                $agg[$sid]['net'] = $agg[$sid]['revenue'] - $agg[$sid]['cost'];
+            }
+        }
+
+        // Transformar a array ordenado por mayor neto
+        $result = array_values($agg);
+        usort($result, fn($a, $b) => $b['net'] <=> $a['net']);
+        // Formatear a valores numéricos
+        return array_map(fn($r) => [
+            'id' => $r['id'],
+            'name' => $r['name'],
+            'currency' => $r['currency'] ?? 'CRC',
+            'revenue' => round($r['revenue'], 2),
+            'cost' => round($r['cost'], 2),
+            'net' => round($r['net'], 2),
+            'monthly_total' => round($r['monthly_total'] ?? 0.0, 2),
+        ], $result);
     }
 
     /**
@@ -266,6 +398,19 @@ class AccountingController extends Controller
                 'contracts_total' => $contractsByCurrency,
                 'paid_total' => $paidByCurrency,
                 'pending_total' => $pendingByCurrency,
+                // calcular ganancia neta por moneda para el mes
+                'net_by_currency' => (function () use ($startOfMonth, $endOfMonth) {
+                    $profits = $this->calculateServiceProfits($startOfMonth, $endOfMonth);
+                    $netByCurrency = [];
+                    foreach ($profits as $pf) {
+                        $cur = $pf['currency'] ?? 'CRC';
+                        if (! isset($netByCurrency[$cur])) $netByCurrency[$cur] = 0.0;
+                        $netByCurrency[$cur] += $pf['net'];
+                    }
+                    // round values
+                    foreach ($netByCurrency as $k => $v) $netByCurrency[$k] = round($v, 2);
+                    return $netByCurrency;
+                })(),
             ];
         });
 

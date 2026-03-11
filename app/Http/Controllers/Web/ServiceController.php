@@ -21,6 +21,7 @@ class ServiceController extends Controller
                 'id' => $s->id,
                 'name' => $s->name,
                 'price' => (string) $s->price,
+                'cost' => (string) ($s->cost ?? '0.00'),
                 'currency' => $s->currency,
                 'is_active' => (bool) $s->is_active,
                 'updated_at' => $s->updated_at?->toIso8601String(),
@@ -61,6 +62,7 @@ class ServiceController extends Controller
                 Rule::unique('services', 'name')->ignore($service?->id),
             ],
             'price' => ['required', 'numeric', 'min:0'],
+            'cost' => ['nullable', 'numeric', 'min:0'],
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'is_active' => ['nullable', 'boolean'],
         ]);
@@ -68,6 +70,7 @@ class ServiceController extends Controller
         return [
             'name' => trim((string) $data['name']),
             'price' => $data['price'],
+            'cost' => array_key_exists('cost', $data) ? $data['cost'] : 0,
             'currency' => strtoupper($data['currency']),
             'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : true,
         ];

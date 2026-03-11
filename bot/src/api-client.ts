@@ -147,6 +147,15 @@ class ApiClient {
     return [] as any[];
   }
 
+
+  async listClients(params?: any) {
+    const res = await this.http.get('clients', { params: params || {} });
+    const body: any = res.data;
+    if (Array.isArray(body)) return body;
+    if (body && Array.isArray(body.data)) return body.data;
+    return [] as any[];
+  }
+
   async getContract(id: number | string) {
     const res = await this.http.get(`contracts/${id}`);
     return res.data;
@@ -348,6 +357,10 @@ class ApiClient {
 
   async listPausedContacts(): Promise<any> {
     return this.requestToBackend('GET', '/paused-contacts');
+  }
+
+  async updateSetting(key: string, value: any): Promise<any> {
+    return this.requestToBackend('PUT', `settings/${key}`, { value });
   }
 }
 

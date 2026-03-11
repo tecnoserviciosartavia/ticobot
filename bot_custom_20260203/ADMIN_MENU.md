@@ -64,6 +64,21 @@ Muestra información del estado actual del bot:
 - Timezone configurado
 - Horario de atención
 
+### 1️⃣3️⃣ Pausar / reanudar contacto (silenciar bot)
+Permite silenciar el bot para un contacto específico, útil para chatear manualmente sin interferencias.
+
+### 1️⃣4️⃣ Limpiar chats no-clientes (borrar/limpiar)
+Limpia chats que no corresponden a clientes registrados.
+
+### 1️⃣5️⃣ Listar clientes por plataforma
+Muestra clientes agrupados por plataforma de servicio.
+
+### 1️⃣6️⃣ Cambiar horario de atención
+Permite actualizar el horario de atención del bot enviando un JSON con los horarios por día de la semana (0=Domingo, 1=Lunes, etc.).
+
+### 1️⃣7️⃣ Pausar / reanudar bot
+Permite pausar o reanudar el bot globalmente. Cuando está pausado, solo los admins pueden interactuar con el bot.
+
 ## Comandos de Texto Alternativos
 
 Los administradores también pueden usar comandos con prefijo `*`:

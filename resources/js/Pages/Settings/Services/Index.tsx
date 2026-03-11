@@ -7,6 +7,7 @@ type ServiceItem = {
     id: number;
     name: string;
     price: string;
+    cost?: string;
     currency: 'CRC' | 'USD';
     is_active: boolean;
     updated_at?: string | null;
@@ -29,6 +30,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
     const createForm = useForm({
         name: '',
         price: '0',
+        cost: '0',
         currency: 'CRC' as 'CRC' | 'USD',
         is_active: true,
     });
@@ -37,6 +39,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
     const editForm = useForm({
         name: '',
         price: '0',
+        cost: '0',
         currency: 'CRC' as 'CRC' | 'USD',
         is_active: true,
     });
@@ -46,6 +49,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
         editForm.setData({
             name: s.name,
             price: String(s.price ?? '0'),
+            cost: String(s.cost ?? '0'),
             currency: s.currency,
             is_active: !!s.is_active,
         });
@@ -117,6 +121,18 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 />
                                 {createForm.errors.price && <div className="mt-1 text-sm text-red-600">{createForm.errors.price}</div>}
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium">Costo (plataforma)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={createForm.data.cost}
+                                    onChange={(e) => createForm.setData('cost', e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                />
+                                {createForm.errors.cost && <div className="mt-1 text-sm text-red-600">{createForm.errors.cost}</div>}
+                            </div>
                             <div className="flex gap-3 items-center justify-between">
                                 <div className="flex-1">
                                     <label className="block text-sm font-medium">Moneda</label>
@@ -165,9 +181,10 @@ export default function ServicesSettingsIndex({ services }: Props) {
                         <div className="mt-4 overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead>
-                                    <tr className="text-left text-sm text-gray-600 dark:text-gray-300">
+                                        <tr className="text-left text-sm text-gray-600 dark:text-gray-300">
                                         <th className="py-2 pr-4">Nombre</th>
                                         <th className="py-2 pr-4">Monto</th>
+                                        <th className="py-2 pr-4">Costo</th>
                                         <th className="py-2 pr-4">Moneda</th>
                                         <th className="py-2 pr-4">Activo</th>
                                         <th className="py-2">Acciones</th>
@@ -216,6 +233,23 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                                             <div className="mt-1 text-xs text-red-600">{editForm.errors.price}</div>
                                                         )}
                                                     </td>
+                                                        <td className="py-2 pr-4">
+                                                            {isEditing ? (
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    value={editForm.data.cost}
+                                                                    onChange={(e) => editForm.setData('cost', e.target.value)}
+                                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                                />
+                                                            ) : (
+                                                                s.cost ?? '0'
+                                                            )}
+                                                            {isEditing && editForm.errors.cost && (
+                                                                <div className="mt-1 text-xs text-red-600">{editForm.errors.cost}</div>
+                                                            )}
+                                                        </td>
                                                     <td className="py-2 pr-4">
                                                         {isEditing ? (
                                                             <select

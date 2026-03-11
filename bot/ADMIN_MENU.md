@@ -56,13 +56,28 @@ Elimina las suscripciones de un cliente y los pagos FUTUROS asociados. Requiere 
 ### 1️⃣1️⃣ Eliminar transacción
 Elimina una transacción específica por su ID. Requiere confirmación.
 
-### 1️⃣2️⃣ Estado del bot
+### 1️⃣5️⃣ Estado del bot
 Muestra información del estado actual del bot:
 - Uptime (tiempo activo)
 - Uso de memoria
 - Versión de Node.js
 - Timezone configurado
 - Horario de atención
+
+### 1️⃣6️⃣ Pausar / reanudar contacto (silenciar bot)
+Permite silenciar el bot para un contacto específico, útil para chatear manualmente sin interferencias.
+
+### 1️⃣7️⃣ Limpiar chats no-clientes (borrar/limpiar)
+Limpia chats que no corresponden a clientes registrados.
+
+### 1️⃣8️⃣ Listar clientes por plataforma
+Muestra clientes agrupados por plataforma de servicio.
+
+### 1️⃣9️⃣ Cambiar horario de atención
+Permite actualizar el horario de atención del bot enviando un JSON con los horarios por día de la semana (0=Domingo, 1=Lunes, etc.).
+
+### 2️⃣0️⃣ Pausar / reanudar bot
+Permite pausar o reanudar el bot globalmente. Cuando está pausado, solo los admins pueden interactuar con el bot.
 
 ## Comandos de Texto Alternativos
 

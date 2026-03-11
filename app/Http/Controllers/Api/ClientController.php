@@ -44,6 +44,19 @@ class ClientController extends Controller
             });
         }
 
+        // Filtrar por plataforma/servicio: devuelve clientes que tienen al menos
+        // un contrato que incluye el servicio indicado (service_id).
+        if ($request->filled('service_id')) {
+            $serviceId = (int) $request->input('service_id');
+            if ($serviceId > 0) {
+                $query->whereHas('contracts', function ($q) use ($serviceId) {
+                    $q->whereHas('services', function ($sq) use ($serviceId) {
+                        $sq->where('services.id', $serviceId);
+                    });
+                });
+            }
+        }
+
         $clients = $query
             ->orderBy('name')
             ->paginate($request->integer('per_page', 15))
