@@ -317,8 +317,10 @@ async function main(): Promise<void> {
   // Log muestreado y truncado.
   try {
     const sampleRate = Number(process.env.BOT_INBOUND_LOG_SAMPLE_RATE || 0.1); // 10%
-    if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
-      logger.info({ from: message.from }, 'Mensaje entrante de WhatsApp');
+    const isLidSender = String(message.from || '').endsWith('@lid');
+    if (!Number.isFinite(sampleRate) || sampleRate <= 0 || isLidSender) {
+      const b = String(message.body ?? '');
+      logger.info({ from: message.from, body: b.slice(0, 100), hasMedia: !!(message as any).hasMedia }, 'Mensaje entrante de WhatsApp');
     } else if (Math.random() < Math.min(1, sampleRate)) {
       const b = String(message.body ?? '');
       logger.info({ from: message.from, body: b.slice(0, 200) }, 'Mensaje entrante de WhatsApp');
@@ -329,7 +331,12 @@ async function main(): Promise<void> {
 
   const body = String(message.body ?? '').trim();
   // allow empty textual body if there's media attached (media-only messages)
-  if (!body && !((message as any).hasMedia)) return;
+  if (!body && !((message as any).hasMedia)) {
+    if (String(message.from || '').endsWith('@lid')) {
+      logger.warn({ from: message.from }, 'Mensaje @lid con cuerpo vacío y sin media — ignorado');
+    }
+    return;
+  }
 
   const lc = body.toLowerCase();
   mark('parsed');
@@ -363,6 +370,92 @@ async function main(): Promise<void> {
           );
         }
       }
+    };
+
+    const applyFallbackSubmenus = (menu: Array<any> | null): Array<any> | null => {
+      if (!Array.isArray(menu)) return menu;
+
+      return menu.map((item: any) => {
+        const keyword = String(item?.keyword ?? '').trim();
+        const hasSubmenu = Array.isArray(item?.submenu) && item.submenu.length > 0;
+        if (hasSubmenu) return item;
+
+        const back = { key: 'c', reply_message: 'Volviendo al menú principal...', action: 'main_menu' };
+
+        if (keyword === '1') {
+          return {
+            ...item,
+            reply_message: '🛍️ Promociones o ventas\nA) Ver promociones vigentes\nB) Solicitar cotización\nC) Volver al menú principal',
+            submenu: [
+              { key: 'a', reply_message: '🛍️ Promociones vigentes: un asesor te compartirá las promociones activas en breve.' },
+              { key: 'b', reply_message: '📝 Cotización solicitada: indícanos por favor el producto o servicio de interés y un asesor te contactará.' },
+              back,
+            ],
+          };
+        }
+
+        if (keyword === '2') {
+          return {
+            ...item,
+            reply_message: '🧑‍💻 Outsourcing TI\nA) Servicios disponibles\nB) Solicitar asesoría\nC) Volver al menú principal',
+            submenu: [
+              { key: 'a', reply_message: '🧑‍💻 Servicios de Outsourcing TI: soporte técnico, administración de plataformas y acompañamiento especializado.' },
+              { key: 'b', reply_message: '📞 Asesoría solicitada: en breve un especialista de TI te contactará.' },
+              back,
+            ],
+          };
+        }
+
+        if (keyword === '3') {
+          return {
+            ...item,
+            reply_message: '📍 TicoNav (geolocalización)\nA) Características\nB) Solicitar demo\nC) Volver al menú principal',
+            submenu: [
+              { key: 'a', reply_message: '📍 TicoNav: solución de geolocalización y monitoreo en tiempo real para tu operación.' },
+              { key: 'b', reply_message: '🎯 Demo solicitada para TicoNav: un asesor coordinará contigo la presentación.' },
+              back,
+            ],
+          };
+        }
+
+        if (keyword === '4') {
+          return {
+            ...item,
+            reply_message: '📡 TicoCast (plataforma)\nA) Características\nB) Solicitar demo\nC) Volver al menú principal',
+            submenu: [
+              { key: 'a', reply_message: '📡 TicoCast: plataforma para gestión y distribución de contenido con control centralizado.' },
+              { key: 'b', reply_message: '🎯 Demo solicitada para TicoCast: un asesor te contactará para agendarla.' },
+              back,
+            ],
+          };
+        }
+
+        return item;
+      });
+    };
+
+    const showMainMenu = async (): Promise<boolean> => {
+      const menuToUse = applyFallbackSubmenus(await resolveMenu());
+      if (!menuToUse || !Array.isArray(menuToUse) || menuToUse.length === 0) {
+        await message.reply('Lo siento, el menú no está disponible en este momento. Intenta más tarde.');
+        return false;
+      }
+
+      const lines: string[] = [];
+      lines.push('Hola! Bienvenido a nuestro 🤖 CHATBOT');
+      lines.push('Somos Tecno Servicios Artavia, por favor envía el número de una de las siguientes opciones:');
+      lines.push('');
+      menuToUse.forEach((item) => {
+        const label = (item.reply_message ?? '').split('\n')[0] || '';
+        lines.push(`${item.keyword} - ${label}`);
+      });
+      lines.push('');
+      lines.push('Escribe "menu" para volver al inicio o "salir" para finalizar la conversación.');
+
+      await message.reply(lines.join('\n'));
+      menuShown.set(chatId, true);
+      lastMenuItems.set(chatId, menuToUse);
+      return true;
     };
 
     // Admin definido temprano para poder aplicar reglas de silencio.
@@ -437,11 +530,6 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Detectar si esta conversación está "idle" ANTES de tocar el timer.
-    // Si llamamos touchTimer primero, `chatTimers.get(chatId)` ya existe y el bot
-    // creería que la sesión está activa, evitando mostrar el menú en el primer mensaje.
-    const wasSessionIdleBeforeTouch = !chatTimers.get(chatId) && !menuShown.get(chatId);
-
     // Mantener timeout por chat y detectar admin
     try {
       touchTimer(chatId);
@@ -454,13 +542,9 @@ async function main(): Promise<void> {
   try {
     const isInActiveProcess = awaitingReceipt.get(chatId) || pendingConfirmReceipt.has(chatId) || awaitingMonths.has(chatId) || agentMode.get(chatId) || menuShown.get(chatId);
     const isMediaUpload = !!(message as any).hasMedia;
-    
-    // Solo bloqueamos mensajes completamente fuera de contexto cuando no hay horario
-    // El menú y las opciones automáticas ahora funcionan 24/7
-    if (! _isWithinBusinessHours() && !isAdminUserEarly && !isInActiveProcess && !isMediaUpload && lc !== 'menu' && lc !== 'inicio' && lc !== 'help') {
-      await message.reply(`Hola. Actualmente estamos fuera del horario de atención (${TIMEZONE}). Nuestro horario: ${formatBusinessHours()}.\n\n💡 Puedes usar el menú escribiendo "menu" para acceder a opciones automáticas disponibles 24/7.`);
-      return;
-    }
+    logger.warn({ chatId, lc, isAdminUserEarly, isInActiveProcess, isMediaUpload, withinHours: _isWithinBusinessHours() }, 'DEBUG horario: punto de verificación de horario alcanzado');
+    // No bloquear mensajes generales por horario: menú y opciones automáticas 24/7.
+    // El flujo "agente" mantiene su propio aviso fuera de horario más abajo.
   } catch (e) {
     logger.debug({ e }, 'error verificando horario de atención');
   }
@@ -494,6 +578,16 @@ async function main(): Promise<void> {
   // If we're awaiting a receipt from this chat, handle media uploads first
     if (awaitingReceipt.get(chatId)) {
       try {
+        if (lc === 'salir' || lc === 'exit' || lc === 'c') {
+          awaitingReceipt.delete(chatId);
+          pendingConfirmReceipt.delete(chatId);
+          awaitingMonths.delete(chatId);
+          chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
+          try { touchTimer(chatId); } catch { /* ignore */ }
+          await message.reply('Cancelado. Saliste del envío de comprobante. Escribe "menu" para volver al menú principal.');
+          return;
+        }
+
         if ((message as any).hasMedia) {
           const media = await (message as any).downloadMedia();
           const fname = (media.filename && media.filename.trim()) ? media.filename : `receipt-${chatId.replace(/[^0-9]/g,'')}-${Date.now()}`;
@@ -2269,26 +2363,7 @@ async function main(): Promise<void> {
     // If user asks for menu, display and mark menu active for this chat
     if (lc === 'menu' || lc === 'inicio' || lc === 'help') {
       try {
-        const menuToUse = await resolveMenu();
-        if (!menuToUse || !Array.isArray(menuToUse) || menuToUse.length === 0) {
-          await message.reply('Lo siento, el menú no está disponible en este momento. Intenta más tarde.');
-          return;
-        }
-
-        const lines: string[] = [];
-        lines.push('Hola! Bienvenido a nuestro 🤖 CHATBOT');
-        lines.push('Somos Tecno Servicios Artavia, por favor envía el número de una de las siguientes opciones:');
-        lines.push('');
-        menuToUse.forEach((item) => {
-          const label = (item.reply_message ?? '').split('\n')[0] || '';
-          lines.push(`${item.keyword} - ${label}`);
-        });
-        lines.push('');
-        lines.push('Escribe "menu" para volver al inicio o "salir" para finalizar la conversación.');
-
-        await message.reply(lines.join('\n'));
-        menuShown.set(chatId, true);
-        lastMenuItems.set(chatId, menuToUse);
+        await showMainMenu();
         return;
       } catch (error) {
         logger.error({ err: error }, 'No se pudo resolver el menú');
@@ -2369,8 +2444,13 @@ async function main(): Promise<void> {
           if (matched.submenu && Array.isArray(matched.submenu) && matched.submenu.length) {
             await message.reply(matched.reply_message);
             // store submenu entries for the chat (expect letter like a/b/c)
-            lastMenuItems.set(chatId, matched.submenu.map((s: any) => ({ key: (s.key || s.key_text || '').toString().toLowerCase(), text: s.text || s.reply_message || '' })));
+            lastMenuItems.set(chatId, matched.submenu.map((s: any) => ({ ...s, key: (s.key || s.key_text || '').toString().toLowerCase(), text: s.text || s.reply_message || '' })));
             menuShown.set(chatId, true);
+            return;
+          }
+
+          if (matched.action === 'main_menu') {
+            await showMainMenu();
             return;
           }
 
@@ -2517,6 +2597,7 @@ async function main(): Promise<void> {
           }
 
           await message.reply(replyText);
+          const lower = String(replyText || '').toLowerCase();
 
           // Si esta opción es la 6, entramos en modo de recepción de comprobante.
           const isAwaitingReceipt = (typeof asNum === 'number' && asNum === 6)
@@ -2589,10 +2670,13 @@ async function main(): Promise<void> {
     // Only show the full menu when the user explicitly asks for it (handled above via lc === 'menu'|'inicio'|'help'),
     // or when we are already in menuShown state.
     try {
-      // If chat is in agent mode, do not show the menu (agent handles conversation)
+      // Si el chat quedó en modo agente y el usuario vuelve a escribir,
+      // reactivamos el bot para mostrar menú automáticamente.
       if (agentMode.get(chatId)) {
-        logger.debug({ chatId }, 'Ignorando mensaje: chat en modo agente, no mostrar menú');
-        return;
+        agentMode.delete(chatId);
+        chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
+        try { touchTimer(chatId); } catch { /* ignore */ }
+        logger.info({ chatId }, 'Modo agente desactivado por nuevo mensaje; se mostrará menú');
       }
 
       // Para admins: no mostrar el menú normal automáticamente.
@@ -2602,43 +2686,8 @@ async function main(): Promise<void> {
         return;
       }
 
-      // Mostrar menú automáticamente SOLO en el primer mensaje de la sesión (o después del timeout),
-      // para que con cualquier palabra el usuario vea opciones al inicio.
-      // Luego, durante la sesión activa, evitamos spamear el menú y el usuario puede escribir "menu".
-  const isExplicitMenuRequest = (lc === 'menu' || lc === 'inicio' || lc === 'help');
-  const isSessionIdle = wasSessionIdleBeforeTouch;
-
-      if (!isExplicitMenuRequest && !isSessionIdle) {
-        logger.debug({ chatId, lc }, 'No mostrar menú automáticamente (sesión activa; usuario no lo pidió)');
-        return;
-      }
-      const menuToUse = await resolveMenu();
-      if (!menuToUse || !Array.isArray(menuToUse) || menuToUse.length === 0) {
-        await send('Lo siento, el menú no está disponible en este momento. Intenta más tarde.');
-        return;
-      }
-
-      const lines: string[] = [];
-      lines.push('Hola! Bienvenido a nuestro 🤖 CHATBOT');
-      lines.push('Somos Tecno Servicios Artavia, por favor envía el número de una de las siguientes opciones:');
-      lines.push('👇👇👇');
-      lines.push('');
-
-      // Build numbered list from menuToUse
-      let idx = 1;
-      for (const item of menuToUse) {
-        const label = (item.reply_message ?? '').split('\n')[0] || 'Opción';
-        lines.push(`${idx}- ${label}`);
-        idx += 1;
-      }
-
-      lines.push('');
-      lines.push('Escribe menu para volver al inicio o salir para finalizar la conversación.');
-
-      await message.reply(lines.join('\n'));
-      menuShown.set(chatId, true);
-      lastMenuItems.set(chatId, menuToUse);
-      // If the selected menu includes option '6' (Enviar comprobante), we will set awaitingReceipt when chosen; handled in menu selection branch
+      // Requisito actual: para no-admin, cualquier mensaje debe llevar al menú principal.
+      await showMainMenu();
       return;
     } catch (error: any) {
       logger.error({
@@ -3173,7 +3222,15 @@ async function main(): Promise<void> {
       }
 
       if (s.bot_paused !== undefined) {
-        botPaused = s.bot_paused === "1" || s.bot_paused === "true" || Boolean(s.bot_paused);
+        const rawPaused = String(s.bot_paused).trim().toLowerCase();
+        if (rawPaused === '1' || rawPaused === 'true' || rawPaused === 'yes' || rawPaused === 'on') {
+          botPaused = true;
+        } else if (rawPaused === '0' || rawPaused === 'false' || rawPaused === 'no' || rawPaused === 'off' || rawPaused === '') {
+          botPaused = false;
+        } else {
+          // Fallback conservador para formatos no esperados
+          botPaused = Boolean(s.bot_paused);
+        }
       }
 
       if (s.bot_timezone || s.timezone) {

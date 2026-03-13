@@ -47,13 +47,26 @@ Muestra las últimas transacciones registradas. Permite filtrar por teléfono de
 ### 8️⃣ Ejecutar scheduler
 Ejecuta manualmente el procesador de recordatorios (runBatch) para enviar recordatorios pendientes.
 
-### 9️⃣ Eliminar cliente
+### 9️⃣ Registrar pago manual
+Inicia un asistente para registrar un pago manual de un cliente:
+- Teléfono del cliente
+- Monto
+- Moneda
+- Referencia opcional
+
+### 🔟 Conciliar pago
+Permite conciliar un pago existente por su ID y actualizar su estado.
+
+### 1️⃣1️⃣ Listar pagos pendientes
+Muestra los pagos en estado pendiente/no verificado (últimos 20).
+
+### 1️⃣2️⃣ Eliminar cliente
 **⚠️ CUIDADO**: Elimina permanentemente un cliente y TODO su historial (pagos, recordatorios, suscripciones). Requiere confirmación.
 
-### 🔟 Eliminar suscripción
+### 1️⃣3️⃣ Eliminar suscripción
 Elimina las suscripciones de un cliente y los pagos FUTUROS asociados. Requiere confirmación.
 
-### 1️⃣1️⃣ Eliminar transacción
+### 1️⃣4️⃣ Eliminar transacción
 Elimina una transacción específica por su ID. Requiere confirmación.
 
 ### 1️⃣5️⃣ Estado del bot
