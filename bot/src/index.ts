@@ -551,6 +551,51 @@ async function main(): Promise<void> {
 
   // (silencio por contacto pausado) manejado arriba, para no duplicar llamadas.
 
+  // === CAPTURA DE RESPUESTAS A RECORDATORIOS ===
+  // Si el cliente está respondiendo a un recordatorio reciente, registrarlo
+  try {
+    let customerRecord: any = null;
+    try {
+      customerRecord = await apiClient.findCustomerByPhone(fromNorm);
+    } catch (e) {
+      // No customer found, continue
+    }
+
+    if (customerRecord && customerRecord.id) {
+      // Buscar recordatorios recientes (sent/pending) del cliente
+      try {
+        const recentReminders = await apiClient.getRecentRemindersByClient(customerRecord.id);
+
+        if (recentReminders && recentReminders.length > 0) {
+          const reminder = recentReminders[0];
+          const messageType = (message as any).hasMedia ? 'media' : 'text';
+          const messageContent = body || '[sin texto]';
+
+          await apiClient.logIncomingMessage(reminder.id, {
+            client_id: customerRecord.id,
+            content: messageContent.substring(0, 500),
+            message_type: messageType as any,
+            whatsapp_message_id: (message as any)?.id?._serialized || undefined,
+            metadata: {
+              from: fromNorm,
+              has_media: !!(message as any).hasMedia
+            }
+          });
+
+          logger.info({ reminderId: reminder.id, clientId: customerRecord.id, messageType }, 'Respuesta de cliente registrada');
+
+          // Marcar menú como NOT shown para evitar reenvíos posteriores
+          menuShown.delete(chatId);
+          lastMenuItems.delete(chatId);
+        }
+      } catch (e: any) {
+        logger.debug({ e, clientId: customerRecord.id }, 'Error buscando recordatorios recientes del cliente');
+      }
+    }
+  } catch (e: any) {
+    logger.debug({ e }, 'Error en captura de respuesta a recordatorio');
+  }
+
   // Adjuntos: solo se procesan cuando el usuario está en el flujo de comprobantes (opción 6).
   // Si llega un archivo fuera de ese flujo, lo ignoramos (y guiamos al usuario).
   // Caso especial: si el usuario envía "6" junto con el adjunto, activamos el flujo y lo procesamos.

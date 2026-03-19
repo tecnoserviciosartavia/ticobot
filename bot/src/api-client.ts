@@ -33,15 +33,17 @@ class ApiClient {
     await this.http.post(`reminders/${reminderId}/acknowledge`, payload);
   }
 
-  async markQueued(reminder: ReminderRecord): Promise<void> {
-    // Capear attempts para evitar valores inesperadamente grandes que puedan
-    // provocar errores en el backend si la columna es pequeña.
-    const nextAttempts = Math.min((reminder.attempts || 0) + 1, 100);
-    await this.http.patch(`reminders/${reminder.id}`, {
-      status: 'queued',
-      attempts: nextAttempts,
-      queued_at: new Date().toISOString()
-    });
+  async claimReminder(reminderId: number): Promise<boolean> {
+    try {
+      await this.http.post(`reminders/${reminderId}/claim`);
+      return true;
+    } catch (err: any) {
+      if (err?.response?.status === 409) {
+        return false;
+      }
+
+      throw err;
+    }
   }
 
   /**
@@ -69,6 +71,12 @@ class ApiClient {
         throw err;
       }
     }, { retries: 2 });
+  }
+
+  async markResent(reminderId: number): Promise<void> {
+    await this.http.patch(`reminders/${reminderId}`, {
+      last_resend_at: new Date().toISOString()
+    });
   }
 
   async reportWhatsappQr(qr: string): Promise<void> {
@@ -361,6 +369,48 @@ class ApiClient {
 
   async updateSetting(key: string, value: any): Promise<any> {
     return this.requestToBackend('PUT', `settings/${key}`, { value });
+  }
+
+  /**
+   * Registrar un mensaje entrante como respuesta a un recordatorio
+   */
+  async logIncomingMessage(reminderId: number, payload: {
+    client_id: number;
+    content?: string | null;
+    message_type: 'text' | 'image' | 'voice' | 'document' | 'media' | 'other';
+    whatsapp_message_id?: string | null;
+    attachment_path?: string | null;
+    metadata?: Record<string, any>;
+  }): Promise<any> {
+    try {
+      const response = await this.http.post(`reminders/${reminderId}/log-incoming-message`, payload);
+      return response.data;
+    } catch (err: any) {
+      logger.warn({ err, reminderId }, 'No se pudo registrar mensaje entrante');
+      // No lanzar error; sigue adelante
+      return null;
+    }
+  }
+
+  /**
+   * Obtener recordatorios recientes de un cliente (últimas 24h, sent/pending)
+   */
+  async getRecentRemindersByClient(clientId: number): Promise<ReminderRecord[]> {
+    try {
+      const response = await this.http.get('reminders', {
+        params: {
+          client_id: clientId,
+          status: 'sent,pending',
+          limit: 5,
+          order_by: 'sent_at',
+          order_dir: 'desc'
+        }
+      });
+      return response.data || [];
+    } catch (err: any) {
+      logger.debug({ err, clientId }, 'Error obteniendo recordatorios recientes');
+      return [];
+    }
   }
 }
 

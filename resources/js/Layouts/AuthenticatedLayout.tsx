@@ -53,20 +53,8 @@ export default function Authenticated({
                                     Recordatorios
                                 </NavLink>
                                 <NavLink
-                                    href={route('payments.index')}
-                                    active={route().current('payments.*')}
-                                >
-                                    Pagos
-                                </NavLink>
-                                <NavLink
-                                    href={route('collections.index')}
-                                    active={route().current('collections.*')}
-                                >
-                                    📌 Cobranzas
-                                </NavLink>
-                                <NavLink
                                     href={route('accounting.index')}
-                                    active={route().current('accounting.*')}
+                                    active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*')}
                                 >
                                     Contabilidad
                                 </NavLink>
@@ -197,20 +185,8 @@ export default function Authenticated({
                             Recordatorios
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
-                            href={route('payments.index')}
-                            active={route().current('payments.index')}
-                        >
-                            Pagos
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('collections.index')}
-                            active={route().current('collections.*')}
-                        >
-                            📌 Cobranzas
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
                             href={route('accounting.index')}
-                            active={route().current('accounting.*')}
+                            active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*')}
                         >
                             Contabilidad
                         </ResponsiveNavLink>

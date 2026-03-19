@@ -1,3 +1,4 @@
+import AccountingTabs from '@/Components/AccountingTabs';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
@@ -88,6 +89,7 @@ export default function CollectionsIndex() {
 
       <div className="py-6">
         <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
+          <AccountingTabs active="collections" />
           <div className="bg-white shadow rounded-lg p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>

@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\Client;
 use App\Models\Reminder;
 use Illuminate\Support\Carbon;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -125,20 +126,29 @@ class AccountingController extends Controller
 
         $clientsUnpaid = $this->clientsWithSentRemindersWithoutVerifiedPayments($startOfMonth, $endOfMonth);
 
-        // Calcular ganancias por plataforma (servicio) para el periodo (mes actual)
-        $servicesProfit = $this->calculateServiceProfits($startOfMonth, $endOfMonth);
-
         return Inertia::render('Accounting/Index', [
             'by_status_currency' => $byStatusCurrency,
             'totals' => $totals,
             'total_months' => $totalMonths,
             'daily' => $dailyWindow,
             'conciliation_rate' => $conciliationRate,
+            'active_contracts_total' => (float) $activeContractsTotal,
             'monthly_pending' => $monthlyData,
             // Clientes con pendiente real en el periodo (por defecto: mes actual)
             'clients_unpaid_after_reminder' => $clientsUnpaid['clients'] ?? [],
             'clients_unpaid_total' => $clientsUnpaid['totals'] ?? [],
-            'services_profit' => $servicesProfit,
+        ]);
+    }
+
+    public function indicators(Request $request): Response
+    {
+        $selectedMonth = $this->normalizeRequestedMonth($request->query('month'));
+        [$startOfMonth, $endOfMonth] = $this->monthRange($selectedMonth);
+
+        return Inertia::render('Accounting/Indicators', [
+            'selected_month' => $selectedMonth,
+            'selected_month_label' => $this->monthLabel($selectedMonth),
+            'services_profit' => $this->calculateServiceProfits($startOfMonth, $endOfMonth),
         ]);
     }
 
@@ -175,12 +185,14 @@ class AccountingController extends Controller
 
         $agg = [];
         foreach ($allServices as $s) {
+            // El costo es el valor fijo mensual configurado en la plataforma, sin multiplicar
+            $fixedCost = (float) ($s->cost ?? 0);
             $agg[$s->id] = [
                 'id' => $s->id,
                 'name' => $s->name,
                 'currency' => $s->currency ?? 'CRC',
                 'revenue' => 0.0,
-                'cost' => 0.0,
+                'cost' => $fixedCost,
                 'net' => 0.0,
                 'monthly_total' => round($serviceContractTotals[$s->id] ?? 0.0, 2),
             ];
@@ -207,15 +219,12 @@ class AccountingController extends Controller
 
             $services = $contract->services ?? collect();
 
-            // Calcular totales de precio y costo del contrato según servicios y cantidades
+            // Calcular total de precio del contrato para asignar el ingreso proporcionalmente
             $contractPriceTotal = 0.0;
-            $contractCostTotal = 0.0;
             foreach ($services as $s) {
                 $qty = (int) ($s->pivot->quantity ?? 1);
                 $price = (float) ($s->price ?? 0);
-                $cost = (float) ($s->cost ?? 0);
                 $contractPriceTotal += $price * $qty;
-                $contractCostTotal += $cost * $qty;
             }
 
             // Si no hay breakdown por servicios (contrato manual), asignar todo al "sin plataforma"
@@ -225,35 +234,35 @@ class AccountingController extends Controller
                     $agg[$key] = ['id' => null, 'name' => 'Sin plataforma', 'revenue' => 0.0, 'cost' => 0.0, 'net' => 0.0];
                 }
                 $agg[$key]['revenue'] += (float) $p->amount;
-                // aproximamos costo proporcionalmente si existe contractCostTotal
-                $agg[$key]['cost'] += $contractCostTotal > 0 ? ($contractCostTotal * ((float) $p->amount / max(1, $contractPriceTotal))) : 0.0;
                 $agg[$key]['net'] = $agg[$key]['revenue'] - $agg[$key]['cost'];
                 continue;
             }
 
-            // Para cada servicio, asignar parte del pago proporcional al precio
+            // Para cada servicio, asignar la parte del ingreso proporcional al precio del servicio
             foreach ($services as $s) {
                 $sid = $s->id;
                 $qty = (int) ($s->pivot->quantity ?? 1);
                 $sPriceTotal = ((float) ($s->price ?? 0)) * $qty;
-                $sCostTotal = ((float) ($s->cost ?? 0)) * $qty;
 
-                // proporción del servicio en el contrato por precio
+                // proporción del ingreso del contrato que corresponde a este servicio
                 $fraction = $contractPriceTotal > 0 ? ($sPriceTotal / $contractPriceTotal) : 0;
-
                 $revenue = (float) $p->amount * $fraction;
-                // cost scaled by fraction of contract covered by this payment
-                $cost = $sCostTotal * ((float) $p->amount / max(1, $contractPriceTotal));
 
                 if (! isset($agg[$sid])) {
-                    $agg[$sid] = ['id' => $sid, 'name' => $s->name ?? 'Servicio', 'currency' => $s->currency ?? 'CRC', 'revenue' => 0.0, 'cost' => 0.0, 'net' => 0.0, 'monthly_total' => round($serviceContractTotals[$sid] ?? 0.0, 2)];
+                    // Fallback: si el servicio no estaba pre-inicializado, usar su costo fijo
+                    $agg[$sid] = ['id' => $sid, 'name' => $s->name ?? 'Servicio', 'currency' => $s->currency ?? 'CRC', 'revenue' => 0.0, 'cost' => (float) ($s->cost ?? 0), 'net' => 0.0, 'monthly_total' => round($serviceContractTotals[$sid] ?? 0.0, 2)];
                 }
 
                 $agg[$sid]['revenue'] += $revenue;
-                $agg[$sid]['cost'] += $cost;
                 $agg[$sid]['net'] = $agg[$sid]['revenue'] - $agg[$sid]['cost'];
             }
         }
+
+        // Recalcular net final (cubre servicios sin pagos en el periodo: net = 0 - costo fijo)
+        foreach ($agg as &$entry) {
+            $entry['net'] = $entry['revenue'] - $entry['cost'];
+        }
+        unset($entry);
 
         // Transformar a array ordenado por mayor neto
         $result = array_values($agg);
@@ -415,5 +424,33 @@ class AccountingController extends Controller
         });
 
         return $monthlyData->toArray();
+    }
+
+    private function normalizeRequestedMonth(mixed $month): string
+    {
+        if (is_string($month) && preg_match('/^\d{4}-\d{2}$/', $month) === 1) {
+            try {
+                return Carbon::createFromFormat('Y-m', $month)->format('Y-m');
+            } catch (\Throwable $e) {
+                // fallback al mes actual
+            }
+        }
+
+        return Carbon::now()->format('Y-m');
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function monthRange(string $month): array
+    {
+        $date = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+
+        return [$date->copy()->startOfMonth(), $date->copy()->endOfMonth()];
+    }
+
+    private function monthLabel(string $month): string
+    {
+        return ucfirst(Carbon::createFromFormat('Y-m', $month)->locale('es')->isoFormat('MMMM YYYY'));
     }
 }

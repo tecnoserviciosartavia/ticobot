@@ -74,6 +74,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('/conciliations', [WebConciliationController::class, 'store'])->name('conciliations.store');
     // Accounting dashboard
     Route::get('/accounting', \App\Http\Controllers\Web\AccountingController::class . '@index')->name('accounting.index');
+    Route::get('/accounting/indicators', \App\Http\Controllers\Web\AccountingController::class . '@indicators')->name('accounting.indicators');
 });
 
 Route::middleware('auth')->group(function () {

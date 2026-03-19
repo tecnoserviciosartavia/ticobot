@@ -14,7 +14,9 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('reminders/pending', [ReminderController::class, 'pending']);
     Route::get('reminders/sent-without-payment', [ReminderController::class, 'sentWithoutPayment']);
+    Route::post('reminders/{reminder}/claim', [ReminderController::class, 'claim']);
     Route::post('reminders/{reminder}/acknowledge', [ReminderController::class, 'acknowledge']);
+    Route::post('reminders/{reminder}/log-incoming-message', [ReminderController::class, 'logIncomingMessage']);
 
     Route::post('payments/{payment}/status', [PaymentController::class, 'updateStatus']);
     Route::post('payments/{payment}/receipts', [PaymentController::class, 'attachReceipt']);

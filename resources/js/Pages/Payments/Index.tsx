@@ -1,3 +1,4 @@
+import AccountingTabs from '@/Components/AccountingTabs';
 import Pagination from '@/Components/Pagination';
 import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -140,9 +141,6 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                         <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
                             Pagos
                         </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Controla los pagos recibidos, su verificación y los comprobantes asociados.
-                        </p>
                     </div>
                     <a
                         href={route('payments.create')}
@@ -159,7 +157,8 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
             <Head title="Pagos" />
 
             <div className="py-12">
-                <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
+                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                    <AccountingTabs active="payments" />
                     <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
                         <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
                             <form
@@ -265,31 +264,31 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                         </div>
 
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
+                            <table className="min-w-full table-fixed divide-y divide-gray-200">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="w-40 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Pago
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Cliente
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Contrato
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="w-28 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Canal
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="w-32 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Estado
                                         </th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="w-24 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Comprobantes
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="w-40 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Fechas
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="w-52 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                             Acciones
                                         </th>
                                     </tr>
@@ -297,24 +296,28 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                 <tbody className="divide-y divide-gray-100 bg-white dark:bg-gray-800">
                                     {paymentRows.map((payment) => (
                                         <tr key={payment.id} className="hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700">
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 <div className="font-medium text-gray-900 dark:text-gray-100">
                                                     {formatAmount(payment.amount, payment.currency)}
                                                 </div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                <div className="truncate text-xs text-gray-500 dark:text-gray-400">
                                                     Ref: {payment.reference ?? '—'}
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                {payment.client?.name ?? 'Cliente eliminado'}
+                                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                                <div className="truncate">
+                                                    {payment.client?.name ?? 'Cliente eliminado'}
+                                                </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                {payment.contract?.name ?? '—'}
+                                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                                <div className="truncate">
+                                                    {payment.contract?.name ?? '—'}
+                                                </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                            <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
                                                 {labelForChannel(payment.channel)}
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4">
+                                            <td className="px-4 py-4">
                                                 <div className="flex flex-col gap-1">
                                                     <StatusBadge status={payment.status} />
                                                     {payment.reminder && (
@@ -324,15 +327,15 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
+                                            <td className="px-4 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
                                                 {payment.receipts_count}
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                            <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
                                                 <div>Pagado: {formatDate(payment.paid_at)}</div>
                                                 <div>Registrado: {formatDate(payment.created_at)}</div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                <div className="flex gap-2">
+                                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                                <div className="flex flex-wrap gap-2">
                                                     {/* Mostrar botón de conciliar solo cuando no esté verificado */}
                                                     {payment.status !== 'verified' && (
                                                         <ApplyAndConciliateButton 

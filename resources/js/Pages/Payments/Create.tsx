@@ -32,6 +32,7 @@ interface PaymentFormData {
     reference: string;
     status: string;
     paid_at: string;
+    billing_month: string;
     grace_months: string;
 }
 
@@ -45,6 +46,7 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
         reference: '',
         status: 'verified',
         paid_at: new Date().toISOString().split('T')[0],
+        billing_month: new Date().toISOString().slice(0, 7),
         grace_months: '0',
     });
 
@@ -352,6 +354,32 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
                                 {errors.paid_at && (
                                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                                         {errors.paid_at}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Billing Month */}
+                            <div>
+                                <label
+                                    htmlFor="billing_month"
+                                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                >
+                                    Mes que está pagando
+                                </label>
+                                <input
+                                    type="month"
+                                    id="billing_month"
+                                    name="billing_month"
+                                    value={data.billing_month}
+                                    onChange={(e) => setData((prev) => ({ ...prev, billing_month: e.target.value }))}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Este mes se usará en el comprobante para indicar el período pagado.
+                                </p>
+                                {errors.billing_month && (
+                                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                        {errors.billing_month}
                                     </p>
                                 )}
                             </div>

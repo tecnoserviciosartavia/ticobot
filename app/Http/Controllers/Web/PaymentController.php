@@ -23,15 +23,35 @@ class PaymentController extends Controller
             return;
         }
 
+        $settledAt = now(config('app.timezone'));
+
         // Si el pago ya está ligado a un recordatorio específico, liquidarlo.
         if ($payment->reminder_id) {
-            Reminder::query()
-                ->whereKey($payment->reminder_id)
+            $linkedReminder = Reminder::query()->find($payment->reminder_id);
+
+            if (! $linkedReminder) {
+                return;
+            }
+
+            $linkedScheduledRaw = $linkedReminder->getRawOriginal('scheduled_for');
+
+            $linkedQuery = Reminder::query()
+                ->where('client_id', $linkedReminder->client_id)
+                ->where('scheduled_for', $linkedScheduledRaw)
                 ->whereIn('status', ['pending', 'queued', 'sent'])
-                ->update([
-                    'status' => 'paid',
-                    'acknowledged_at' => now(config('app.timezone')),
-                ]);
+                ->where(function ($query) use ($linkedReminder) {
+                    if ($linkedReminder->contract_id) {
+                        $query->where('contract_id', $linkedReminder->contract_id);
+                    } else {
+                        $query->whereNull('contract_id');
+                    }
+                });
+
+            $linkedQuery->update([
+                'status' => 'paid',
+                'acknowledged_at' => $settledAt,
+            ]);
+
             return;
         }
 
@@ -51,10 +71,15 @@ class PaymentController extends Controller
             ->first();
 
         if ($nextPending) {
-            $nextPending->forceFill([
+            $nextScheduledRaw = $nextPending->getRawOriginal('scheduled_for');
+
+            (clone $query)
+                ->whereIn('status', ['pending', 'queued'])
+                ->where('scheduled_for', $nextScheduledRaw)
+                ->update([
                 'status' => 'paid',
-                'acknowledged_at' => now(config('app.timezone')),
-            ])->save();
+                'acknowledged_at' => $settledAt,
+                ]);
         }
 
         // 2) Si hoy se envió un recordatorio y se verificó el pago el mismo día, marcarlo paid
@@ -65,7 +90,7 @@ class PaymentController extends Controller
             ->whereBetween('sent_at', [$todayStart, $todayEnd])
             ->update([
                 'status' => 'paid',
-                'acknowledged_at' => now(config('app.timezone')),
+                'acknowledged_at' => $settledAt,
             ]);
     }
 
@@ -196,14 +221,19 @@ class PaymentController extends Controller
             'reference' => ['nullable', 'string', 'max:255'],
             'status' => ['required', 'string', 'in:unverified,verified,pending,rejected'],
             'paid_at' => ['nullable', 'date'],
+            'billing_month' => ['nullable', 'date_format:Y-m'],
             'grace_months' => ['nullable', 'integer', 'min:0', 'max:12'],
         ]);
 
         // Add metadata to track manual creation
+        $paidForMonth = $validated['billing_month']
+            ?? Carbon::parse($validated['paid_at'] ?? now(), config('app.timezone'))->format('Y-m');
+
         $validated['metadata'] = [
             'created_manually' => true,
             'created_by' => auth()->id(),
             'created_at' => now()->toIso8601String(),
+            'paid_for_month' => $paidForMonth,
             'grace_months' => (int) ($validated['grace_months'] ?? 0),
         ];
 

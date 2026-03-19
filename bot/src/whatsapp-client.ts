@@ -59,16 +59,46 @@ export class WhatsAppClient {
 
             // whatsapp-web.js (y algunos forks) esperan que exista WWebJS.getChat.
             // En algunos builds recientes hemos visto fallos tipo: Cannot read properties of undefined (reading 'getChat').
-            if (typeof (window as any).WWebJS.getChat !== 'function') {
-              (window as any).WWebJS.getChat = async (chatId: string) => {
+            // Siempre envolvemos getChat para añadir soporte de @lid IDs: cuando WhatsApp usa multi-device,
+            // los chats pueden llegar con chatId @lid en lugar de @c.us. El WWebJS.getChat original no
+            // los encuentra en el Store, devolviendo null y causando que sendMessage no envíe nada.
+            {
+              const _originalGetChat: any = typeof (window as any).WWebJS.getChat === 'function'
+                ? (window as any).WWebJS.getChat
+                : null;
+              (window as any).WWebJS.getChat = async (chatId: string, opts?: any) => {
                 try {
+                  // Intentar con el getChat original primero
+                  if (_originalGetChat) {
+                    const res = await _originalGetChat(chatId, opts);
+                    if (res) return res;
+                  }
+                  // Fallback: buscar directamente en Store
                   const Store: any = (window as any).Store;
-                  const chat =
+                  let chat =
                     Store?.Chat?.get?.(chatId) ??
                     Store?.Chat?.find?.(chatId) ??
                     Store?.Chat?.getModelsArray?.()?.find?.((c: any) => String(c?.id?._serialized || '') === String(chatId)) ??
                     null;
-                  return chat;
+                  if (chat) return chat;
+                  // Fallback adicional para @lid IDs: buscar por lid serialized o por número subyacente
+                  if (typeof chatId === 'string' && chatId.endsWith('@lid')) {
+                    const allChats: any[] = Store?.Chat?.getModelsArray?.() || [];
+                    chat = allChats.find((c: any) =>
+                      String(c?.lid?._serialized || '') === chatId ||
+                      String(c?.contact?.lid?._serialized || '') === chatId
+                    ) ?? null;
+                    if (chat) return chat;
+                    // Último intento: crear WID desde el chatId y buscar
+                    try {
+                      const wid = Store?.WidFactory?.createWid?.(chatId);
+                      if (wid) {
+                        chat = Store?.Chat?.get?.(wid) ?? Store?.Chat?.find?.(wid) ?? null;
+                        if (chat) return chat;
+                      }
+                    } catch { /* ignore */ }
+                  }
+                  return null;
                 } catch {
                   return null;
                 }
@@ -532,14 +562,22 @@ export class WhatsAppClient {
                             return;
                           };
                           (window as any).WWebJS.markedUnread = false;
-                          if (typeof (window as any).WWebJS.getChat !== 'function') {
-                            (window as any).WWebJS.getChat = async (chatId: string) => {
+                          {
+                            const _origGC: any = typeof (window as any).WWebJS.getChat === 'function' ? (window as any).WWebJS.getChat : null;
+                            (window as any).WWebJS.getChat = async (chatId: string, opts?: any) => {
                               try {
+                                if (_origGC) { const r = await _origGC(chatId, opts); if (r) return r; }
                                 const Store: any = (window as any).Store;
-                                return Store?.Chat?.get?.(chatId) ?? Store?.Chat?.find?.(chatId) ?? null;
-                              } catch {
-                                return null;
-                              }
+                                let chat = Store?.Chat?.get?.(chatId) ?? Store?.Chat?.find?.(chatId) ?? null;
+                                if (chat) return chat;
+                                if (typeof chatId === 'string' && chatId.endsWith('@lid')) {
+                                  chat = (Store?.Chat?.getModelsArray?.() || []).find((c: any) =>
+                                    String(c?.lid?._serialized || '') === chatId ||
+                                    String(c?.contact?.lid?._serialized || '') === chatId
+                                  ) ?? null;
+                                }
+                                return chat ?? null;
+                              } catch { return null; }
                             };
                           }
                         } catch (e) {
@@ -555,14 +593,22 @@ export class WhatsAppClient {
                             return;
                           };
                           (window as any).WWebJS.markedUnread = false;
-                          if (typeof (window as any).WWebJS.getChat !== 'function') {
-                            (window as any).WWebJS.getChat = async (chatId: string) => {
+                          {
+                            const _origGC: any = typeof (window as any).WWebJS.getChat === 'function' ? (window as any).WWebJS.getChat : null;
+                            (window as any).WWebJS.getChat = async (chatId: string, opts?: any) => {
                               try {
+                                if (_origGC) { const r = await _origGC(chatId, opts); if (r) return r; }
                                 const Store: any = (window as any).Store;
-                                return Store?.Chat?.get?.(chatId) ?? Store?.Chat?.find?.(chatId) ?? null;
-                              } catch {
-                                return null;
-                              }
+                                let chat = Store?.Chat?.get?.(chatId) ?? Store?.Chat?.find?.(chatId) ?? null;
+                                if (chat) return chat;
+                                if (typeof chatId === 'string' && chatId.endsWith('@lid')) {
+                                  chat = (Store?.Chat?.getModelsArray?.() || []).find((c: any) =>
+                                    String(c?.lid?._serialized || '') === chatId ||
+                                    String(c?.contact?.lid?._serialized || '') === chatId
+                                  ) ?? null;
+                                }
+                                return chat ?? null;
+                              } catch { return null; }
                             };
                           }
                         } catch (e) {}
@@ -967,7 +1013,23 @@ export class WhatsAppClient {
     if (!this.isReady) {
       throw new Error('WhatsApp client not ready');
     }
-    await this.client.sendMessage(chatId, text);
+    const isLid = typeof chatId === 'string' && chatId.endsWith('@lid');
+    if (isLid) {
+      logger.warn({ chatId }, 'sendText: chatId con formato @lid — intentando envío con fallback @c.us');
+    }
+    let result: any = await this.client.sendMessage(chatId, text);
+    if (result == null && isLid) {
+      // Fallback: WhatsApp multi-device usa @lid para identificar contactos, pero el Store
+      // puede tener el chat indexado como @c.us. Intentamos con los mismos dígitos + @c.us.
+      const altChatId = chatId.replace(/@lid$/, '@c.us');
+      logger.warn({ chatId, altChatId }, 'sendText @lid devolvió null — reintentando con @c.us');
+      result = await this.client.sendMessage(altChatId, text);
+      if (result == null) {
+        logger.warn({ chatId, altChatId }, 'sendText: ambos @lid y @c.us fallaron — mensaje no enviado');
+      } else {
+        logger.info({ chatId, altChatId }, 'sendText: mensaje enviado exitosamente con fallback @c.us');
+      }
+    }
   }
 
   // Enviar media (base64) a un chat

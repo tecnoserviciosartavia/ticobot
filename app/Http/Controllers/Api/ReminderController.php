@@ -185,6 +185,7 @@ class ReminderController extends Controller
             'response_payload' => ['nullable', 'array'],
             'queued_at' => ['nullable', 'date'],
             'sent_at' => ['nullable', 'date'],
+            'last_resend_at' => ['nullable', 'date'],
             'acknowledged_at' => ['nullable', 'date'],
             'attempts' => ['nullable', 'integer', 'min:0'],
         ]);
@@ -273,7 +274,7 @@ class ReminderController extends Controller
         $deadline = Carbon::now()->addMinutes($lookAheadMinutes);
 
         $reminders = Reminder::query()
-            ->whereIn('status', ['pending', 'queued'])
+            ->where('status', 'pending')
             ->where('scheduled_for', '<=', $deadline)
             ->orderBy('scheduled_for')
             ->limit($limit)
@@ -281,6 +282,51 @@ class ReminderController extends Controller
             ->get();
 
         return response()->json($reminders);
+    }
+
+    public function claim(Reminder $reminder): JsonResponse
+    {
+        $claimedAt = Carbon::now(config('app.timezone'));
+        $scheduledForRaw = $reminder->getRawOriginal('scheduled_for');
+        $nextAttempts = min(((int) ($reminder->attempts ?? 0)) + 1, 100);
+
+        $claimed = Reminder::query()
+            ->whereKey($reminder->id)
+            ->where('status', 'pending')
+            ->update([
+                'status' => 'queued',
+                'attempts' => $nextAttempts,
+                'queued_at' => $claimedAt,
+                'last_attempt_at' => $claimedAt,
+            ]);
+
+        if ($claimed === 0) {
+            return response()->json([
+                'claimed' => false,
+            ], 409);
+        }
+
+        $duplicateQuery = Reminder::query()
+            ->where('client_id', $reminder->client_id)
+            ->where('scheduled_for', $scheduledForRaw)
+            ->whereIn('status', ['pending', 'queued'])
+            ->whereKeyNot($reminder->id);
+
+        if ($reminder->contract_id) {
+            $duplicateQuery->where('contract_id', $reminder->contract_id);
+        } else {
+            $duplicateQuery->whereNull('contract_id');
+        }
+
+        $duplicatesCancelled = $duplicateQuery->update([
+            'status' => 'duplicate',
+            'acknowledged_at' => $claimedAt,
+        ]);
+
+        return response()->json([
+            'claimed' => true,
+            'duplicates_cancelled' => $duplicatesCancelled,
+        ]);
     }
 
     public function acknowledge(Request $request, Reminder $reminder): JsonResponse
@@ -319,7 +365,12 @@ class ReminderController extends Controller
 
         $reminders = Reminder::query()
             ->where('status', 'sent')
-            ->whereBetween('sent_at', [$startDate, $endDate])
+            ->whereDate('sent_at', '>=', $startDate->toDateString())
+            ->whereDate('sent_at', '<=', $endDate->toDateString())
+            ->where(function ($query) use ($startDate) {
+                $query->whereNull('last_resend_at')
+                    ->orWhere('last_resend_at', '<', $startDate);
+            })
             ->whereDoesntHave('payments', function ($query) {
                 $query->where('status', 'verified');
             })
@@ -328,6 +379,52 @@ class ReminderController extends Controller
             ->get();
 
         return response()->json($reminders);
+    }
+
+    /**
+     * Registrar un mensaje entrante de un cliente como respuesta a un recordatorio
+     * POST /api/reminders/{reminder}/log-incoming-message
+     */
+    public function logIncomingMessage(Request $request, Reminder $reminder): JsonResponse
+    {
+        $data = $request->validate([
+            'client_id' => ['required', 'integer'],
+            'content' => ['nullable', 'string'],
+            'message_type' => ['required', 'string', 'in:text,image,voice,document,media,other'],
+            'whatsapp_message_id' => ['nullable', 'string'],
+            'attachment_path' => ['nullable', 'string'],
+            'metadata' => ['nullable', 'array'],
+        ]);
+
+        // Registrar en reminder_messages como inbound
+        $message = $reminder->messages()->create([
+            'client_id' => $data['client_id'],
+            'direction' => 'inbound',
+            'message_type' => $data['message_type'],
+            'content' => $data['content'],
+            'whatsapp_message_id' => $data['whatsapp_message_id'] ?? null,
+            'attachment_path' => $data['attachment_path'] ?? null,
+            'metadata' => $data['metadata'] ?? [],
+            'sent_at' => Carbon::now(),
+        ]);
+
+        // Actualizar response_payload en reminder con el primer mensaje de respuesta
+        if (!$reminder->response_payload || empty($reminder->response_payload)) {
+            $reminder->update([
+                'response_payload' => [
+                    'first_response_at' => Carbon::now()->toIso8601String(),
+                    'first_response_type' => $data['message_type'],
+                    'first_response_content' => $data['content'] ?? '[sin texto]',
+                    'whatsapp_message_id' => $data['whatsapp_message_id'] ?? null,
+                ],
+                'acknowledged_at' => Carbon::now(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => $message,
+            'reminder_updated' => true,
+        ], 201);
     }
 
     /**

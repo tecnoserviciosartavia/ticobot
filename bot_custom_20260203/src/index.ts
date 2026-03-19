@@ -437,6 +437,10 @@ async function main(): Promise<void> {
       return;
     }
 
+    // Detectar si la sesión estaba inactiva ANTES de tocar el timer.
+    // Esto permite mostrar menú automático en el primer mensaje.
+    const wasSessionIdleBeforeTouch = !chatTimers.get(chatId) && !menuShown.get(chatId);
+
     // Mantener timeout por chat y detectar admin
     try {
       touchTimer(chatId);
@@ -452,7 +456,7 @@ async function main(): Promise<void> {
     
     // Solo bloqueamos mensajes completamente fuera de contexto cuando no hay horario
     // El menú y las opciones automáticas ahora funcionan 24/7
-    if (! _isWithinBusinessHours() && !isAdminUserEarly && !isInActiveProcess && !isMediaUpload && lc !== 'menu' && lc !== 'inicio' && lc !== 'help') {
+    if (! _isWithinBusinessHours() && !isAdminUserEarly && !isInActiveProcess && !isMediaUpload && !wasSessionIdleBeforeTouch && lc !== 'menu' && lc !== 'inicio' && lc !== 'help') {
       await message.reply(`Hola. Actualmente estamos fuera del horario de atención (${TIMEZONE}). Nuestro horario: ${formatBusinessHours()}.\n\n💡 Puedes usar el menú escribiendo "menu" para acceder a opciones automáticas disponibles 24/7.`);
       return;
     }
@@ -461,6 +465,51 @@ async function main(): Promise<void> {
   }
 
   // (silencio por contacto pausado) manejado arriba, para no duplicar llamadas.
+
+  // === CAPTURA DE RESPUESTAS A RECORDATORIOS ===
+  // Si el cliente está respondiendo a un recordatorio reciente, registrarlo
+  try {
+    let customerRecord: any = null;
+    try {
+      customerRecord = await apiClient.findCustomerByPhone(fromNorm);
+    } catch (e) {
+      // No customer found, continue
+    }
+
+    if (customerRecord && customerRecord.id) {
+      // Buscar recordatorios recientes (sent/pending) del cliente
+      try {
+        const recentReminders = await apiClient.getRecentRemindersByClient(customerRecord.id);
+
+        if (recentReminders && recentReminders.length > 0) {
+          const reminder = recentReminders[0];
+          const messageType = (message as any).hasMedia ? 'media' : 'text';
+          const messageContent = body || '[sin texto]';
+
+          await apiClient.logIncomingMessage(reminder.id, {
+            client_id: customerRecord.id,
+            content: messageContent.substring(0, 500),
+            message_type: messageType as any,
+            whatsapp_message_id: (message as any)?.id?._serialized || undefined,
+            metadata: {
+              from: fromNorm,
+              has_media: !!(message as any).hasMedia
+            }
+          });
+
+          logger.info({ reminderId: reminder.id, clientId: customerRecord.id, messageType }, 'Respuesta de cliente registrada');
+
+          // Marcar menú como NOT shown para evitar reenvíos posteriores
+          menuShown.delete(chatId);
+          lastMenuItems.delete(chatId);
+        }
+      } catch (e: any) {
+        logger.debug({ e, clientId: customerRecord.id }, 'Error buscando recordatorios recientes del cliente');
+      }
+    }
+  } catch (e: any) {
+    logger.debug({ e }, 'Error en captura de respuesta a recordatorio');
+  }
 
   // If we're awaiting a receipt from this chat, handle media uploads first
     if (awaitingReceipt.get(chatId)) {
@@ -2556,11 +2605,13 @@ async function main(): Promise<void> {
         return;
       }
 
-      // Si el usuario no pidió explícitamente el menú y no está en un proceso,
-      // no enviamos el menú automáticamente para evitar que vuelva a aparecer tras una respuesta válida.
-      // (En modo polling fallback esto se siente como "spam".)
-      if (!(lc === 'menu' || lc === 'inicio' || lc === 'help')) {
-        logger.debug({ chatId, lc }, 'No mostrar menú automáticamente (usuario no lo pidió)');
+      // Mostrar menú automáticamente solo en el primer mensaje de sesión (no-admin).
+      // En sesión activa, el usuario debe pedirlo explícitamente para evitar spam.
+      const isExplicitMenuRequest = (lc === 'menu' || lc === 'inicio' || lc === 'help');
+      const isSessionIdle = wasSessionIdleBeforeTouch;
+
+      if (!isExplicitMenuRequest && !isSessionIdle) {
+        logger.debug({ chatId, lc }, 'No mostrar menú automáticamente (sesión activa; usuario no lo pidió)');
         return;
       }
       const menuToUse = await resolveMenu();

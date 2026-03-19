@@ -227,7 +227,12 @@ class ConciliationController extends Controller
                         'channel' => $payment->channel ?? 'conciliation',
                         'reference' => 'conciliation:' . $conciliation->id,
                         'paid_at' => $conciliation->verified_at ?? now(),
-                        'metadata' => array_merge($payment->metadata ?? [], ['source_payment_id' => $payment->id, 'source_conciliation_id' => $conciliation->id, 'month_index' => $idx + 1]),
+                        'metadata' => array_merge($payment->metadata ?? [], [
+                            'source_payment_id' => $payment->id,
+                            'source_conciliation_id' => $conciliation->id,
+                            'month_index' => $idx + 1,
+                            'paid_for_month' => Carbon::parse($reminder->scheduled_for)->format('Y-m'),
+                        ]),
                     ];
 
                     Payment::create($payData);

@@ -43,7 +43,7 @@ class ConciliationPdfService
             'total_transactions' => -$total,
             'final_balance' => 0.00,
             'date' => $paidAt->format('Y-m-d'),
-            'concept' => $this->getPaymentConcept($months),
+            'concept' => $this->getPaymentConcept($payment, $months),
             'amount' => $total,
             'currency' => $payment->currency ?? 'CRC',
             'months' => $months,
@@ -89,14 +89,25 @@ class ConciliationPdfService
      * @param int $months
      * @return string
      */
-    private function getPaymentConcept(int $months): string
+    private function getPaymentConcept(Payment $payment, int $months): string
     {
-        $currentMonth = Carbon::now()->locale('es')->translatedFormat('F');
+        $baseMonth = Carbon::now(config('app.timezone'))->startOfMonth();
+        $paidForMonth = is_array($payment->metadata ?? null) ? ($payment->metadata['paid_for_month'] ?? null) : null;
+
+        if (is_string($paidForMonth) && preg_match('/^\d{4}-\d{2}$/', $paidForMonth) === 1) {
+            try {
+                $baseMonth = Carbon::createFromFormat('Y-m-d', $paidForMonth . '-01', config('app.timezone'))->startOfMonth();
+            } catch (\Throwable $e) {
+                // fallback a mes actual
+            }
+        }
+
+        $currentMonth = $baseMonth->copy()->locale('es')->translatedFormat('F');
         
         if ($months === 1) {
             return "Pago de {$currentMonth}";
         } elseif ($months === 2) {
-            $nextMonth = Carbon::now()->addMonth()->locale('es')->translatedFormat('F');
+            $nextMonth = $baseMonth->copy()->addMonth()->locale('es')->translatedFormat('F');
             return "Pago de {$currentMonth} y {$nextMonth}";
         } else {
             return "Pago de {$months} meses";

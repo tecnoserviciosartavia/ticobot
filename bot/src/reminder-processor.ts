@@ -79,19 +79,30 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   // Nombre de empresa: solo desde settings/UI (company_name). Si no existe, usar fallback mínimo.
   const companyName = String((config as any).companyName ?? '').trim() || 'Empresa';
   
-  // Get due date from payload or contract
-  let dueDate = payload.due_date ?? '';
-  if (!dueDate && reminder.contract?.next_due_date) {
-    const raw = String(reminder.contract.next_due_date);
+  // Prioridad de fecha: payload.due_date -> reminder.scheduled_for -> contract.next_due_date.
+  // Evita que reenvíos (5 PM) usen next_due_date ya movida al mes siguiente.
+  const formatDateForDisplay = (rawDate: unknown): string => {
+    const raw = String(rawDate ?? '').trim();
+    if (!raw) return '';
+
     // If backend returns a date-only string (YYYY-MM-DD), avoid JS Date() UTC shifting.
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-        const [y, m, d] = raw.split('-').map((v) => Number(v));
-        const local = new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0); // midday to avoid DST edge
-        dueDate = local.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
-    } else {
-        const dueDateObj = new Date(raw);
-        dueDate = dueDateObj.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
+      const [y, m, d] = raw.split('-').map((v) => Number(v));
+      const local = new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0); // midday to avoid DST edge
+      return local.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
     }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
+  };
+
+  let dueDate = formatDateForDisplay(payload.due_date);
+  if (!dueDate) {
+    dueDate = formatDateForDisplay(reminder.scheduled_for);
+  }
+  if (!dueDate && reminder.contract?.next_due_date) {
+    dueDate = formatDateForDisplay(reminder.contract.next_due_date);
   }
   
   // amount: prefer contract amount (from contract summary), then payload.amount
@@ -175,7 +186,12 @@ export class ReminderProcessor {
 
   private async processReminder(reminder: ReminderRecord): Promise<void> {
     try {
-      await apiClient.markQueued(reminder);
+      const claimed = await apiClient.claimReminder(reminder.id);
+
+      if (!claimed) {
+        logger.debug({ reminderId: reminder.id }, 'Recordatorio omitido porque ya fue reclamado por otro proceso');
+        return;
+      }
 
       await pRetry(() => this.sendReminder(reminder), {
         retries: 3,
@@ -280,6 +296,7 @@ export class ReminderProcessor {
           const messagePayload = buildMessage(reminderWithResendMessage);
           
           await this.whatsapp.sendReminder(reminder, messagePayload);
+          await apiClient.markResent(reminder.id);
           logger.info({ reminderId: reminder.id }, 'Recordatorio reenviado exitosamente');
           
           // Pequeña pausa entre mensajes para no saturar

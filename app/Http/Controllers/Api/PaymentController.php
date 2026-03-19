@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\Reminder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
@@ -76,8 +77,12 @@ class PaymentController extends Controller
             'channel' => ['required', 'string', 'max:50'],
             'reference' => ['nullable', 'string', 'max:100'],
             'paid_at' => ['nullable', 'date'],
+            'billing_month' => ['nullable', 'date_format:Y-m'],
             'metadata' => ['nullable', 'array'],
         ]);
+
+        $billingMonth = $data['billing_month'] ?? null;
+        unset($data['billing_month']);
 
         $contract = null;
 
@@ -121,6 +126,13 @@ class PaymentController extends Controller
             }
         }
 
+        $metadata = $data['metadata'] ?? [];
+        if ($billingMonth) {
+            $metadata['paid_for_month'] = $billingMonth;
+        } elseif (! isset($metadata['paid_for_month']) && ! empty($data['paid_at'])) {
+            $metadata['paid_for_month'] = Carbon::parse($data['paid_at'])->format('Y-m');
+        }
+
         $payment = Payment::create([
             'client_id' => $data['client_id'],
             'contract_id' => $contractId,
@@ -131,7 +143,7 @@ class PaymentController extends Controller
             'channel' => $data['channel'],
             'reference' => $data['reference'] ?? null,
             'paid_at' => $data['paid_at'] ?? null,
-            'metadata' => $data['metadata'] ?? [],
+            'metadata' => $metadata,
         ]);
 
         return response()->json($payment->load(['client', 'contract']), 201);
@@ -160,8 +172,12 @@ class PaymentController extends Controller
             'channel' => ['sometimes', 'required', 'string', 'max:50'],
             'reference' => ['nullable', 'string', 'max:100'],
             'paid_at' => ['nullable', 'date'],
+            'billing_month' => ['nullable', 'date_format:Y-m'],
             'metadata' => ['nullable', 'array'],
         ]);
+
+        $billingMonth = $data['billing_month'] ?? null;
+        unset($data['billing_month']);
 
         $targetContractId = $data['contract_id'] ?? $payment->contract_id;
 
@@ -199,6 +215,12 @@ class PaymentController extends Controller
 
         if (array_key_exists('metadata', $data)) {
             $payment->metadata = array_merge($payment->metadata ?? [], $data['metadata'] ?? []);
+        }
+
+        if ($billingMonth) {
+            $metadata = $payment->metadata ?? [];
+            $metadata['paid_for_month'] = $billingMonth;
+            $payment->metadata = $metadata;
         }
 
         $payment->save();

@@ -1,3 +1,4 @@
+import AccountingTabs from '@/Components/AccountingTabs';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 
@@ -6,6 +7,7 @@ interface StatusCurrencyRow {
   total_amount: number;
   total_count: number;
 }
+  const formatMoney = (v: number) => v.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 interface MonthlyPending {
   month: string;
@@ -18,11 +20,11 @@ interface MonthlyPending {
 interface Props {
   by_status_currency: Record<string, StatusCurrencyRow[]>;
   totals: Record<string, { amount: number; count: number }>;
+  active_contracts_total: number;
   total_months: number;
   daily: Array<{ date: string; verified_amount: number; pending_amount: number }>;
   conciliation_rate: number;
   monthly_pending: MonthlyPending[];
-  services_profit?: Array<{ id: number | null; name: string; revenue: number; cost: number; net: number; monthly_total?: number }>;
   clients_unpaid_after_reminder?: Array<{
     id: number;
     name: string;
@@ -38,8 +40,10 @@ interface Props {
   clients_unpaid_total?: Record<string, number>;
 }
 
-export default function AccountingIndex({ by_status_currency, totals, total_months, daily, conciliation_rate, monthly_pending, clients_unpaid_after_reminder, clients_unpaid_total, services_profit }: Props) {
+export default function AccountingIndex({ by_status_currency, totals, active_contracts_total, total_months, daily, conciliation_rate, monthly_pending, clients_unpaid_after_reminder, clients_unpaid_total }: Props) {
   const formatMoney = (v: number) => v.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const conciliatedAmount = totals.verified?.amount || 0;
+  const pendingFromContracts = Math.max(0, active_contracts_total - conciliatedAmount);
 
   const statusLabels: Record<string, string> = {
     verified: 'Conciliados',
@@ -53,30 +57,14 @@ export default function AccountingIndex({ by_status_currency, totals, total_mont
       <Head title="Contabilidad" />
       <div className="py-6">
         <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-8">
+          <AccountingTabs active="accounting" />
           {/* Tarjetas resumen - Mes actual */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryCard title="Monto conciliado" value={`CRC ${formatMoney(totals.verified?.amount || 0)}`} subtitle={`${totals.verified?.count || 0} pagos (mes actual)`} color="bg-green-50" />
-            <SummaryCard title="Monto pendiente" value={`CRC ${formatMoney((totals.unverified?.amount || 0) + (totals.in_review?.amount || 0))}`} subtitle={`${(totals.unverified?.count || 0) + (totals.in_review?.count || 0)} pagos (mes actual)`} color="bg-yellow-50" />
+            <SummaryCard title="Monto conciliado" value={`CRC ${formatMoney(conciliatedAmount)}`} subtitle={`${totals.verified?.count || 0} pagos conciliados (mes actual)`} color="bg-green-50" />
+            <SummaryCard title="Monto pendiente" value={`CRC ${formatMoney(pendingFromContracts)}`} subtitle="(total contratos activos - monto conciliado)" color="bg-yellow-50" />
             <SummaryCard title="Meses registrados" value={total_months.toString()} subtitle={`Mes actual (metadata 'months')`} color="bg-indigo-50" />
-            <SummaryCard title="% conciliado" value={`${conciliation_rate.toFixed(2)}%`} subtitle="(verificado / total contratos activos)" color="bg-blue-50" />
+            <SummaryCard title="% conciliado" value={`${conciliation_rate.toFixed(2)}%`} subtitle="(monto conciliado / total contratos activos)" color="bg-blue-50" />
           </div>
-
-          {/* Ganancia por plataforma */}
-          {services_profit && services_profit.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {services_profit.map(s => (
-                <div key={String(s.id) + s.name} className="rounded-lg p-4 border bg-white shadow">
-                  <div className="text-xs uppercase tracking-wide text-gray-500 font-semibold">{s.name}</div>
-                  <div className="text-lg font-bold text-gray-800">Ingreso: CRC {formatMoney(s.revenue)}</div>
-                  {typeof s.monthly_total === 'number' && (
-                    <div className="text-xs text-gray-500">Total mensual: CRC {formatMoney(s.monthly_total)}</div>
-                  )}
-                  <div className="text-sm text-gray-600">Costo: CRC {formatMoney(s.cost)}</div>
-                  <div className={`text-sm font-semibold ${s.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>Neto: CRC {formatMoney(s.net)}</div>
-                </div>
-              ))}
-            </div>
-          )}
 
           {/* Tabla por estado y moneda */}
           <div className="bg-white shadow rounded-lg p-4">
