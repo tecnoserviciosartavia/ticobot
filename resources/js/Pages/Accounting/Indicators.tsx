@@ -10,6 +10,7 @@ interface ServiceProfit {
     net: number;
     monthly_total?: number;
     currency?: string;
+    account_email?: string | null;
 }
 
 interface Props {
@@ -81,6 +82,9 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                             return (
                                 <div key={String(service.id) + service.name} className="rounded-lg border bg-white p-4 shadow">
                                     <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{service.name}</div>
+                                    {service.account_email && (
+                                        <div className="text-xs text-gray-400 mt-0.5">{service.account_email}</div>
+                                    )}
                                     <div className="mt-1 text-lg font-bold text-gray-800">Pagos de {selected_month_label}: CRC {formatMoney(service.revenue || 0)}</div>
                                     <div className="text-sm text-gray-600">Costo del período: CRC {formatMoney(service.cost || 0)}</div>
                                     <div className={`text-sm font-semibold ${gain >= 0 ? 'text-green-700' : 'text-red-700'}`}>
