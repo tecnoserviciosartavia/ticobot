@@ -29,7 +29,7 @@ interface ContractFormProps {
     data: ContractFormData;
     errors: Record<string, string | undefined>;
     clients: ClientOption[];
-    services: Array<{ id: number; name: string; price: string; currency: string }>;
+    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null }>;
     processing: boolean;
     submitLabel: string;
     onSubmit: FormEventHandler<HTMLFormElement>;
@@ -252,7 +252,7 @@ export default function ContractForm({
                     >
                         {services.map((s) => (
                             <option key={s.id} value={s.id}>
-                                {s.name} — {currencySymbol(s.currency)} {Number.parseFloat(s.price || '0').toFixed(2)}
+                                {s.name}{s.account_email ? ` (${s.account_email})` : ''} — {currencySymbol(s.currency)} {Number.parseFloat(s.price || '0').toFixed(2)}
                             </option>
                         ))}
                     </select>

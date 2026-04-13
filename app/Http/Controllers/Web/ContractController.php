@@ -95,6 +95,7 @@ class ContractController extends Controller
                 'name' => $s->name,
                 'price' => (string) $s->price,
                 'currency' => $s->currency,
+                'account_email' => $s->account_email,
             ]);
 
         return Inertia::render('Clients/Contracts/Create', [
@@ -237,6 +238,7 @@ class ContractController extends Controller
                 'name' => $s->name,
                 'price' => (string) $s->price,
                 'currency' => $s->currency,
+                'account_email' => $s->account_email,
             ]);
 
         return Inertia::render('Contracts/Create', [
@@ -552,6 +554,7 @@ class ContractController extends Controller
                 'name' => $s->name,
                 'price' => (string) $s->price,
                 'currency' => $s->currency,
+                'account_email' => $s->account_email,
             ]);
 
         $selectedServiceIds = $contract->services()->pluck('services.id')->values();

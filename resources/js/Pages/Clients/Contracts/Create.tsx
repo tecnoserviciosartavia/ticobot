@@ -5,7 +5,7 @@ import { Head, useForm } from '@inertiajs/react';
 
 interface CreateClientContractProps extends PageProps {
     client: { id: number; name: string };
-    services: Array<{ id: number; name: string; price: string; currency: string }>;
+    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null }>;
     defaultCurrency: string;
     defaultBillingCycle: string;
     returnTo: string;
