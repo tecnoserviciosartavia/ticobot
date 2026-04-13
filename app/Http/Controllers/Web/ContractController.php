@@ -472,7 +472,7 @@ class ContractController extends Controller
 
     public function show(Contract $contract): Response
     {
-        $contract->load(['client:id,name,email,phone', 'services:id,name,price,currency']);
+        $contract->load(['client:id,name,email,phone', 'services:id,name,price,currency,account_email']);
 
         $reminders = Reminder::query()
             ->where('contract_id', $contract->id)
@@ -521,6 +521,7 @@ class ContractController extends Controller
                         'name' => $s->name,
                         'price' => (string) $s->price,
                         'currency' => $s->currency,
+                        'account_email' => $s->account_email,
                         'quantity' => (int) ($s->pivot?->quantity ?? 1),
                     ]),
                 'billing_cycle' => $contract->billing_cycle,

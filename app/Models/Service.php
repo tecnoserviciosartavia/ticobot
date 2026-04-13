@@ -15,6 +15,7 @@ class Service extends Model
         'price',
         'cost',
         'payment_day',
+        'account_email',
         'currency',
         'is_active',
     ];

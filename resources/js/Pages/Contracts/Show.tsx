@@ -11,7 +11,7 @@ interface ContractResource {
     notes?: string | null;
     amount: string;
     currency: string | null;
-    services?: Array<{ id: number; name: string; price: string; currency: string; quantity?: number }>;
+    services?: Array<{ id: number; name: string; price: string; currency: string; quantity?: number; account_email?: string | null }>;
     billing_cycle: string;
     next_due_date: string | null;
     grace_period_days: number;
@@ -165,14 +165,19 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                                 {(contract.services ?? []).map((s) => (
                                                     <span
                                                         key={s.id}
-                                                        className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200"
+                                                        className="inline-flex flex-col rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200"
                                                     >
-                                                        {s.name}
-                                                        {Number(s.quantity ?? 1) > 1 ? ` x${Number(s.quantity ?? 1)}` : ''}
-                                                        {' '}({formatServicePriceLabel(
-                                                            String(Number.parseFloat(s.price || '0') * Number(s.quantity ?? 1)),
-                                                            s.currency,
-                                                        )})
+                                                        <span className="font-medium">
+                                                            {s.name}
+                                                            {Number(s.quantity ?? 1) > 1 ? ` x${Number(s.quantity ?? 1)}` : ''}
+                                                            {' '}({formatServicePriceLabel(
+                                                                String(Number.parseFloat(s.price || '0') * Number(s.quantity ?? 1)),
+                                                                s.currency,
+                                                            )})
+                                                        </span>
+                                                        {s.account_email && (
+                                                            <span className="mt-0.5 text-indigo-400 dark:text-indigo-400">{s.account_email}</span>
+                                                        )}
                                                     </span>
                                                 ))}
                                             </div>
