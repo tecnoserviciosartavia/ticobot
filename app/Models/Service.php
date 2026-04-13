@@ -16,6 +16,7 @@ class Service extends Model
         'cost',
         'payment_day',
         'account_email',
+        'max_profiles',
         'currency',
         'is_active',
     ];
@@ -24,6 +25,7 @@ class Service extends Model
         'price' => 'decimal:2',
         'cost' => 'decimal:2',
         'payment_day' => 'integer',
+        'max_profiles' => 'integer',
         'is_active' => 'bool',
     ];
 

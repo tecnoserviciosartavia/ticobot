@@ -29,7 +29,7 @@ interface ContractFormProps {
     data: ContractFormData;
     errors: Record<string, string | undefined>;
     clients: ClientOption[];
-    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null }>;
+    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
     processing: boolean;
     submitLabel: string;
     onSubmit: FormEventHandler<HTMLFormElement>;
@@ -250,11 +250,17 @@ export default function ContractForm({
                         required
                         size={Math.min(8, Math.max(4, services.length || 4))}
                     >
-                        {services.map((s) => (
-                            <option key={s.id} value={s.id}>
-                                {s.name}{s.account_email ? ` (${s.account_email})` : ''} — {currencySymbol(s.currency)} {Number.parseFloat(s.price || '0').toFixed(2)}
-                            </option>
-                        ))}
+                        {services.map((s) => {
+                            const isFull = s.max_profiles != null && (s.profiles_used ?? 0) >= s.max_profiles;
+                            const slotLabel = s.max_profiles != null
+                                ? ` [${s.profiles_used ?? 0}/${s.max_profiles}${isFull ? ' LLENO' : ''}]`
+                                : '';
+                            return (
+                                <option key={s.id} value={s.id}>
+                                    {s.name}{s.account_email ? ` (${s.account_email})` : ''}{slotLabel} — {currencySymbol(s.currency)} {Number.parseFloat(s.price || '0').toFixed(2)}
+                                </option>
+                            );
+                        })}
                     </select>
 
                     {selectedServices.length > 0 && (
@@ -266,9 +272,27 @@ export default function ContractForm({
                                     .sort((a, b) => a.name.localeCompare(b.name))
                                     .map((s) => {
                                         const q = getQty(s.id);
+                                        const isFull = s.max_profiles != null && (s.profiles_used ?? 0) >= s.max_profiles;
+                                        const isOver = s.max_profiles != null && (s.profiles_used ?? 0) + q > s.max_profiles;
                                         return (
-                                            <label key={s.id} className="flex items-center justify-between gap-3 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2">
-                                                <span className="text-sm text-gray-700 dark:text-gray-200">{s.name}</span>
+                                            <label key={s.id} className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 ${
+                                                isOver ? 'border-red-400 bg-red-50 dark:bg-red-900/20' :
+                                                isFull ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' :
+                                                'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                                            }`}>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm text-gray-700 dark:text-gray-200">{s.name}</span>
+                                                    {s.max_profiles != null && (
+                                                        <span className={`text-xs ${
+                                                            isOver ? 'text-red-600 font-semibold' :
+                                                            isFull ? 'text-yellow-600 font-semibold' :
+                                                            'text-gray-400'
+                                                        }`}>
+                                                            {(s.profiles_used ?? 0) + q}/{s.max_profiles} perfiles
+                                                            {isOver ? ' ⚠️ supera capacidad' : isFull ? ' ⚠️ lleno' : ''}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <input
                                                     type="number"
                                                     min={1}

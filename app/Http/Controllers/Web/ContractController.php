@@ -86,17 +86,10 @@ class ContractController extends Controller
 
     public function createForClient(Client $client): Response
     {
-        $services = Service::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get()
-            ->map(fn (Service $s) => [
-                'id' => $s->id,
-                'name' => $s->name,
-                'price' => (string) $s->price,
-                'currency' => $s->currency,
-                'account_email' => $s->account_email,
-            ]);
+        $services = $this->mapServices(
+            Service::query()->where('is_active', true)->orderBy('name')->get(),
+            $this->serviceUsageCounts()
+        );
 
         return Inertia::render('Clients/Contracts/Create', [
             'client' => $client->only(['id', 'name']),
@@ -229,17 +222,10 @@ class ContractController extends Controller
             ->orderBy('name')
             ->get();
 
-        $services = Service::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get()
-            ->map(fn (Service $s) => [
-                'id' => $s->id,
-                'name' => $s->name,
-                'price' => (string) $s->price,
-                'currency' => $s->currency,
-                'account_email' => $s->account_email,
-            ]);
+        $services = $this->mapServices(
+            Service::query()->where('is_active', true)->orderBy('name')->get(),
+            $this->serviceUsageCounts()
+        );
 
         return Inertia::render('Contracts/Create', [
             'clients' => $clients,
@@ -545,17 +531,10 @@ class ContractController extends Controller
             ->orderBy('name')
             ->get();
 
-        $services = Service::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get()
-            ->map(fn (Service $s) => [
-                'id' => $s->id,
-                'name' => $s->name,
-                'price' => (string) $s->price,
-                'currency' => $s->currency,
-                'account_email' => $s->account_email,
-            ]);
+        $services = $this->mapServices(
+            Service::query()->where('is_active', true)->orderBy('name')->get(),
+            $this->serviceUsageCounts($contract->id)
+        );
 
         $selectedServiceIds = $contract->services()->pluck('services.id')->values();
         $selectedServiceQuantities = $contract->services()
@@ -736,4 +715,40 @@ class ContractController extends Controller
         }
         return $out;
     }
+
+    /**
+     * Retorna un mapa service_id => total de perfiles asignados en contratos activos.
+     * Excluye opcionalmente un contrato (cuando se está editando).
+     */
+    private function serviceUsageCounts(?int $excludeContractId = null): array
+    {
+        $query = DB::table('contract_service')
+            ->join('contracts', 'contracts.id', '=', 'contract_service.contract_id')
+            ->whereNull('contracts.deleted_at')
+            ->select('contract_service.service_id', DB::raw('SUM(contract_service.quantity) as total_used'));
+
+        if ($excludeContractId) {
+            $query->where('contract_service.contract_id', '!=', $excludeContractId);
+        }
+
+        return $query
+            ->groupBy('contract_service.service_id')
+            ->pluck('total_used', 'service_id')
+            ->map(fn ($v) => (int) $v)
+            ->toArray();
+    }
+
+    private function mapServices(iterable $services, array $usageCounts): array
+    {
+        return collect($services)->map(fn (Service $s) => [
+            'id' => $s->id,
+            'name' => $s->name,
+            'price' => (string) $s->price,
+            'currency' => $s->currency,
+            'account_email' => $s->account_email,
+            'max_profiles' => $s->max_profiles,
+            'profiles_used' => (int) ($usageCounts[$s->id] ?? 0),
+        ])->values()->all();
+    }
 }
+

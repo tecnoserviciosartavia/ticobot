@@ -21,7 +21,7 @@ interface ContractResource {
 interface ContractsEditProps extends PageProps<{
     contract: ContractResource;
     clients: Array<{ id: number; name: string }>;
-    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null }>;
+    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
 }> {}
 
 export default function ContractsEdit({ contract, clients, services }: ContractsEditProps) {

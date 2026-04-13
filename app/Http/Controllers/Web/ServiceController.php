@@ -24,6 +24,7 @@ class ServiceController extends Controller
                 'cost' => (string) ($s->cost ?? '0.00'),
                 'payment_day' => $s->payment_day,
                 'account_email' => $s->account_email,
+                'max_profiles' => $s->max_profiles,
                 'currency' => $s->currency,
                 'is_active' => (bool) $s->is_active,
                 'updated_at' => $s->updated_at?->toIso8601String(),
@@ -67,6 +68,7 @@ class ServiceController extends Controller
             'cost' => ['nullable', 'numeric', 'min:0'],
             'payment_day' => ['nullable', 'integer', 'min:1', 'max:31'],
             'account_email' => ['nullable', 'email', 'max:255'],
+            'max_profiles' => ['nullable', 'integer', 'min:1'],
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'is_active' => ['nullable', 'boolean'],
         ]);
@@ -77,6 +79,7 @@ class ServiceController extends Controller
             'cost' => array_key_exists('cost', $data) ? $data['cost'] : 0,
             'payment_day' => array_key_exists('payment_day', $data) ? $data['payment_day'] : null,
             'account_email' => $data['account_email'] ?? null,
+            'max_profiles' => isset($data['max_profiles']) && $data['max_profiles'] !== '' ? (int) $data['max_profiles'] : null,
             'currency' => strtoupper($data['currency']),
             'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : true,
         ];
