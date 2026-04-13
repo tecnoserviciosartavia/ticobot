@@ -157,6 +157,51 @@ class WhatsAppNotificationService
     }
 
     /**
+     * Envía credenciales de acceso a plataformas por WhatsApp al cliente.
+     * Retorna la cantidad de mensajes enviados con éxito.
+     *
+     * @param string $phone
+     * @param array<int, array{name:string, account_email:?string, password:?string, pin:?string}> $services
+     */
+    public function sendPlatformAccessMessages(string $phone, array $services): int
+    {
+        $sent = 0;
+        foreach ($services as $service) {
+            $name = strtoupper($service['name'] ?? '');
+            $email = $service['account_email'] ?? null;
+            $password = $service['password'] ?? null;
+            $pin = $service['pin'] ?? null;
+
+            if (! $email && ! $password) {
+                continue;
+            }
+
+            $lines = [];
+            $lines[] = "Para acceder a la plataforma de {$name} por favor proporcione los siguientes datos:";
+            $lines[] = '';
+            if ($email) {
+                $lines[] = "Correo electrónico: {$email}";
+            }
+            if ($password) {
+                $lines[] = "Contraseña: {$password}";
+            }
+            $lines[] = '';
+            $lines[] = 'Al ingresar a su cuenta, verá un perfil con su nombre';
+            if ($pin) {
+                $lines[] = '';
+                $lines[] = "Para verificar el funcionamiento del servicio, se le solicitará ingresar un PIN: {$pin}";
+            }
+
+            $message = implode("\n", $lines);
+            if ($this->sendTextMessage($phone, $message)) {
+                $sent++;
+            }
+        }
+
+        return $sent;
+    }
+
+    /**
      * Envía un mensaje de texto simple por WhatsApp
      *
      * @param string $phone Número de teléfono del cliente

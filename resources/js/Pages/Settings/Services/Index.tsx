@@ -10,7 +10,10 @@ type ServiceItem = {
     cost?: string;
     payment_day?: number | null;
     account_email?: string | null;
+    password?: string | null;
+    pin?: string | null;
     max_profiles?: number | null;
+    profiles_used?: number;
     currency: 'CRC' | 'USD';
     is_active: boolean;
     updated_at?: string | null;
@@ -36,6 +39,8 @@ export default function ServicesSettingsIndex({ services }: Props) {
         cost: '0',
         payment_day: '',
         account_email: '',
+        password: '',
+        pin: '',
         max_profiles: '',
         currency: 'CRC' as 'CRC' | 'USD',
         is_active: true,
@@ -48,6 +53,8 @@ export default function ServicesSettingsIndex({ services }: Props) {
         cost: '0',
         payment_day: '',
         account_email: '',
+        password: '',
+        pin: '',
         max_profiles: '',
         currency: 'CRC' as 'CRC' | 'USD',
         is_active: true,
@@ -61,6 +68,8 @@ export default function ServicesSettingsIndex({ services }: Props) {
             cost: String(s.cost ?? '0'),
             payment_day: s.payment_day ? String(s.payment_day) : '',
             account_email: s.account_email ?? '',
+            password: s.password ?? '',
+            pin: s.pin ?? '',
             max_profiles: s.max_profiles ? String(s.max_profiles) : '',
             currency: s.currency,
             is_active: !!s.is_active,
@@ -158,7 +167,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 />
                                 {createForm.errors.payment_day && <div className="mt-1 text-sm text-red-600">{createForm.errors.payment_day}</div>}
                             </div>
-                            <div className="md:col-span-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="md:col-span-5 grid grid-cols-1 gap-4 md:grid-cols-3">
                                 <div>
                                     <label className="block text-sm font-medium">Correo de la cuenta</label>
                                     <input
@@ -171,17 +180,39 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                     {createForm.errors.account_email && <div className="mt-1 text-sm text-red-600">{createForm.errors.account_email}</div>}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium">Máximo de perfiles</label>
+                                    <label className="block text-sm font-medium">Contraseña de la cuenta</label>
                                     <input
-                                        type="number"
-                                        min="1"
-                                        value={createForm.data.max_profiles as any}
-                                        onChange={(e) => createForm.setData('max_profiles', e.target.value)}
+                                        type="text"
+                                        value={createForm.data.password}
+                                        onChange={(e) => createForm.setData('password', e.target.value)}
                                         className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                        placeholder="Ej: 6"
+                                        placeholder="Ej: Carne*2026"
                                     />
-                                    {createForm.errors.max_profiles && <div className="mt-1 text-sm text-red-600">{createForm.errors.max_profiles}</div>}
+                                    {createForm.errors.password && <div className="mt-1 text-sm text-red-600">{createForm.errors.password}</div>}
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium">PIN de verificación</label>
+                                    <input
+                                        type="text"
+                                        value={createForm.data.pin}
+                                        onChange={(e) => createForm.setData('pin', e.target.value)}
+                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                        placeholder="Ej: 2025"
+                                    />
+                                    {createForm.errors.pin && <div className="mt-1 text-sm text-red-600">{createForm.errors.pin}</div>}
+                                </div>
+                            </div>
+                            <div className="md:col-span-5">
+                                <label className="block text-sm font-medium">Máximo de perfiles</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={createForm.data.max_profiles as any}
+                                    onChange={(e) => createForm.setData('max_profiles', e.target.value)}
+                                    className="mt-1 block w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    placeholder="Ej: 6"
+                                />
+                                {createForm.errors.max_profiles && <div className="mt-1 text-sm text-red-600">{createForm.errors.max_profiles}</div>}
                             </div>
                             <div className="flex gap-3 items-center justify-between">
                                 <div className="flex-1">
@@ -237,7 +268,9 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                         <th className="py-2 pr-4">Costo</th>
                                             <th className="py-2 pr-4">Día de pago</th>
                                         <th className="py-2 pr-4">Correo de cuenta</th>
-                                        <th className="py-2 pr-4">Perfiles max.</th>
+                                        <th className="py-2 pr-4">Contraseña</th>
+                                        <th className="py-2 pr-4">PIN</th>
+                                        <th className="py-2 pr-4">Perfiles</th>
                                         <th className="py-2 pr-4">Moneda</th>
                                         <th className="py-2 pr-4">Activo</th>
                                         <th className="py-2">Acciones</th>
@@ -246,7 +279,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {services.length === 0 ? (
                                         <tr>
-                                            <td colSpan={9} className="py-6 text-sm text-gray-500">
+                                            <td colSpan={11} className="py-6 text-sm text-gray-500">
                                                 No hay servicios.
                                             </td>
                                         </tr>
@@ -341,6 +374,38 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                                     <td className="py-2 pr-4">
                                                         {isEditing ? (
                                                             <input
+                                                                type="text"
+                                                                value={editForm.data.password}
+                                                                onChange={(e) => editForm.setData('password', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                                placeholder="Contraseña"
+                                                            />
+                                                        ) : (
+                                                            s.password ? <span className="font-mono text-xs">{s.password}</span> : '—'
+                                                        )}
+                                                        {isEditing && editForm.errors.password && (
+                                                            <div className="mt-1 text-xs text-red-600">{editForm.errors.password}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 pr-4">
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="text"
+                                                                value={editForm.data.pin}
+                                                                onChange={(e) => editForm.setData('pin', e.target.value)}
+                                                                className="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                                placeholder="PIN"
+                                                            />
+                                                        ) : (
+                                                            s.pin ?? '—'
+                                                        )}
+                                                        {isEditing && editForm.errors.pin && (
+                                                            <div className="mt-1 text-xs text-red-600">{editForm.errors.pin}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 pr-4">
+                                                        {isEditing ? (
+                                                            <input
                                                                 type="number"
                                                                 min="1"
                                                                 value={editForm.data.max_profiles as any}
@@ -349,7 +414,15 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                                                 placeholder="—"
                                                             />
                                                         ) : (
-                                                            s.max_profiles ?? '—'
+                                                            s.max_profiles != null ? (
+                                                                <span className={`text-xs font-semibold ${
+                                                                    (s.profiles_used ?? 0) >= s.max_profiles ? 'text-red-600' :
+                                                                    (s.profiles_used ?? 0) >= s.max_profiles * 0.8 ? 'text-yellow-600' :
+                                                                    'text-green-700'
+                                                                }`}>
+                                                                    {s.profiles_used ?? 0}/{s.max_profiles}
+                                                                </span>
+                                                            ) : '—'
                                                         )}
                                                         {isEditing && editForm.errors.max_profiles && (
                                                             <div className="mt-1 text-xs text-red-600">{editForm.errors.max_profiles}</div>

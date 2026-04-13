@@ -8,6 +8,7 @@ use App\Models\Contract;
 use App\Models\Service;
 use App\Models\Payment;
 use App\Models\Reminder;
+use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -151,6 +152,9 @@ class ContractController extends Controller
             $net = max(0, (float) $total - (float) $contract->discount_amount);
             $contract->forceFill(['amount' => $net])->save();
         }
+
+        // Enviar credenciales de acceso al cliente por WhatsApp
+        $this->sendAccessMessages($contract, app(WhatsAppNotificationService::class));
 
         return redirect()
             ->route('clients.show', $client)
@@ -455,12 +459,15 @@ class ContractController extends Controller
         }
         $contract->services()->sync($syncData);
 
+        // Enviar credenciales de acceso al cliente por WhatsApp
+        $this->sendAccessMessages($contract, app(WhatsAppNotificationService::class));
+
         return redirect()->route('contracts.show', $contract);
     }
 
     public function show(Contract $contract): Response
     {
-        $contract->load(['client:id,name,email,phone', 'services:id,name,price,currency,account_email']);
+        $contract->load(['client:id,name,email,phone', 'services:id,name,price,currency,account_email,password,pin']);
 
         $reminders = Reminder::query()
             ->where('contract_id', $contract->id)
@@ -510,6 +517,8 @@ class ContractController extends Controller
                         'price' => (string) $s->price,
                         'currency' => $s->currency,
                         'account_email' => $s->account_email,
+                        'password' => $s->password,
+                        'pin' => $s->pin,
                         'quantity' => (int) ($s->pivot?->quantity ?? 1),
                     ]),
                 'billing_cycle' => $contract->billing_cycle,
@@ -716,8 +725,37 @@ class ContractController extends Controller
         return $out;
     }
 
+    public function resendAccess(Contract $contract): RedirectResponse
+    {
+        $sent = $this->sendAccessMessages($contract, app(WhatsAppNotificationService::class));
+        if ($sent > 0) {
+            return redirect()->back()->with('success', "Accesos reenviados ({$sent} mensaje(s) enviado(s)).");
+        }
+        return redirect()->back()->with('error', 'No se pudieron enviar los accesos. Verifique que el cliente tenga teléfono y los servicios tengan credenciales configuradas.');
+    }
+
+    private function sendAccessMessages(Contract $contract, WhatsAppNotificationService $whatsApp): int
+    {
+        $contract->loadMissing(['client:id,name,phone', 'services:id,name,account_email,password,pin']);
+
+        $phone = $contract->client?->phone ?? null;
+        if (! $phone) {
+            return 0;
+        }
+
+        $servicesData = $contract->services
+            ->map(fn (Service $s) => [
+                'name' => $s->name,
+                'account_email' => $s->account_email,
+                'password' => $s->password,
+                'pin' => $s->pin,
+            ])
+            ->all();
+
+        return $whatsApp->sendPlatformAccessMessages($phone, $servicesData);
+    }
+
     /**
-     * Retorna un mapa service_id => total de perfiles asignados en contratos activos.
      * Excluye opcionalmente un contrato (cuando se está editando).
      */
     private function serviceUsageCounts(?int $excludeContractId = null): array

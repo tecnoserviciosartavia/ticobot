@@ -48,6 +48,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('clients', WebClientController::class);
     Route::resource('contracts', WebContractController::class)->except(['destroy']);
     Route::delete('contracts/{contract}', [WebContractController::class, 'destroy'])->name('contracts.destroy');
+    Route::post('contracts/{contract}/resend-access', [WebContractController::class, 'resendAccess'])->name('contracts.resend-access');
     Route::resource('reminders', WebReminderController::class)->except(['destroy']);
     Route::get('/payments', [WebPaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/create', [WebPaymentController::class, 'create'])->name('payments.create');

@@ -1,7 +1,7 @@
 import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { labelForBillingCycle, labelForStatus } from '@/lib/labels';
 
 interface ContractResource {
@@ -11,7 +11,7 @@ interface ContractResource {
     notes?: string | null;
     amount: string;
     currency: string | null;
-    services?: Array<{ id: number; name: string; price: string; currency: string; quantity?: number; account_email?: string | null }>;
+    services?: Array<{ id: number; name: string; price: string; currency: string; quantity?: number; account_email?: string | null; password?: string | null; pin?: string | null }>;
     billing_cycle: string;
     next_due_date: string | null;
     grace_period_days: number;
@@ -124,6 +124,13 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                         >
                             ← Volver
                         </Link>
+                        <button
+                            type="button"
+                            onClick={() => router.post(route('contracts.resend-access', contract.id))}
+                            className="inline-flex items-center rounded-md border border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/30 px-4 py-2 text-sm font-medium text-green-700 dark:text-green-300 shadow-sm transition hover:bg-green-100 dark:hover:bg-green-800/40"
+                        >
+                            Reenviar accesos
+                        </button>
                         <Link
                             href={route('contracts.edit', contract.id)}
                             className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700"
@@ -177,6 +184,12 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                                         </span>
                                                         {s.account_email && (
                                                             <span className="mt-0.5 text-indigo-400 dark:text-indigo-400">{s.account_email}</span>
+                                                        )}
+                                                        {s.password && (
+                                                            <span className="mt-0.5 font-mono text-indigo-300 dark:text-indigo-400">{s.password}</span>
+                                                        )}
+                                                        {s.pin && (
+                                                            <span className="mt-0.5 text-indigo-300 dark:text-indigo-400">PIN: {s.pin}</span>
                                                         )}
                                                     </span>
                                                 ))}

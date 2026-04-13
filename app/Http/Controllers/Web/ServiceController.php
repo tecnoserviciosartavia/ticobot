@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Service;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -14,6 +15,14 @@ class ServiceController extends Controller
 {
     public function index(): Response
     {
+        $usageCounts = DB::table('contract_service')
+            ->join('contracts', 'contracts.id', '=', 'contract_service.contract_id')
+            ->whereNull('contracts.deleted_at')
+            ->groupBy('contract_service.service_id')
+            ->pluck(DB::raw('SUM(contract_service.quantity)'), 'contract_service.service_id')
+            ->map(fn ($v) => (int) $v)
+            ->toArray();
+
         $services = Service::query()
             ->orderBy('name')
             ->get()
@@ -24,7 +33,10 @@ class ServiceController extends Controller
                 'cost' => (string) ($s->cost ?? '0.00'),
                 'payment_day' => $s->payment_day,
                 'account_email' => $s->account_email,
+                'password' => $s->password,
+                'pin' => $s->pin,
                 'max_profiles' => $s->max_profiles,
+                'profiles_used' => (int) ($usageCounts[$s->id] ?? 0),
                 'currency' => $s->currency,
                 'is_active' => (bool) $s->is_active,
                 'updated_at' => $s->updated_at?->toIso8601String(),
@@ -68,6 +80,8 @@ class ServiceController extends Controller
             'cost' => ['nullable', 'numeric', 'min:0'],
             'payment_day' => ['nullable', 'integer', 'min:1', 'max:31'],
             'account_email' => ['nullable', 'email', 'max:255'],
+            'password' => ['nullable', 'string', 'max:255'],
+            'pin' => ['nullable', 'string', 'max:64'],
             'max_profiles' => ['nullable', 'integer', 'min:1'],
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'is_active' => ['nullable', 'boolean'],
@@ -79,6 +93,8 @@ class ServiceController extends Controller
             'cost' => array_key_exists('cost', $data) ? $data['cost'] : 0,
             'payment_day' => array_key_exists('payment_day', $data) ? $data['payment_day'] : null,
             'account_email' => $data['account_email'] ?? null,
+            'password' => $data['password'] ?? null,
+            'pin' => $data['pin'] ?? null,
             'max_profiles' => isset($data['max_profiles']) && $data['max_profiles'] !== '' ? (int) $data['max_profiles'] : null,
             'currency' => strtoupper($data['currency']),
             'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : true,

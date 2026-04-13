@@ -16,6 +16,8 @@ class Service extends Model
         'cost',
         'payment_day',
         'account_email',
+        'password',
+        'pin',
         'max_profiles',
         'currency',
         'is_active',
