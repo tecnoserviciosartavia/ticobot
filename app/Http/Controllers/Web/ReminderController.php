@@ -183,7 +183,7 @@ class ReminderController extends Controller
             }
         }
 
-        $reminder = Reminder::create([
+        $reminder = Reminder::createOpenUnique([
             'client_id' => $payload['client_id'],
             'contract_id' => $payload['contract_id'],
             'channel' => $payload['channel'],

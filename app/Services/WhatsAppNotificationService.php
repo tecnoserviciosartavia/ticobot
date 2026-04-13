@@ -166,9 +166,22 @@ class WhatsAppNotificationService
     public function sendTextMessage(string $phone, string $message): bool
     {
         try {
-            // Este método podría implementarse si el bot expone un endpoint para enviar mensajes de texto
-            // Por ahora, retornamos true ya que el mensaje se envía junto con el PDF
-            return true;
+            $response = Http::timeout(10)
+                ->post("{$this->botWebhookUrl}/webhook/send_text", [
+                    'phone' => $phone,
+                    'message' => $message,
+                ]);
+
+            if ($response->successful()) {
+                return true;
+            }
+
+            Log::warning('Error al enviar mensaje de texto por bot webhook', [
+                'phone' => $phone,
+                'status' => $response->status(),
+                'response' => $response->body(),
+            ]);
+            return false;
         } catch (\Exception $e) {
             Log::error('Error al enviar mensaje de texto', [
                 'phone' => $phone,

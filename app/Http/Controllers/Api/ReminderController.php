@@ -147,8 +147,10 @@ class ReminderController extends Controller
             }
         }
 
-        $reminder = Reminder::create([
-            ...$data,
+        $reminder = Reminder::createOpenUnique([
+            'contract_id' => $data['contract_id'],
+            'client_id' => $data['client_id'],
+            'channel' => $data['channel'],
             'scheduled_for' => $scheduled,
             'status' => $data['status'] ?? 'pending',
             'payload' => $payload,
@@ -232,7 +234,7 @@ class ReminderController extends Controller
                         $nextPayload['amount'] = isset($reminder->payload['amount']) ? $reminder->payload['amount'] : optional($reminder->contract)->amount;
                     }
 
-                    Reminder::create([
+                    Reminder::createOpenUnique([
                         'contract_id' => $reminder->contract_id,
                         'client_id' => $reminder->client_id,
                         'channel' => $reminder->channel,

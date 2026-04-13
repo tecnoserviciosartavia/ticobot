@@ -102,6 +102,19 @@ async function main(): Promise<void> {
   const _AGENT_TIMEOUT_MS = Number(process.env.AGENT_TIMEOUT_MS || 60 * 60 * 1000);
   const chatTimeoutMs = new Map<string, number>();
   const chatTimers = new Map<string, NodeJS.Timeout>();
+  const lastInteractionDate = new Map<string, string>();
+
+  function resetChatState(chatId: string, reason: string, options?: { clearTimer?: boolean }) {
+    menuShown.delete(chatId);
+    lastMenuItems.delete(chatId);
+    agentMode.delete(chatId);
+    awaitingReceipt.delete(chatId);
+    awaitingMonths.delete(chatId);
+    pendingConfirmReceipt.delete(chatId);
+    chatTimeoutMs.delete(chatId);
+    if (options?.clearTimer) clearTimer(chatId);
+    logger.info({ chatId, reason }, 'Estado transient del chat reiniciado');
+  }
 
   function clearTimer(chatId: string) {
     const t = chatTimers.get(chatId);
@@ -115,13 +128,7 @@ async function main(): Promise<void> {
     clearTimer(chatId);
     const timeout = chatTimeoutMs.get(chatId) || BOT_TIMEOUT_MS;
     const timer = setTimeout(() => {
-      menuShown.delete(chatId);
-      lastMenuItems.delete(chatId);
-      agentMode.delete(chatId);  // Limpiar modo agente después del timeout
-      awaitingReceipt.delete(chatId);  // Limpiar espera de comprobante
-      awaitingMonths.delete(chatId);  // Limpiar espera de meses
-      pendingConfirmReceipt.delete(chatId);  // Limpiar confirmación pendiente
-      chatTimeoutMs.delete(chatId);
+      resetChatState(chatId, 'inactivity_timeout');
       chatTimers.delete(chatId);
       logger.info({ chatId, timeoutMs: timeout }, 'Chat timeout: estado limpiado por inactividad');
     }, timeout);
@@ -176,6 +183,18 @@ async function main(): Promise<void> {
       day: dayMap[obj.weekday] ?? 0,
       minutes: Number(obj.hour) * 60 + Number(obj.minute)
     };
+  }
+
+  function getLocalDateKey(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(date);
+    const obj: Record<string, string> = {};
+    for (const p of parts) obj[p.type] = p.value;
+    return `${obj.year}-${obj.month}-${obj.day}`;
   }
 
   function _isWithinBusinessHours(now = new Date()) {
@@ -330,6 +349,22 @@ async function main(): Promise<void> {
   }
 
   const body = String(message.body ?? '').trim();
+  // Ignorar mensajes viejos (backlog al reconectar) para evitar respuestas tardías/duplicadas.
+  // whatsapp-web.js entrega timestamp en segundos epoch; usamos una ventana configurable.
+  try {
+    const tsRaw = Number((message as any)?.timestamp);
+    if (Number.isFinite(tsRaw) && tsRaw > 0) {
+      const msgTsMs = tsRaw * 1000;
+      const ageMs = Date.now() - msgTsMs;
+      const maxAgeMs = Number(process.env.BOT_MAX_INBOUND_AGE_MS || 2 * 60 * 1000);
+      if (Number.isFinite(maxAgeMs) && maxAgeMs > 0 && ageMs > maxAgeMs) {
+        logger.info({ chatId: message.from, timestamp: tsRaw, ageMs, maxAgeMs }, 'Mensaje viejo ignorado (backlog)');
+        return;
+      }
+    }
+  } catch (e) {
+    logger.debug({ e }, 'No se pudo evaluar antiguedad del mensaje entrante');
+  }
   // allow empty textual body if there's media attached (media-only messages)
   if (!body && !((message as any).hasMedia)) {
     if (String(message.from || '').endsWith('@lid')) {
@@ -536,6 +571,15 @@ async function main(): Promise<void> {
     } catch (e) {
       logger.debug({ e }, 'touchTimer fallo');
     }
+
+    const todayKey = getLocalDateKey();
+    const lastDateKey = lastInteractionDate.get(chatId);
+    const startedNewLocalDay = Boolean(lastDateKey && lastDateKey !== todayKey);
+    if (startedNewLocalDay) {
+      resetChatState(chatId, 'new_local_day');
+      logger.info({ chatId, lastDateKey, todayKey, timezone: TIMEZONE }, 'Chat reiniciado por cambio de dia local');
+    }
+    lastInteractionDate.set(chatId, todayKey);
 
   // Business hours check: admins and ongoing processes always bypass
   // Regular users can now use the menu and automatic options 24/7, but agent requests notify about off-hours
@@ -2388,15 +2432,7 @@ async function main(): Promise<void> {
     // Handle explicit exit command: clear any pending menu or agent mode
     if (lc === 'salir' || lc === 'exit') {
       const wasAgent = !!agentMode.get(chatId);
-      menuShown.delete(chatId);
-      lastMenuItems.delete(chatId);
-      agentMode.delete(chatId);
-      awaitingReceipt.delete(chatId);
-      awaitingMonths.delete(chatId);
-      pendingConfirmReceipt.delete(chatId);
-      // reset any per-chat timeout to default
-      chatTimeoutMs.delete(chatId);
-      clearTimer(chatId);
+      resetChatState(chatId, 'explicit_exit', { clearTimer: true });
       if (wasAgent) {
         await message.reply('Has salido del menú. Si deseas volver a ver las opciones escribe "menu".');
       } else {
@@ -2711,17 +2747,15 @@ async function main(): Promise<void> {
     }
 
 
-    // Menu not active (idle): by default DO NOT spam the menu.
+    // Menu not active (idle): do not auto-send menu on arbitrary messages.
     // Only show the full menu when the user explicitly asks for it (handled above via lc === 'menu'|'inicio'|'help'),
     // or when we are already in menuShown state.
     try {
-      // Si el chat quedó en modo agente y el usuario vuelve a escribir,
-      // reactivamos el bot para mostrar menú automáticamente.
+      // Si el chat quedó en modo agente, NO mostrar menú automáticamente.
+      // La salida de modo agente debe ser explícita (menu/inicio/help/salir) o por timeout.
       if (agentMode.get(chatId)) {
-        agentMode.delete(chatId);
-        chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
-        try { touchTimer(chatId); } catch { /* ignore */ }
-        logger.info({ chatId }, 'Modo agente desactivado por nuevo mensaje; se mostrará menú');
+        logger.info({ chatId }, 'Mensaje ignorado: chat en modo agente');
+        return;
       }
 
       // Para admins: no mostrar el menú normal automáticamente.
@@ -2731,8 +2765,14 @@ async function main(): Promise<void> {
         return;
       }
 
-      // Requisito actual: para no-admin, cualquier mensaje debe llevar al menú principal.
-      await showMainMenu();
+      if (startedNewLocalDay) {
+        await showMainMenu();
+        return;
+      }
+
+      // No enviar menú automático: evitamos bucles de menú y respuestas inesperadas.
+      // Guía mínima para que el usuario solicite el menú cuando lo necesite.
+      await message.reply('Escribe "menu" para ver las opciones disponibles o "agente" para hablar con un asesor.');
       return;
     } catch (error: any) {
       logger.error({
@@ -3181,6 +3221,41 @@ async function main(): Promise<void> {
             return;
           } catch (e: any) {
             logger.warn({ e, chatId, paymentId }, 'Error enviando PDF de pago manual al cliente');
+            const msg = String(e && e.message ? e.message : e);
+            const status = msg.toLowerCase().includes('not ready') ? 503 : 500;
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: msg }));
+            return;
+          }
+        }
+
+        // Endpoint para enviar texto directo a un número (usado por backend para avisos admin)
+        if (req.method === 'POST' && u.pathname === '/webhook/send_text') {
+          let raw = '';
+          for await (const chunk of req) raw += chunk;
+          const payload = raw ? JSON.parse(raw) : {};
+          const phone = payload.phone ?? null;
+          const message = String(payload.message ?? '').trim();
+
+          if (!phone || !message) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'phone and message are required' }));
+            return;
+          }
+
+          const chatId = normalizeToChatId(String(phone));
+          if (!chatId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'invalid phone format' }));
+            return;
+          }
+
+          try {
+            await whatsappClient.sendText(chatId, message);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          } catch (e: any) {
             const msg = String(e && e.message ? e.message : e);
             const status = msg.toLowerCase().includes('not ready') ? 503 : 500;
             res.writeHead(status, { 'Content-Type': 'application/json' });

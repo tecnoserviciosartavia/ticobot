@@ -16,6 +16,7 @@ interface Contract {
     name: string;
     amount: number;
     currency: string;
+    billing_cycle?: string | null;
 }
 
 type CreatePaymentPageProps = PageProps<{
@@ -55,6 +56,8 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
 
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [loadingContracts, setLoadingContracts] = useState(false);
+    const selectedContract = contracts.find((c) => c.id.toString() === data.contract_id);
+    const isMonthlyContract = selectedContract?.billing_cycle === 'monthly';
 
     // Load contracts when client is selected
     useEffect(() => {
@@ -105,8 +108,26 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
         }
     }, [data.contract_id, contracts]);
 
+    useEffect(() => {
+        if (!data.contract_id || !selectedContract) {
+            return;
+        }
+
+        if (selectedContract.billing_cycle !== 'monthly' && data.billing_month !== '') {
+            setData((prev) => ({ ...prev, billing_month: '' }));
+        }
+
+        if (selectedContract.billing_cycle === 'monthly' && data.billing_month === '') {
+            setData((prev) => ({ ...prev, billing_month: new Date().toISOString().slice(0, 7) }));
+        }
+    }, [data.contract_id, data.billing_month, selectedContract]);
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+        form.transform((current) => ({
+            ...current,
+            billing_month: isMonthlyContract ? current.billing_month : '',
+        }));
         post(route('payments.store'));
     };
 
@@ -358,31 +379,33 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
                                 )}
                             </div>
 
-                            {/* Billing Month */}
-                            <div>
-                                <label
-                                    htmlFor="billing_month"
-                                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                >
-                                    Mes que está pagando
-                                </label>
-                                <input
-                                    type="month"
-                                    id="billing_month"
-                                    name="billing_month"
-                                    value={data.billing_month}
-                                    onChange={(e) => setData((prev) => ({ ...prev, billing_month: e.target.value }))}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                />
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Este mes se usará en el comprobante para indicar el período pagado.
-                                </p>
-                                {errors.billing_month && (
-                                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                                        {errors.billing_month}
+                            {/* Billing Month (only monthly contracts) */}
+                            {isMonthlyContract && (
+                                <div>
+                                    <label
+                                        htmlFor="billing_month"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                    >
+                                        Mes que está pagando
+                                    </label>
+                                    <input
+                                        type="month"
+                                        id="billing_month"
+                                        name="billing_month"
+                                        value={data.billing_month}
+                                        onChange={(e) => setData((prev) => ({ ...prev, billing_month: e.target.value }))}
+                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Este mes se usará en el comprobante para indicar el período pagado.
                                     </p>
-                                )}
-                            </div>
+                                    {errors.billing_month && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.billing_month}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Grace Months */}
                             <div>

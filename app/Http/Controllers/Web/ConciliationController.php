@@ -92,6 +92,7 @@ class ConciliationController extends Controller
             'contract_id' => ['nullable', 'exists:contracts,id'],
             'months' => ['nullable', 'integer', 'min:1'],
             'calculated_amount' => ['nullable', 'numeric', 'min:0'],
+            'billing_month' => ['nullable', 'date_format:Y-m'],
         ]);
 
         $existing = Conciliation::query()->where('payment_id', $data['payment_id'])->first();
@@ -130,6 +131,15 @@ class ConciliationController extends Controller
             
             if (isset($data['calculated_amount'])) {
                 $metadata['calculated_amount'] = $data['calculated_amount'];
+            }
+
+            // Guardar el período pagado solo para contratos mensuales.
+            if (isset($data['contract_id'])) {
+                $contract = \App\Models\Contract::query()->find($data['contract_id']);
+                if ($contract && $contract->billing_cycle === 'monthly') {
+                    $metadata['paid_for_month'] = $data['billing_month']
+                        ?? \Carbon\Carbon::parse($payment->paid_at ?? now(), config('app.timezone'))->format('Y-m');
+                }
             }
             
             $payment->metadata = $metadata;
@@ -173,10 +183,7 @@ class ConciliationController extends Controller
                     }
                 }
 
-                // Reprogramar recordatorios pendientes si el pago cubre múltiples meses
-                if ($months > 1 && $payment->contract_id) {
-                    $this->rescheduleReminders($payment->contract_id, $months);
-                }
+                // En conciliación manual no se deben correr fechas de contrato ni recordatorios.
 
                 // Generar el PDF
                 $pdfPath = $pdfService->generateConciliationReceipt($payment, $months);

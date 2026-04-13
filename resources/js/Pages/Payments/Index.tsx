@@ -31,6 +31,7 @@ interface Contract {
     name: string;
     amount: number;
     currency: string;
+    billing_cycle?: string | null;
 }
 
 interface Paginated<T> {
@@ -378,9 +379,15 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
     const [months, setMonths] = useState(1);
+    const [billingMonth, setBillingMonth] = useState(() => {
+        const now = new Date();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        return `${now.getFullYear()}-${month}`;
+    });
     const [loadingContracts, setLoadingContracts] = useState(false);
 
     const selectedContract = contracts.find(c => c.id === selectedContractId);
+    const isMonthlyContract = selectedContract?.billing_cycle === 'monthly';
     const calculatedAmount = selectedContract ? selectedContract.amount * months : 0;
 
     useEffect(() => {
@@ -438,6 +445,7 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
             contract_id: selectedContractId,
             months: months,
             calculated_amount: calculatedAmount,
+            billing_month: isMonthlyContract ? billingMonth : null,
         }, {
             preserveState: false,
             onSuccess: () => {
@@ -538,6 +546,25 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                                         disabled={loading}
                                                     />
                                                 </div>
+
+                                                {isMonthlyContract && (
+                                                    <div>
+                                                        <label htmlFor="billing_month" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                            Mes que está pagando
+                                                        </label>
+                                                        <input
+                                                            type="month"
+                                                            id="billing_month"
+                                                            value={billingMonth}
+                                                            onChange={(e) => setBillingMonth(e.target.value)}
+                                                            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
+                                                            disabled={loading}
+                                                        />
+                                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                            Se guardará en la conciliación para indicar el período pagado.
+                                                        </p>
+                                                    </div>
+                                                )}
 
                                                 {selectedContract && (
                                                     <div className="rounded-md bg-indigo-50 dark:bg-indigo-900/30 p-4">

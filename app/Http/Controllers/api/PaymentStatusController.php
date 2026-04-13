@@ -379,19 +379,24 @@ class PaymentStatusController extends Controller
 
         // Por defecto, mantener la fecha de cobro del contrato.
         // Evita que los recordatorios manuales se vayan "al siguiente mes" por usar now() en fechas cercanas al corte.
+        $sendTime = (string) config('reminders.send_time', '09:00');
+
         if ($request->filled('scheduled_for')) {
-            $scheduled = Carbon::parse($request->input('scheduled_for'));
+            $scheduled = Carbon::parse($request->input('scheduled_for'), config('app.timezone'));
         } else {
             $scheduled = $contract?->next_due_date
-                ? Carbon::parse($contract->next_due_date)->startOfDay()
-                : Carbon::now();
+                ? Carbon::parse($contract->next_due_date, config('app.timezone'))->startOfDay()->setTimeFromTimeString($sendTime)
+                : Carbon::now(config('app.timezone'))->setTimeFromTimeString($sendTime);
         }
 
-        $payload = [
+        $payload = array_filter([
             'message' => $request->input('message') ?? null,
-        ];
+            'recurrence' => $contract?->billing_cycle,
+            'amount' => $contract ? (string) $contract->amount : null,
+            'due_date' => $contract?->next_due_date?->toDateString(),
+        ], fn ($value) => $value !== null && $value !== '');
 
-        $reminder = Reminder::create([
+        $reminder = Reminder::createOpenUnique([
             'contract_id' => $contractId,
             'client_id' => $client->id,
             'channel' => 'whatsapp',

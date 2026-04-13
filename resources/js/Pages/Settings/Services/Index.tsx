@@ -8,6 +8,7 @@ type ServiceItem = {
     name: string;
     price: string;
     cost?: string;
+    payment_day?: number | null;
     currency: 'CRC' | 'USD';
     is_active: boolean;
     updated_at?: string | null;
@@ -31,6 +32,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
         name: '',
         price: '0',
         cost: '0',
+        payment_day: '',
         currency: 'CRC' as 'CRC' | 'USD',
         is_active: true,
     });
@@ -40,6 +42,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
         name: '',
         price: '0',
         cost: '0',
+        payment_day: '',
         currency: 'CRC' as 'CRC' | 'USD',
         is_active: true,
     });
@@ -50,6 +53,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
             name: s.name,
             price: String(s.price ?? '0'),
             cost: String(s.cost ?? '0'),
+            payment_day: s.payment_day ? String(s.payment_day) : '',
             currency: s.currency,
             is_active: !!s.is_active,
         });
@@ -96,7 +100,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                             Estos servicios se podrán seleccionar dentro de un contrato y el monto del contrato será la suma.
                         </p>
 
-                        <form onSubmit={submitCreate} className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4 items-end">
+                        <form onSubmit={submitCreate} className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-5 items-end">
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium">Nombre</label>
                                 <input
@@ -132,6 +136,19 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                                 />
                                 {createForm.errors.cost && <div className="mt-1 text-sm text-red-600">{createForm.errors.cost}</div>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">Día de pago</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="31"
+                                    value={createForm.data.payment_day as any}
+                                    onChange={(e) => createForm.setData('payment_day', e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    placeholder="1-31"
+                                />
+                                {createForm.errors.payment_day && <div className="mt-1 text-sm text-red-600">{createForm.errors.payment_day}</div>}
                             </div>
                             <div className="flex gap-3 items-center justify-between">
                                 <div className="flex-1">
@@ -185,6 +202,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                         <th className="py-2 pr-4">Nombre</th>
                                         <th className="py-2 pr-4">Monto</th>
                                         <th className="py-2 pr-4">Costo</th>
+                                            <th className="py-2 pr-4">Día de pago</th>
                                         <th className="py-2 pr-4">Moneda</th>
                                         <th className="py-2 pr-4">Activo</th>
                                         <th className="py-2">Acciones</th>
@@ -193,7 +211,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {services.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="py-6 text-sm text-gray-500">
+                                            <td colSpan={7} className="py-6 text-sm text-gray-500">
                                                 No hay servicios.
                                             </td>
                                         </tr>
@@ -250,6 +268,23 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                                                 <div className="mt-1 text-xs text-red-600">{editForm.errors.cost}</div>
                                                             )}
                                                         </td>
+                                                    <td className="py-2 pr-4">
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                max="31"
+                                                                value={editForm.data.payment_day as any}
+                                                                onChange={(e) => editForm.setData('payment_day', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                            />
+                                                        ) : (
+                                                            s.payment_day ? `Día ${s.payment_day}` : '—'
+                                                        )}
+                                                        {isEditing && editForm.errors.payment_day && (
+                                                            <div className="mt-1 text-xs text-red-600">{editForm.errors.payment_day}</div>
+                                                        )}
+                                                    </td>
                                                     <td className="py-2 pr-4">
                                                         {isEditing ? (
                                                             <select

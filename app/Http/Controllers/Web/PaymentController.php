@@ -24,6 +24,10 @@ class PaymentController extends Controller
         }
 
         $settledAt = now(config('app.timezone'));
+        $contract = $payment->contract_id ? Contract::query()->find($payment->contract_id) : null;
+        $isMonthlyContract = $contract?->billing_cycle === 'monthly';
+        $metadata = is_array($payment->metadata) ? $payment->metadata : [];
+        $paidForMonth = $isMonthlyContract ? ($metadata['paid_for_month'] ?? null) : null;
 
         // Si el pago ya está ligado a un recordatorio específico, liquidarlo.
         if ($payment->reminder_id) {
@@ -62,6 +66,24 @@ class PaymentController extends Controller
         $query = Reminder::query()->where('client_id', $payment->client_id);
         if ($payment->contract_id) {
             $query->where('contract_id', $payment->contract_id);
+        }
+
+        // En contratos mensuales, aplicar el pago al mes indicado sin mover fechas.
+        if ($isMonthlyContract && is_string($paidForMonth) && preg_match('/^\d{4}-\d{2}$/', $paidForMonth)) {
+            $monthStart = Carbon::createFromFormat('Y-m', $paidForMonth, config('app.timezone'))->startOfMonth();
+            $monthEnd = $monthStart->copy()->endOfMonth();
+
+            $updated = (clone $query)
+                ->whereIn('status', ['pending', 'queued', 'sent'])
+                ->whereBetween('scheduled_for', [$monthStart, $monthEnd])
+                ->update([
+                    'status' => 'paid',
+                    'acknowledged_at' => $settledAt,
+                ]);
+
+            if ($updated > 0) {
+                return;
+            }
         }
 
         // 1) Liquidar el recordatorio pendiente más cercano (si existe)
@@ -225,17 +247,35 @@ class PaymentController extends Controller
             'grace_months' => ['nullable', 'integer', 'min:0', 'max:12'],
         ]);
 
+        $contract = null;
+        if (!empty($validated['contract_id'])) {
+            $contract = Contract::query()->find($validated['contract_id']);
+
+            if ($contract && (int) $contract->client_id !== (int) $validated['client_id']) {
+                return back()->withErrors([
+                    'contract_id' => 'El contrato no pertenece al cliente seleccionado.',
+                ])->withInput();
+            }
+        }
+
+        $isMonthlyContract = $contract?->billing_cycle === 'monthly';
+
         // Add metadata to track manual creation
-        $paidForMonth = $validated['billing_month']
-            ?? Carbon::parse($validated['paid_at'] ?? now(), config('app.timezone'))->format('Y-m');
+        $paidForMonth = $isMonthlyContract
+            ? ($validated['billing_month']
+                ?? Carbon::parse($validated['paid_at'] ?? now(), config('app.timezone'))->format('Y-m'))
+            : null;
 
         $validated['metadata'] = [
             'created_manually' => true,
             'created_by' => auth()->id(),
             'created_at' => now()->toIso8601String(),
-            'paid_for_month' => $paidForMonth,
             'grace_months' => (int) ($validated['grace_months'] ?? 0),
         ];
+
+        if ($paidForMonth !== null) {
+            $validated['metadata']['paid_for_month'] = $paidForMonth;
+        }
 
         // Set paid_at to now if not provided
         if (empty($validated['paid_at'])) {
@@ -273,25 +313,13 @@ class PaymentController extends Controller
                 
                 // Calculate months covered (default to 1 for manual payments)
                 $months = 1;
-                if ($payment->contract_id) {
-                    $contract = \App\Models\Contract::find($payment->contract_id);
-                    if ($contract && $contract->amount > 0) {
+                if ($contract && $contract->amount > 0) {
                         $months = max(1, floor($payment->amount / $contract->amount));
-                    }
                 }
                 
                 // Add grace months if provided
                 $graceMonths = (int) ($validated['grace_months'] ?? 0);
                 $totalMonths = $months + $graceMonths;
-                
-                // Reschedule reminders if payment covers multiple months
-                // Using the paid_at date from the payment as the base date
-                $rescheduled = false;
-                if ($totalMonths > 1 && $payment->contract_id) {
-                    $paidAt = $payment->paid_at ? \Carbon\Carbon::parse($payment->paid_at) : now();
-                    $this->rescheduleReminders($payment->contract_id, $totalMonths, $paidAt);
-                    $rescheduled = true;
-                }
                 
                 // Generate PDF
                 $pdfPath = $pdfService->generateConciliationReceipt($payment, $months);
@@ -309,7 +337,6 @@ class PaymentController extends Controller
                         'months_paid' => $months,
                         'grace_months' => $graceMonths,
                         'total_months' => $totalMonths,
-                        'reminders_rescheduled' => $rescheduled,
                     ]);
                 }
             } catch (\Exception $e) {
@@ -318,7 +345,6 @@ class PaymentController extends Controller
                     'error' => $e->getMessage(),
                 ]);
                 // No detenemos el proceso aunque falle el envío
-                $rescheduled = false;
             }
         }
 
@@ -326,13 +352,6 @@ class PaymentController extends Controller
         $successMessage = 'Pago creado correctamente.';
         if ($validated['status'] === 'verified') {
             $successMessage .= ' Recibo enviado por WhatsApp.';
-            if (isset($rescheduled) && $rescheduled && isset($totalMonths)) {
-                if ($graceMonths > 0) {
-                    $successMessage .= " Recordatorios reprogramados por {$totalMonths} meses ({$months} pagados + {$graceMonths} de gracia).";
-                } else {
-                    $successMessage .= " Recordatorios reprogramados por {$totalMonths} meses.";
-                }
-            }
         }
 
         return redirect()
@@ -352,7 +371,7 @@ class PaymentController extends Controller
         }
 
         $contracts = \App\Models\Contract::where('client_id', $clientId)
-            ->select('id', 'name', 'amount', 'currency')
+            ->select('id', 'name', 'amount', 'currency', 'billing_cycle')
             ->orderBy('name')
             ->get();
 

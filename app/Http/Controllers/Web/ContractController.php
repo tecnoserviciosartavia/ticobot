@@ -658,6 +658,7 @@ class ContractController extends Controller
             'service_ids.*' => ['integer', Rule::exists('services', 'id')],
             // Cantidad por servicio (para permitir repetir el mismo servicio en un contrato)
             'service_quantities' => ['nullable', 'array'],
+            'service_quantities.*' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $discount = (float) ($data['discount_amount'] ?? 0);
@@ -673,6 +674,7 @@ class ContractController extends Controller
             'next_due_date' => $data['next_due_date'] ?? null,
             'grace_period_days' => $data['grace_period_days'] ?? 0,
             'service_ids' => $data['service_ids'],
+            'service_quantities' => $data['service_quantities'] ?? [],
         ];
     }
 

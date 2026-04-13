@@ -14,6 +14,7 @@ class Service extends Model
         'name',
         'price',
         'cost',
+        'payment_day',
         'currency',
         'is_active',
     ];
@@ -21,6 +22,7 @@ class Service extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'cost' => 'decimal:2',
+        'payment_day' => 'integer',
         'is_active' => 'bool',
     ];
 

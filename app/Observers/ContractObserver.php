@@ -8,6 +8,17 @@ use Carbon\Carbon;
 
 class ContractObserver
 {
+    private function recurrenceForBillingCycle(string $billingCycle): string
+    {
+        return match($billingCycle) {
+            'weekly' => 'weekly',
+            'biweekly' => 'biweekly',
+            'monthly' => 'monthly',
+            'one_time' => 'once',
+            default => 'once',
+        };
+    }
+
     private function normalizeScheduledFor(Carbon $date): Carbon
     {
         $tz = config('app.timezone');
@@ -29,27 +40,20 @@ class ContractObserver
             // Schedule reminder for the due date at configured send_time
             $scheduledFor = $this->normalizeScheduledFor($dueDate);
 
-            // If scheduled date is in the past, schedule for today
-            if ($scheduledFor->isPast()) {
-                $scheduledFor = $this->normalizeScheduledFor(Carbon::today(config('app.timezone')));
-            }
-
             // Map billing_cycle to recurrence
-            $recurrence = match($contract->billing_cycle) {
-                'weekly' => 'weekly',
-                'biweekly' => 'biweekly',
-                'monthly' => 'monthly',
-                'one_time' => 'once',
-                default => 'once',
-            };
+            $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
 
-            Reminder::create([
+            Reminder::createOpenUnique([
                 'client_id' => $contract->client_id,
                 'contract_id' => $contract->id,
                 'scheduled_for' => $scheduledFor,
                 'status' => 'pending',
                 'channel' => 'whatsapp',
-                'recurrence' => $recurrence,
+                'payload' => array_filter([
+                    'recurrence' => $recurrence,
+                    'amount' => (string) $contract->amount,
+                    'due_date' => $contract->next_due_date?->toDateString(),
+                ], fn ($value) => $value !== null && $value !== ''),
             ]);
         }
     }
@@ -67,25 +71,19 @@ class ContractObserver
                 $dueDate = Carbon::parse($contract->next_due_date, config('app.timezone'));
                 $scheduledFor = $this->normalizeScheduledFor($dueDate);
 
-                if ($scheduledFor->isPast()) {
-                    $scheduledFor = $this->normalizeScheduledFor(Carbon::today(config('app.timezone')));
-                }
+                $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
 
-                $recurrence = match($contract->billing_cycle) {
-                    'weekly' => 'weekly',
-                    'biweekly' => 'biweekly',
-                    'monthly' => 'monthly',
-                    'one_time' => 'once',
-                    default => 'once',
-                };
-
-                Reminder::create([
+                Reminder::createOpenUnique([
                     'client_id' => $contract->client_id,
                     'contract_id' => $contract->id,
                     'scheduled_for' => $scheduledFor,
                     'status' => 'pending',
                     'channel' => 'whatsapp',
-                    'recurrence' => $recurrence,
+                    'payload' => array_filter([
+                        'recurrence' => $recurrence,
+                        'amount' => (string) $contract->amount,
+                        'due_date' => $contract->next_due_date?->toDateString(),
+                    ], fn ($value) => $value !== null && $value !== ''),
                 ]);
             }
         }
@@ -96,58 +94,59 @@ class ContractObserver
                 Carbon::parse($contract->next_due_date, config('app.timezone'))
             );
 
-            if ($newScheduledFor->isFuture() || $newScheduledFor->isToday()) {
-                // Update pending reminders for this contract
-                $updated = Reminder::where('contract_id', $contract->id)
-                    ->where('status', 'pending')
-                    ->update(['scheduled_for' => $newScheduledFor]);
+            // Update pending reminders for this contract, preserving the real due date
+            // even when it is already overdue.
+            $updated = Reminder::where('contract_id', $contract->id)
+                ->where('status', 'pending')
+                ->update(['scheduled_for' => $newScheduledFor]);
 
-                // If there are no pending reminders yet, create one.
-                if ($updated === 0) {
-                    $recurrence = match($contract->billing_cycle) {
-                        'weekly' => 'weekly',
-                        'biweekly' => 'biweekly',
-                        'monthly' => 'monthly',
-                        'one_time' => 'once',
-                        default => 'once',
-                    };
+            // If there are no pending reminders yet, create one.
+            if ($updated === 0) {
+                $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
 
-                    Reminder::create([
-                        'client_id' => $contract->client_id,
-                        'contract_id' => $contract->id,
-                        'scheduled_for' => $newScheduledFor,
-                        'status' => 'pending',
-                        'channel' => 'whatsapp',
+                Reminder::createOpenUnique([
+                    'client_id' => $contract->client_id,
+                    'contract_id' => $contract->id,
+                    'scheduled_for' => $newScheduledFor,
+                    'status' => 'pending',
+                    'channel' => 'whatsapp',
+                    'payload' => array_filter([
                         'recurrence' => $recurrence,
-                    ]);
-                }
+                        'amount' => (string) $contract->amount,
+                        'due_date' => $contract->next_due_date?->toDateString(),
+                    ], fn ($value) => $value !== null && $value !== ''),
+                ]);
             }
         }
 
-        // Update billing_cycle recurrence in pending reminders
-        if ($contract->wasChanged('billing_cycle')) {
-            $recurrence = match($contract->billing_cycle) {
-                'weekly' => 'weekly',
-                'biweekly' => 'biweekly',
-                'monthly' => 'monthly',
-                'one_time' => 'once',
-                default => 'once',
-            };
-
-            Reminder::where('contract_id', $contract->id)
-                ->where('status', 'pending')
-                ->update(['recurrence' => $recurrence]);
-        }
-
-        // Update payload amount in pending reminders if contract amount changes
-        if ($contract->wasChanged('amount')) {
+        // Keep pending reminder payload synchronized with contract changes.
+        if (
+            $contract->wasChanged('amount')
+            || $contract->wasChanged('billing_cycle')
+            || ($contract->wasChanged('next_due_date') && $contract->next_due_date)
+        ) {
             $reminders = Reminder::where('contract_id', $contract->id)
                 ->where('status', 'pending')
                 ->get();
 
+            $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
+            $dueDate = $contract->next_due_date?->toDateString();
+
             foreach ($reminders as $reminder) {
-                $payload = $reminder->payload ?? [];
-                $payload['amount'] = (string) $contract->amount;
+                $payload = is_array($reminder->payload) ? $reminder->payload : [];
+
+                if ($contract->wasChanged('amount')) {
+                    $payload['amount'] = (string) $contract->amount;
+                }
+
+                if ($contract->wasChanged('billing_cycle')) {
+                    $payload['recurrence'] = $recurrence;
+                }
+
+                if ($contract->wasChanged('next_due_date') && $dueDate) {
+                    $payload['due_date'] = $dueDate;
+                }
+
                 $reminder->payload = $payload;
                 $reminder->save();
             }

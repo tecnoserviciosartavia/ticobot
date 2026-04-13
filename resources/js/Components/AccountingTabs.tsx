@@ -7,8 +7,8 @@ interface Props {
 }
 
 const tabs: { id: Tab; label: string; routeName: string }[] = [
-    { id: 'indicators',  label: 'Indicadores', routeName: 'accounting.indicators' },
     { id: 'accounting',  label: 'Resumen',      routeName: 'accounting.index' },
+    { id: 'indicators',  label: 'Indicadores', routeName: 'accounting.indicators' },
     { id: 'payments',    label: 'Pagos',      routeName: 'payments.index' },
     { id: 'collections', label: 'Cobranzas',  routeName: 'collections.index' },
 ];

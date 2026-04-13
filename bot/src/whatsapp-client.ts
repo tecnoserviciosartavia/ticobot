@@ -176,7 +176,7 @@ export class WhatsAppClient {
 
       if (!Array.isArray(result)) return [];
       return result
-        .filter((x: any) => x && typeof x.id === 'string')
+        .filter((x: any) => x && typeof x.id === 'string' && !String(x.id).endsWith('@lid') && !String(x.id).endsWith('@broadcast'))
         .map((x: any) => ({ id: String(x.id), unreadCount: Number(x.unreadCount || 0) }));
     } catch (error) {
       logger.debug({ err: error }, 'No se pudo listar chats no leídos (lightweight)');
