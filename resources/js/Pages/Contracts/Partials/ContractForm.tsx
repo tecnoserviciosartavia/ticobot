@@ -9,6 +9,7 @@ import type { FormEventHandler } from 'react';
 interface ClientOption {
     id: number;
     name: string;
+    phone?: string | null;
 }
 
 interface ContractFormData {
@@ -23,6 +24,7 @@ interface ContractFormData {
     notes?: string;
     service_ids?: number[];
     service_quantities?: Record<string, number>;
+    service_pins?: Record<string, string>;
 }
 
 interface ContractFormProps {
@@ -69,6 +71,7 @@ export default function ContractForm({
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [highlighted, setHighlighted] = useState<number>(-1);
+    const prevAutoPinsRef = useRef<Record<string, string>>({});
 
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
@@ -115,9 +118,24 @@ export default function ContractForm({
     const selectedIds = (data.service_ids ?? []) as number[];
     const selectedServices = services.filter((s) => selectedIds.includes(s.id));
     const quantities = (data.service_quantities ?? {}) as Record<string, number>;
+    const servicePins = (data.service_pins ?? {}) as Record<string, string>;
     const getQty = (serviceId: number) => {
         const q = Number((quantities as any)[String(serviceId)] ?? 1);
         return Number.isFinite(q) && q > 0 ? Math.floor(q) : 1;
+    };
+
+    const buildSuggestedPin = (serviceName: string, phone?: string | null) => {
+        const digits = String(phone ?? '').replace(/\D+/g, '');
+        if (!digits) {
+            return '';
+        }
+
+        const lastFour = digits.slice(-4);
+        if (!lastFour) {
+            return '';
+        }
+
+        return /prime/i.test(serviceName) ? `${lastFour}${lastFour.slice(-1)}` : lastFour;
     };
 
     const computedTotal = selectedServices.reduce(
@@ -136,6 +154,47 @@ export default function ContractForm({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [computedNetTotal]);
+
+    useEffect(() => {
+        const nextPins = { ...servicePins };
+        const nextAutoPins: Record<string, string> = {};
+        let changed = false;
+
+        selectedServices.forEach((service) => {
+            const key = String(service.id);
+            const suggested = buildSuggestedPin(service.name, selectedClient?.phone);
+            const previousAuto = prevAutoPinsRef.current[key] ?? '';
+            const current = nextPins[key] ?? '';
+
+            nextAutoPins[key] = suggested;
+
+            if (current === '' || current === previousAuto) {
+                if (suggested === '') {
+                    if (key in nextPins) {
+                        delete nextPins[key];
+                        changed = true;
+                    }
+                } else if (current !== suggested) {
+                    nextPins[key] = suggested;
+                    changed = true;
+                }
+            }
+        });
+
+        Object.keys(nextPins).forEach((key) => {
+            if (!selectedIds.includes(Number(key))) {
+                delete nextPins[key];
+                changed = true;
+            }
+        });
+
+        prevAutoPinsRef.current = nextAutoPins;
+
+        if (changed) {
+            onChange('service_pins', nextPins);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedClient?.phone, selectedIds.join(','), services]);
 
     return (
         <form onSubmit={onSubmit} className="space-y-6">
@@ -314,6 +373,47 @@ export default function ContractForm({
                             </div>
                             <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                                 Usa esto cuando un contrato lleva el mismo servicio varias veces (ej: Netflix x2).
+                            </div>
+
+                            <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+                                <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">PIN de acceso por plataforma</div>
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Se sugiere con los últimos 4 dígitos del teléfono del cliente. Si la plataforma contiene Prime, se envía con 5 dígitos repitiendo el último.
+                                </div>
+                                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                    {selectedServices
+                                        .slice()
+                                        .sort((a, b) => a.name.localeCompare(b.name))
+                                        .map((service) => {
+                                            const key = String(service.id);
+                                            const suggested = buildSuggestedPin(service.name, selectedClient?.phone);
+
+                                            return (
+                                                <label key={service.id} className="rounded-md border border-gray-200 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-800">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{service.name}</span>
+                                                        {suggested && (
+                                                            <span className="text-xs text-gray-400 dark:text-gray-500">Sugerido: {suggested}</span>
+                                                        )}
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={servicePins[key] ?? ''}
+                                                        onChange={(ev) => {
+                                                            onChange('service_pins', {
+                                                                ...servicePins,
+                                                                [key]: ev.target.value,
+                                                            });
+                                                        }}
+                                                        className="mt-2 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                        placeholder={suggested || 'PIN manual'}
+                                                        maxLength={32}
+                                                    />
+                                                </label>
+                                            );
+                                        })}
+                                </div>
+                                <InputError message={errors.service_pins} className="mt-2" />
                             </div>
                         </div>
                     )}

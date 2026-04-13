@@ -1017,7 +1017,35 @@ export class WhatsAppClient {
     if (isLid) {
       logger.warn({ chatId }, 'sendText: chatId con formato @lid — intentando envío con fallback @c.us');
     }
-    let result: any = await this.client.sendMessage(chatId, text);
+    let result: any = null;
+    try {
+      result = await this.client.sendMessage(chatId, text);
+    } catch (err: any) {
+      const msg = String(err && err.message ? err.message : err).toLowerCase();
+      const isLidChatTableError = msg.includes('lid is missing in chat table');
+      if (!isLidChatTableError) {
+        throw err;
+      }
+
+      // Fallback robusto: resolver el número con getNumberId y reenviar al ID serializado.
+      const raw = String(chatId).replace(/@.*/, '').replace(/[^0-9]/g, '');
+      let resolved: any = null;
+      try {
+        if (raw.length > 0) {
+          resolved = await (this.client as any).getNumberId(raw);
+        }
+      } catch (resolveErr) {
+        logger.warn({ chatId, raw, resolveErr }, 'sendText: fallo getNumberId tras error LID');
+      }
+
+      const resolvedId = resolved?._serialized ?? null;
+      if (resolvedId) {
+        logger.warn({ chatId, resolvedId }, 'sendText: reintentando con número resuelto por getNumberId');
+        result = await this.client.sendMessage(resolvedId, text);
+      } else {
+        throw err;
+      }
+    }
     if (result == null && isLid) {
       // Fallback: WhatsApp multi-device usa @lid para identificar contactos, pero el Store
       // puede tener el chat indexado como @c.us. Intentamos con los mismos dígitos + @c.us.

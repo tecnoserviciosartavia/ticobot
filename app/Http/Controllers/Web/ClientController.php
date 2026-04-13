@@ -8,6 +8,7 @@ use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\Reminder;
 use App\Models\Service;
+use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -19,8 +20,9 @@ class ClientController extends Controller
 {
     public function index(Request $request): Response
     {
-        $search = trim((string) $request->query('search', ''));
-        $status = trim((string) $request->query('status', ''));
+        $search    = trim((string) $request->query('search', ''));
+        $status    = trim((string) $request->query('status', ''));
+        $serviceId = (int) $request->query('service_id', 0);
 
         $query = Client::query()->withCount(['contracts', 'reminders', 'payments']);
 
@@ -35,6 +37,10 @@ class ClientController extends Controller
 
         if ($status !== '') {
             $query->where('status', $status);
+        }
+
+        if ($serviceId > 0) {
+            $query->whereHas('contracts.services', fn ($q) => $q->where('services.id', $serviceId));
         }
 
         $clients = $query
@@ -61,13 +67,20 @@ class ClientController extends Controller
             ->filter()
             ->values();
 
+        $services = Service::query()
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('Clients/Index', [
             'clients' => $clients,
             'filters' => [
-                'search' => $search !== '' ? $search : null,
-                'status' => $status !== '' ? $status : null,
+                'search'     => $search !== '' ? $search : null,
+                'status'     => $status !== '' ? $status : null,
+                'service_id' => $serviceId > 0 ? $serviceId : null,
             ],
             'statuses' => $statuses,
+            'services' => $services,
         ]);
     }
 
@@ -85,6 +98,15 @@ class ClientController extends Controller
             $statuses->prepend('active');
         }
 
+        $usageCounts = DB::table('contract_service')
+            ->join('contracts', 'contracts.id', '=', 'contract_service.contract_id')
+            ->whereNull('contracts.deleted_at')
+            ->select('contract_service.service_id', DB::raw('SUM(contract_service.quantity) as total_used'))
+            ->groupBy('contract_service.service_id')
+            ->pluck('total_used', 'contract_service.service_id')
+            ->map(fn ($v) => (int) $v)
+            ->toArray();
+
         $services = Service::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -94,6 +116,9 @@ class ClientController extends Controller
                 'name' => $s->name,
                 'price' => (string) $s->price,
                 'currency' => $s->currency,
+                'account_email' => $s->account_email,
+                'max_profiles' => $s->max_profiles,
+                'profiles_used' => (int) ($usageCounts[$s->id] ?? 0),
             ]);
 
         return Inertia::render('Clients/Create', [
@@ -121,6 +146,7 @@ class ClientController extends Controller
 
             if ($contract) {
                 $contract->update(['client_id' => $client->id]);
+                $this->sendAccessForContractAssignment($contract, $client, app(WhatsAppNotificationService::class));
             }
         }
 
@@ -216,6 +242,15 @@ class ClientController extends Controller
             $statuses->prepend('active');
         }
 
+        $usageCounts = DB::table('contract_service')
+            ->join('contracts', 'contracts.id', '=', 'contract_service.contract_id')
+            ->whereNull('contracts.deleted_at')
+            ->select('contract_service.service_id', DB::raw('SUM(contract_service.quantity) as total_used'))
+            ->groupBy('contract_service.service_id')
+            ->pluck('total_used', 'contract_service.service_id')
+            ->map(fn ($v) => (int) $v)
+            ->toArray();
+
         $services = Service::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -225,6 +260,9 @@ class ClientController extends Controller
                 'name' => $s->name,
                 'price' => (string) $s->price,
                 'currency' => $s->currency,
+                'account_email' => $s->account_email,
+                'max_profiles' => $s->max_profiles,
+                'profiles_used' => (int) ($usageCounts[$s->id] ?? 0),
             ]);
 
         return Inertia::render('Clients/Edit', [
@@ -259,7 +297,11 @@ class ClientController extends Controller
                         ->with('error', 'No se puede asignar el contrato porque ya está asignado a otro cliente.');
                 }
 
+                $wasUnassigned = $contract->client_id === null;
                 $contract->update(['client_id' => $client->id]);
+                if ($wasUnassigned) {
+                    $this->sendAccessForContractAssignment($contract, $client, app(WhatsAppNotificationService::class));
+                }
             }
         }
 
@@ -484,6 +526,26 @@ class ClientController extends Controller
             }
         }
         return $out;
+    }
+
+    private function sendAccessForContractAssignment(Contract $contract, Client $client, WhatsAppNotificationService $whatsApp): void
+    {
+        if (! $client->phone) {
+            return;
+        }
+
+        $contract->loadMissing(['services:id,name,account_email,password,pin']);
+
+        $servicesData = $contract->services
+            ->map(fn (Service $s) => [
+                'name' => $s->name,
+                'account_email' => $s->account_email,
+                'password' => $s->password,
+                'pin' => $s->pivot?->pin_override ?: $s->pin,
+            ])
+            ->all();
+
+        $whatsApp->sendPlatformAccessMessages($client->phone, $servicesData);
     }
 
     /**

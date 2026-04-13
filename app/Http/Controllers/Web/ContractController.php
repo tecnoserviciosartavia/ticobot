@@ -35,6 +35,8 @@ class ContractController extends Controller
             'service_ids.*' => ['integer', 'exists:services,id'],
             // Opcional: cantidades por servicio. Ej: { "12": 2, "15": 1 }
             'service_quantities' => ['nullable', 'array'],
+            'service_pins' => ['nullable', 'array'],
+            'service_pins.*' => ['nullable', 'string', 'max:32'],
         ]);
 
         $discount = (float) ($data['discount_amount'] ?? 0);
@@ -55,16 +57,22 @@ class ContractController extends Controller
             $serviceIds = collect($data['service_ids'])->map(fn ($v) => (int) $v)->filter()->values();
             $qty = collect(($data['service_quantities'] ?? []))
                 ->mapWithKeys(fn ($v, $k) => [(int) $k => max(1, (int) $v)]);
+            $servicePins = collect(($data['service_pins'] ?? []))
+                ->mapWithKeys(fn ($v, $k) => [(int) $k => trim((string) $v)]);
 
             // Guardar pivot con quantity.
             $syncData = [];
+            $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'name', 'price', 'pin'])->keyBy('id');
             foreach ($serviceIds as $sid) {
-                $syncData[$sid] = ['quantity' => (int) ($qty[$sid] ?? 1)];
+                $service = $services->get((int) $sid);
+                $syncData[$sid] = [
+                    'quantity' => (int) ($qty[$sid] ?? 1),
+                    'pin_override' => $this->resolveAccessPin($service?->name, null, $servicePins[(int) $sid] ?? null, $service?->pin),
+                ];
             }
             $contract->services()->sync($syncData);
 
             // Recalcular total: sum(price * quantity)
-            $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'price']);
             $total = 0.0;
             foreach ($services as $s) {
                 $q = (int) ($qty[(int) $s->id] ?? 1);
@@ -93,7 +101,7 @@ class ContractController extends Controller
         );
 
         return Inertia::render('Clients/Contracts/Create', [
-            'client' => $client->only(['id', 'name']),
+            'client' => $client->only(['id', 'name', 'phone']),
             'services' => $services,
             'defaultCurrency' => 'CRC',
             'defaultBillingCycle' => 'monthly',
@@ -116,6 +124,8 @@ class ContractController extends Controller
             'service_ids.*' => ['integer', 'exists:services,id'],
             // Opcional: cantidades por servicio. Ej: { "12": 2, "15": 1 }
             'service_quantities' => ['nullable', 'array'],
+            'service_pins' => ['nullable', 'array'],
+            'service_pins.*' => ['nullable', 'string', 'max:32'],
         ]);
 
         $discount = (float) ($data['discount_amount'] ?? 0);
@@ -136,14 +146,20 @@ class ContractController extends Controller
             $serviceIds = collect($data['service_ids'])->map(fn ($v) => (int) $v)->filter()->values();
             $qty = collect(($data['service_quantities'] ?? []))
                 ->mapWithKeys(fn ($v, $k) => [(int) $k => max(1, (int) $v)]);
+            $servicePins = collect(($data['service_pins'] ?? []))
+                ->mapWithKeys(fn ($v, $k) => [(int) $k => trim((string) $v)]);
 
             $syncData = [];
+            $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'name', 'price', 'pin'])->keyBy('id');
             foreach ($serviceIds as $sid) {
-                $syncData[$sid] = ['quantity' => (int) ($qty[$sid] ?? 1)];
+                $service = $services->get((int) $sid);
+                $syncData[$sid] = [
+                    'quantity' => (int) ($qty[$sid] ?? 1),
+                    'pin_override' => $this->resolveAccessPin($service?->name, $client->phone, $servicePins[(int) $sid] ?? null, $service?->pin),
+                ];
             }
             $contract->services()->sync($syncData);
 
-            $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'price']);
             $total = 0.0;
             foreach ($services as $s) {
                 $q = (int) ($qty[(int) $s->id] ?? 1);
@@ -196,7 +212,7 @@ class ContractController extends Controller
             ]);
 
         $clients = Client::query()
-            ->select('id', 'name')
+            ->select('id', 'name', 'phone')
             ->orderBy('name')
             ->get();
 
@@ -429,13 +445,15 @@ class ContractController extends Controller
 
         $serviceIds = $data['service_ids'] ?? [];
         $serviceQuantities = $data['service_quantities'] ?? [];
+        $servicePins = $data['service_pins'] ?? [];
         unset($data['service_ids']);
         unset($data['service_quantities']);
+        unset($data['service_pins']);
 
         // Calcular monto por suma de servicios (misma moneda en UI por ahora)
         $qty = collect($serviceQuantities)
             ->mapWithKeys(fn ($v, $k) => [(int) $k => max(1, (int) $v)]);
-        $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'price']);
+        $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'name', 'price', 'pin'])->keyBy('id');
         $amount = 0.0;
         foreach ($services as $s) {
             $q = (int) ($qty[(int) $s->id] ?? 1);
@@ -455,7 +473,11 @@ class ContractController extends Controller
         foreach ($serviceIds as $sid) {
             $sid = (int) $sid;
             if (! $sid) continue;
-            $syncData[$sid] = ['quantity' => (int) ($qty[$sid] ?? 1)];
+            $service = $services->get($sid);
+            $syncData[$sid] = [
+                'quantity' => (int) ($qty[$sid] ?? 1),
+                'pin_override' => $this->resolveAccessPin($service?->name, $contract->client?->phone, $servicePins[$sid] ?? null, $service?->pin),
+            ];
         }
         $contract->services()->sync($syncData);
 
@@ -518,7 +540,7 @@ class ContractController extends Controller
                         'currency' => $s->currency,
                         'account_email' => $s->account_email,
                         'password' => $s->password,
-                        'pin' => $s->pin,
+                        'pin' => $s->pivot?->pin_override ?? $this->resolveAccessPin($s->name, $contract->client?->phone, null, $s->pin),
                         'quantity' => (int) ($s->pivot?->quantity ?? 1),
                     ]),
                 'billing_cycle' => $contract->billing_cycle,
@@ -536,7 +558,7 @@ class ContractController extends Controller
     public function edit(Contract $contract): Response
     {
         $clients = Client::query()
-            ->select('id', 'name')
+            ->select('id', 'name', 'phone')
             ->orderBy('name')
             ->get();
 
@@ -549,6 +571,10 @@ class ContractController extends Controller
         $selectedServiceQuantities = $contract->services()
             ->pluck('contract_service.quantity', 'services.id')
             ->map(fn ($v) => (int) $v)
+            ->toArray();
+        $selectedServicePins = $contract->services()
+            ->pluck('contract_service.pin_override', 'services.id')
+            ->map(fn ($v) => $v !== null ? (string) $v : '')
             ->toArray();
 
         return Inertia::render('Contracts/Edit', [
@@ -566,6 +592,7 @@ class ContractController extends Controller
                 'metadata' => $contract->metadata,
                 'service_ids' => $selectedServiceIds,
                 'service_quantities' => $selectedServiceQuantities,
+                'service_pins' => $selectedServicePins,
             ],
             'clients' => $clients,
             'services' => $services,
@@ -578,12 +605,14 @@ class ContractController extends Controller
 
         $serviceIds = $data['service_ids'] ?? [];
         $serviceQuantities = $data['service_quantities'] ?? [];
+        $servicePins = $data['service_pins'] ?? [];
         unset($data['service_ids']);
         unset($data['service_quantities']);
+        unset($data['service_pins']);
 
         $qty = collect($serviceQuantities)
             ->mapWithKeys(fn ($v, $k) => [(int) $k => max(1, (int) $v)]);
-        $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'price']);
+        $services = Service::query()->whereIn('id', $serviceIds)->get(['id', 'name', 'price', 'pin'])->keyBy('id');
         $amount = 0.0;
         foreach ($services as $s) {
             $q = (int) ($qty[(int) $s->id] ?? 1);
@@ -597,7 +626,11 @@ class ContractController extends Controller
         foreach ($serviceIds as $sid) {
             $sid = (int) $sid;
             if (! $sid) continue;
-            $syncData[$sid] = ['quantity' => (int) ($qty[$sid] ?? 1)];
+            $service = $services->get($sid);
+            $syncData[$sid] = [
+                'quantity' => (int) ($qty[$sid] ?? 1),
+                'pin_override' => $this->resolveAccessPin($service?->name, $contract->client?->phone, $servicePins[$sid] ?? null, $service?->pin),
+            ];
         }
         $contract->services()->sync($syncData);
 
@@ -651,6 +684,8 @@ class ContractController extends Controller
             // Cantidad por servicio (para permitir repetir el mismo servicio en un contrato)
             'service_quantities' => ['nullable', 'array'],
             'service_quantities.*' => ['nullable', 'integer', 'min:1'],
+            'service_pins' => ['nullable', 'array'],
+            'service_pins.*' => ['nullable', 'string', 'max:32'],
         ]);
 
         $discount = (float) ($data['discount_amount'] ?? 0);
@@ -667,6 +702,7 @@ class ContractController extends Controller
             'grace_period_days' => $data['grace_period_days'] ?? 0,
             'service_ids' => $data['service_ids'],
             'service_quantities' => $data['service_quantities'] ?? [],
+            'service_pins' => $data['service_pins'] ?? [],
         ];
     }
 
@@ -748,11 +784,47 @@ class ContractController extends Controller
                 'name' => $s->name,
                 'account_email' => $s->account_email,
                 'password' => $s->password,
-                'pin' => $s->pin,
+                'pin' => $s->pivot?->pin_override ?? $this->resolveAccessPin($s->name, $phone, null, $s->pin),
             ])
             ->all();
 
         return $whatsApp->sendPlatformAccessMessages($phone, $servicesData);
+    }
+
+    private function resolveAccessPin(?string $serviceName, ?string $clientPhone, mixed $submittedPin = null, ?string $fallbackPin = null): ?string
+    {
+        $manualPin = trim((string) ($submittedPin ?? ''));
+        if ($manualPin !== '') {
+            return $manualPin;
+        }
+
+        $generatedPin = $this->buildAccessPinFromPhone($serviceName, $clientPhone);
+        if ($generatedPin !== null) {
+            return $generatedPin;
+        }
+
+        $fallbackPin = trim((string) ($fallbackPin ?? ''));
+
+        return $fallbackPin !== '' ? $fallbackPin : null;
+    }
+
+    private function buildAccessPinFromPhone(?string $serviceName, ?string $clientPhone): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) ($clientPhone ?? ''));
+        if ($digits === '') {
+            return null;
+        }
+
+        $lastFour = substr($digits, -4);
+        if ($lastFour === false || $lastFour === '') {
+            return null;
+        }
+
+        if (str_contains(mb_strtolower((string) ($serviceName ?? '')), 'prime')) {
+            return $lastFour.substr($lastFour, -1);
+        }
+
+        return $lastFour;
     }
 
     /**

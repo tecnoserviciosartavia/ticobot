@@ -18,8 +18,9 @@ class ServiceController extends Controller
         $usageCounts = DB::table('contract_service')
             ->join('contracts', 'contracts.id', '=', 'contract_service.contract_id')
             ->whereNull('contracts.deleted_at')
+            ->select('contract_service.service_id', DB::raw('SUM(contract_service.quantity) as total_used'))
             ->groupBy('contract_service.service_id')
-            ->pluck(DB::raw('SUM(contract_service.quantity)'), 'contract_service.service_id')
+            ->pluck('total_used', 'contract_service.service_id')
             ->map(fn ($v) => (int) $v)
             ->toArray();
 
@@ -74,12 +75,11 @@ class ServiceController extends Controller
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('services', 'name')->ignore($service?->id),
             ],
             'price' => ['required', 'numeric', 'min:0'],
             'cost' => ['nullable', 'numeric', 'min:0'],
             'payment_day' => ['nullable', 'integer', 'min:1', 'max:31'],
-            'account_email' => ['nullable', 'email', 'max:255'],
+            'account_email' => ['nullable', 'email', 'max:255', Rule::unique('services', 'account_email')->ignore($service?->id)],
             'password' => ['nullable', 'string', 'max:255'],
             'pin' => ['nullable', 'string', 'max:64'],
             'max_profiles' => ['nullable', 'integer', 'min:1'],

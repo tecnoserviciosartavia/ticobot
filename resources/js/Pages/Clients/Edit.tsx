@@ -20,7 +20,7 @@ interface ClientResource {
 interface EditClientPageProps extends PageProps {
     client: ClientResource;
     statuses: string[];
-    services: Array<{ id: number; name: string; price: string; currency: string }>;
+    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
 }
 
 export default function EditClient({ client, statuses, services }: EditClientPageProps) {
@@ -39,17 +39,23 @@ export default function EditClient({ client, statuses, services }: EditClientPag
         name: '',
         amount: '0.00',
         currency: 'CRC',
+        discount_amount: '0',
         billing_cycle: 'monthly',
         next_due_date: '',
         grace_period_days: '0',
         notes: '',
         service_ids: [] as number[],
+        service_quantities: {} as Record<string, number>,
+        service_pins: {} as Record<string, string>,
     });
     const [contractErrors, setContractErrors] = useState<Record<string, string | undefined>>({});
     const [contractProcessing, setContractProcessing] = useState(false);
     const [contracts, setContracts] = useState<Array<{ id: number; name: string }>>([]);
 
-    const clientsForContractForm = useMemo(() => [{ id: client.id, name: client.name }], [client.id, client.name]);
+    const clientsForContractForm = useMemo(
+        () => [{ id: client.id, name: client.name, phone: form.data.phone ?? '' }],
+        [client.id, client.name, form.data.phone],
+    );
 
     const handleSubmit: React.FormEventHandler<HTMLFormElement> = (event) => {
         event.preventDefault();
@@ -117,11 +123,11 @@ export default function EditClient({ client, statuses, services }: EditClientPag
 
             <Modal
                 show={contractModalOpen}
-                maxWidth="2xl"
+                maxWidth="7xl"
                 closeable={!contractProcessing}
                 onClose={() => setContractModalOpen(false)}
             >
-                <div className="p-6">
+                <div className="max-h-[85vh] overflow-y-auto p-6">
                     <div className="mb-4">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Crear contrato</h3>
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

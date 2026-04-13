@@ -4,7 +4,7 @@ import type { PageProps } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
 
 interface CreateClientContractProps extends PageProps {
-    client: { id: number; name: string };
+    client: { id: number; name: string; phone?: string | null };
     services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
     defaultCurrency: string;
     defaultBillingCycle: string;
@@ -23,6 +23,8 @@ export default function CreateClientContract({ client, services, defaultCurrency
         grace_period_days: '0',
         notes: '',
         service_ids: [] as number[],
+        service_quantities: {} as Record<string, number>,
+        service_pins: {} as Record<string, string>,
     });
 
     const handleSubmit: React.FormEventHandler<HTMLFormElement> = (event) => {
@@ -55,7 +57,7 @@ export default function CreateClientContract({ client, services, defaultCurrency
                         <ContractForm
                             data={form.data}
                             errors={form.errors}
-                            clients={[{ id: client.id, name: client.name }]}
+                            clients={[{ id: client.id, name: client.name, phone: client.phone ?? null }]}
                             services={services}
                             processing={form.processing}
                             submitLabel="Guardar contrato"

@@ -110,7 +110,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
             <Head title="Configuración - Servicios" />
 
             <div className="py-12">
-                <div className="mx-auto max-w-5xl sm:px-6 lg:px-8 space-y-6">
+                <div className="mx-auto max-w-[96rem] sm:px-6 lg:px-8 space-y-6">
                     <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow">
                         <h3 className="text-lg font-semibold">Agregar servicio</h3>
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -191,7 +191,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                     {createForm.errors.password && <div className="mt-1 text-sm text-red-600">{createForm.errors.password}</div>}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium">PIN de verificación</label>
+                                    <label className="block text-sm font-medium">PIN base (respaldo)</label>
                                     <input
                                         type="text"
                                         value={createForm.data.pin}
@@ -259,21 +259,21 @@ export default function ServicesSettingsIndex({ services }: Props) {
                             </a>
                         </div>
 
-                        <div className="mt-4 overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <div className="mt-4 overflow-x-auto pb-2">
+                            <table className="min-w-[1280px] divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead>
                                         <tr className="text-left text-sm text-gray-600 dark:text-gray-300">
-                                        <th className="py-2 pr-4">Nombre</th>
-                                        <th className="py-2 pr-4">Monto</th>
-                                        <th className="py-2 pr-4">Costo</th>
-                                            <th className="py-2 pr-4">Día de pago</th>
-                                        <th className="py-2 pr-4">Correo de cuenta</th>
-                                        <th className="py-2 pr-4">Contraseña</th>
-                                        <th className="py-2 pr-4">PIN</th>
-                                        <th className="py-2 pr-4">Perfiles</th>
-                                        <th className="py-2 pr-4">Moneda</th>
-                                        <th className="py-2 pr-4">Activo</th>
-                                        <th className="py-2">Acciones</th>
+                                        <th className="py-2 pr-4 min-w-[180px]">Nombre</th>
+                                        <th className="py-2 pr-4 min-w-[90px]">Monto</th>
+                                        <th className="py-2 pr-4 min-w-[90px]">Costo</th>
+                                            <th className="py-2 pr-4 min-w-[90px]">Día de pago</th>
+                                        <th className="py-2 pr-4 min-w-[220px]">Correo de cuenta</th>
+                                        <th className="py-2 pr-4 min-w-[170px]">Contraseña</th>
+                                        <th className="py-2 pr-4 min-w-[120px]">PIN base</th>
+                                        <th className="py-2 pr-4 min-w-[90px]">Perfiles</th>
+                                        <th className="py-2 pr-4 min-w-[90px]">Moneda</th>
+                                        <th className="py-2 pr-4 min-w-[70px]">Activo</th>
+                                        <th className="py-2 min-w-[160px]">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">

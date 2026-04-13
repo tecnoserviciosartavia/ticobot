@@ -166,6 +166,7 @@ class WhatsAppNotificationService
     public function sendPlatformAccessMessages(string $phone, array $services): int
     {
         $sent = 0;
+        $alreadySent = 0;
         foreach ($services as $service) {
             $name = strtoupper($service['name'] ?? '');
             $email = $service['account_email'] ?? null;
@@ -195,6 +196,11 @@ class WhatsAppNotificationService
             $message = implode("\n", $lines);
             if ($this->sendTextMessage($phone, $message)) {
                 $sent++;
+                $alreadySent++;
+                // Evita disparar mensajes consecutivos demasiado rápido al mismo chat.
+                if ($alreadySent > 0) {
+                    usleep(300000);
+                }
             }
         }
 
@@ -211,20 +217,41 @@ class WhatsAppNotificationService
     public function sendTextMessage(string $phone, string $message): bool
     {
         try {
-            $response = Http::timeout(10)
-                ->post("{$this->botWebhookUrl}/webhook/send_text", [
-                    'phone' => $phone,
-                    'message' => $message,
-                ]);
+            $attempt = 0;
+            $response = null;
 
-            if ($response->successful()) {
+            do {
+                $attempt++;
+                $response = Http::timeout(10)
+                    ->post("{$this->botWebhookUrl}/webhook/send_text", [
+                        'phone' => $phone,
+                        'message' => $message,
+                    ]);
+
+                if ($response->successful()) {
+                    return true;
+                }
+
+                $body = (string) $response->body();
+                $retryableLidError = $response->status() === 500
+                    && str_contains(strtolower($body), 'lid is missing in chat table');
+
+                if ($retryableLidError && $attempt < 3) {
+                    usleep(600000);
+                    continue;
+                }
+
+                break;
+            } while ($attempt < 3);
+
+            if ($response && $response->successful()) {
                 return true;
             }
 
             Log::warning('Error al enviar mensaje de texto por bot webhook', [
                 'phone' => $phone,
-                'status' => $response->status(),
-                'response' => $response->body(),
+                'status' => $response?->status(),
+                'response' => $response?->body(),
             ]);
             return false;
         } catch (\Exception $e) {

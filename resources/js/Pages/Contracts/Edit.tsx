@@ -16,11 +16,12 @@ interface ContractResource {
     grace_period_days: number;
     service_ids?: number[];
     service_quantities?: Record<string, number>;
+    service_pins?: Record<string, string>;
 }
 
 interface ContractsEditProps extends PageProps<{
     contract: ContractResource;
-    clients: Array<{ id: number; name: string }>;
+    clients: Array<{ id: number; name: string; phone?: string | null }>;
     services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
 }> {}
 
@@ -37,6 +38,7 @@ export default function ContractsEdit({ contract, clients, services }: Contracts
         grace_period_days: contract.grace_period_days?.toString() ?? '0',
         service_ids: (contract.service_ids ?? []) as number[],
         service_quantities: (contract.service_quantities ?? {}) as Record<string, number>,
+        service_pins: (contract.service_pins ?? {}) as Record<string, string>,
     });
 
     const submit: React.FormEventHandler<HTMLFormElement> = (event) => {

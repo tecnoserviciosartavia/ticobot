@@ -19,6 +19,11 @@ interface Client {
     updated_at: string | null;
 }
 
+interface Service {
+    id: number;
+    name: string;
+}
+
 interface Paginated<T> {
     data: T[];
     links: Array<{ url: string | null; label: string; active: boolean }>;
@@ -34,14 +39,17 @@ type ClientsPageProps = PageProps<{
     filters: {
         search?: string | null;
         status?: string | null;
+        service_id?: number | null;
     };
     statuses: string[];
+    services: Service[];
 }>;
 
-export default function ClientsIndex({ clients, filters, statuses }: ClientsPageProps) {
-    const { data, setData } = useForm<{ search: string; status: string }>({
+export default function ClientsIndex({ clients, filters, statuses, services }: ClientsPageProps) {
+    const { data, setData } = useForm<{ search: string; status: string; service_id: string }>({
         search: filters.search ?? '',
         status: filters.status ?? '',
+        service_id: filters.service_id ? String(filters.service_id) : '',
     });
 
     const page = usePage();
@@ -66,6 +74,7 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
     const resetFilters = () => {
         setData('search', '');
         setData('status', '');
+        setData('service_id', '');
         router.get(route('clients.index'), {}, {
             preserveScroll: true,
             replace: true,
@@ -166,6 +175,28 @@ export default function ClientsIndex({ clients, filters, statuses }: ClientsPage
                                         {statuses.map((status) => (
                                                 <option key={status} value={status}>
                                                     {labelForStatus(status)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="w-full md:w-56">
+                                    <label
+                                        htmlFor="service_id"
+                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                    >
+                                        Plataforma
+                                    </label>
+                                    <select
+                                        id="service_id"
+                                        name="service_id"
+                                        value={data.service_id}
+                                        onChange={(event) => setData('service_id', event.target.value)}
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                                    >
+                                        <option value="">Todas</option>
+                                        {services.map((service) => (
+                                            <option key={service.id} value={String(service.id)}>
+                                                {service.name}
                                             </option>
                                         ))}
                                     </select>
