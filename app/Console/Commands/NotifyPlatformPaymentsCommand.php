@@ -56,7 +56,7 @@ class NotifyPlatformPaymentsCommand extends Command
                     continue;
                 }
 
-                $message = $this->buildMessage($service->name, (float) $service->cost, (string) $service->currency, $dueDate);
+                $message = $this->buildMessage($service->name, (float) $service->cost, (string) $service->currency, $dueDate, $service->account_email);
                 $ok = $whatsApp->sendTextMessage($phone, $message);
                 if (! $ok) {
                     $this->warn("No se pudo notificar {$phone} para servicio {$service->name}.");
@@ -104,11 +104,12 @@ class NotifyPlatformPaymentsCommand extends Command
         return array_values(array_unique($phones));
     }
 
-    private function buildMessage(string $serviceName, float $cost, string $currency, string $dueDate): string
+    private function buildMessage(string $serviceName, float $cost, string $currency, string $dueDate, ?string $accountEmail = null): string
     {
         $symbol = strtoupper($currency) === 'USD' ? '$' : 'CRC '; 
         $amount = number_format($cost, 2, '.', ',');
+        $emailLine = $accountEmail ? "\nCuenta: {$accountEmail}" : '';
 
-        return "Recordatorio de pago de plataforma\n\nServicio: {$serviceName}\nCosto: {$symbol}{$amount}\nFecha de pago: {$dueDate}\n\nEste aviso se envía automaticamente el dia configurado del servicio.";
+        return "Recordatorio de pago de plataforma\n\nServicio: {$serviceName}{$emailLine}\nCosto: {$symbol}{$amount}\nFecha de pago: {$dueDate}\n\nEste aviso se envía automaticamente el dia configurado del servicio.";
     }
 }
