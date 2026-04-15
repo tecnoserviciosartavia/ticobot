@@ -20,6 +20,7 @@ Sistema automatizado de recordatorios de pagos vía WhatsApp para gestión de cl
 - ✅ **API REST**: Endpoints completos con Laravel Sanctum
 - ✅ **Importación Masiva**: Soporte para CSV/XLSX de clientes y contratos
 - ✅ **Dashboard Analítico**: Métricas en tiempo real de cobros y recordatorios
+- ✅ **Logs en Tiempo Real**: Monitoreo desde la UI para eventos del sistema y actividad del bot WhatsApp
 - ✅ **Multi-tenant**: Configuración por cliente con tipos de contrato personalizados
 
 ---
@@ -65,6 +66,36 @@ Todas a nombre de {beneficiary_name}
 
 Si ya canceló, omita el mensaje
 ```
+
+---
+
+## 📺 Monitoreo desde la UI
+
+La pantalla de **Configuración del sistema** ahora incluye una pestaña **Logs** para observación operativa en tiempo real.
+
+### Ubicación
+
+- **Configuración del sistema → Logs**
+
+### Qué se puede ver
+
+- **Actividad del bot WhatsApp** desde la salida de PM2
+- **Mensajes entrantes de WhatsApp** usando el filtro `Solo WhatsApp entrante`
+- **Eventos del sistema** usando el filtro `Solo sistema`
+- **Logs Laravel** y otros archivos configurados como fuente
+
+### Fuentes disponibles
+
+- `PM2 bot output (ticobot-out.log)`
+- `PM2 bot errors (ticobot-error.log)`
+- `Bot local (bot/log.out)`
+- `Laravel (storage/logs/laravel.log)`
+
+### Notas operativas
+
+- La vista usa recarga automática corta para simular tiempo real sin mantener conexiones abiertas persistentes.
+- La fuente por defecto está configurada para abrir en **PM2 bot output**, ya que es la más útil para soporte del bot en producción.
+- Los filtros rápidos permiten separar la conversación entrante de WhatsApp de eventos generales del sistema.
 
 ---
 
@@ -301,7 +332,7 @@ npm run build
 cd ..
 ```
 
-#### 4.5 (Recomendado Producción) Ejecutar el bot con PM2 (proceso `ticobot-bot`)
+#### 4.5 (Recomendado Producción) Ejecutar el bot con PM2
 
 En servidores sin interfaz gráfica (sin X server), el bot debe correr en modo **headless**.
 
@@ -321,20 +352,20 @@ npm run build
 
 # Vuelve a la raíz e inicia con PM2
 cd ..
-pm2 start bot/dist/index.js --name ticobot-bot --cwd ./bot --update-env
+pm2 start bot/dist/index.js --name ticobot --cwd ./bot --update-env
 ```
 
 3) Ver logs y estado:
 
 ```bash
 pm2 status
-pm2 logs ticobot-bot
+pm2 logs ticobot
 ```
 
 4) Reiniciar tras cambios:
 
 ```bash
-pm2 restart ticobot-bot --update-env
+pm2 restart ticobot --update-env
 ```
 
 5) Persistir procesos tras reinicio del servidor:
@@ -344,9 +375,24 @@ pm2 save
 ```
 
 Notas:
-- `pm2 status` lista *todos* los procesos del usuario (por ejemplo `ticobot`, `ticobot_2`, `ticobot-bot`).
+- En este entorno productivo el proceso operativo principal del bot es `ticobot`.
+- `pm2 status` lista *todos* los procesos del usuario (por ejemplo `ticobot`, `ticobot_2` u otros procesos históricos).
 - El bot usa `BOT_SESSION_PATH` (por defecto `storage/whatsapp-session`). Evita correr dos bots apuntando a la misma ruta de sesión.
 - No pegues tokens reales en documentación; usa valores de ejemplo.
+
+### Estabilidad reciente del bot WhatsApp
+
+Se aplicaron varios ajustes para reducir silencios del bot y mejorar la operación con WhatsApp Web:
+
+- Soporte operativo para chats tipo `@lid` en recepción, manteniendo fallback para envíos.
+- Promoción de estado `CONNECTED` a listo cuando `ready` no llega pero el cliente ya es usable.
+- Fallback de envío para intentar múltiples targets cuando WhatsApp Web no resuelve el chat a la primera.
+- Cleanup de sesión endurecido para evitar warnings falsos al cerrar Chromium/Puppeteer.
+
+Importante:
+
+- Aun con estos cambios, `whatsapp-web.js` y Puppeteer siguen siendo una dependencia frágil ante cambios de WhatsApp Web.
+- Si el bot deja de responder, la primera revisión recomendada es **Configuración → Logs** con fuente `PM2 bot output` y filtro `Solo WhatsApp entrante`.
 
 ### Paso 5: Configurar Servidor Web
 
