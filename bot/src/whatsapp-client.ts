@@ -37,6 +37,7 @@ export class WhatsAppClient {
   private restartCountWindow: Array<number> = [];
   private readonly debugMessages: boolean;
   private enableMessagePolling: boolean;
+  private readonly includeLidInPolling: boolean;
   private readonly markMessagesRead: boolean;
   private readonly enableAutoRestartOnStuck: boolean;
   private readonly stuckCheckIntervalMs: number;
@@ -176,12 +177,117 @@ export class WhatsAppClient {
 
       if (!Array.isArray(result)) return [];
       return result
-        .filter((x: any) => x && typeof x.id === 'string' && !String(x.id).endsWith('@broadcast'))
+        .filter((x: any) => {
+          if (!x || typeof x.id !== 'string') return false;
+          const id = String(x.id);
+          if (id.endsWith('@broadcast')) return false;
+          if (!this.includeLidInPolling && id.endsWith('@lid')) return false;
+          return true;
+        })
         .map((x: any) => ({ id: String(x.id), unreadCount: Number(x.unreadCount || 0) }));
     } catch (error) {
       logger.debug({ err: error }, 'No se pudo listar chats no leídos (lightweight)');
       return [];
     }
+  }
+
+  private buildSendTargets(chatId: string): string[] {
+    const input = String(chatId || '').trim();
+    if (!input) return [];
+
+    const targets: string[] = [];
+    const pushUnique = (id: string) => {
+      if (!id) return;
+      if (targets.includes(id)) return;
+      targets.push(id);
+    };
+
+    const isLid = input.endsWith('@lid');
+    const digits = input.replace(/@.*/, '').replace(/[^0-9]/g, '');
+
+    // Recomendado: usar @c.us como canónico y dejar @lid como fallback.
+    if (isLid && digits.length >= 8) {
+      try {
+        pushUnique(formatWhatsAppId(digits));
+      } catch {
+        // ignore invalid number
+      }
+    }
+
+    pushUnique(input);
+
+    if (!isLid && digits.length >= 8) {
+      try {
+        pushUnique(formatWhatsAppId(digits));
+      } catch {
+        // ignore invalid number
+      }
+    }
+
+    return targets;
+  }
+
+  private async sendMessageWithFallback(chatId: string, payload: string | InstanceType<typeof MessageMedia>): Promise<void> {
+    const isLid = typeof chatId === 'string' && chatId.endsWith('@lid');
+    if (isLid) {
+      logger.warn({ chatId }, 'sendMessageWithFallback: chatId @lid detectado; priorizando envio a @c.us');
+    }
+
+    const targets = this.buildSendTargets(chatId);
+    let lastError: unknown = null;
+    let sawNullResult = false;
+
+    for (const target of targets) {
+      try {
+        const result = await this.client.sendMessage(target, payload as any);
+        if (result == null) {
+          sawNullResult = true;
+          logger.warn({ chatId, target }, 'sendMessageWithFallback: sendMessage devolvio null; intentando siguiente target');
+          continue;
+        }
+        if (target !== chatId) {
+          logger.info({ chatId, target }, 'sendMessageWithFallback: enviado por fallback');
+        }
+        return;
+      } catch (error: any) {
+        lastError = error;
+        const msg = String(error?.message ?? error).toLowerCase();
+        logger.warn({ chatId, target, err: error }, 'sendMessageWithFallback: error enviando a target; probando fallback');
+
+        // Error comun en @lid: intentar siguiente target sin abortar.
+        if (msg.includes('lid is missing in chat table')) {
+          continue;
+        }
+      }
+    }
+
+    // Ultimo recurso: resolver por numero con getNumberId y reintentar.
+    const raw = String(chatId).replace(/@.*/, '').replace(/[^0-9]/g, '');
+    if (raw.length > 0) {
+      try {
+        const resolved = await (this.client as any).getNumberId(raw);
+        const resolvedId = resolved?._serialized ? String(resolved._serialized) : null;
+        if (resolvedId && !targets.includes(resolvedId)) {
+          const resolvedResult = await this.client.sendMessage(resolvedId, payload as any);
+          if (resolvedResult != null) {
+            logger.info({ chatId, resolvedId }, 'sendMessageWithFallback: enviado via getNumberId');
+            return;
+          }
+          sawNullResult = true;
+        }
+      } catch (resolveErr) {
+        lastError = resolveErr;
+        logger.warn({ chatId, raw, resolveErr }, 'sendMessageWithFallback: fallo getNumberId en fallback final');
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+    if (sawNullResult) {
+      throw new Error('WhatsApp sendMessage devolvio null en todos los targets');
+    }
+    throw new Error('No se pudo enviar el mensaje en ningun target');
   }
 
   private async markChatIdAsReadBestEffort(chatId: string): Promise<void> {
@@ -422,6 +528,8 @@ export class WhatsAppClient {
   // los eventos y el bot deja de procesar mensajes. El polling fallback permite seguir
   // respondiendo leyendo chats no leídos.
   this.enableMessagePolling = parseEnvBool(process.env.BOT_ENABLE_MESSAGE_POLLING, true);
+    // Mantener @lid fuera del polling por defecto para evitar errores intermitentes de fetchMessages.
+    this.includeLidInPolling = parseEnvBool(process.env.BOT_POLL_INCLUDE_LID, false);
     this.markMessagesRead = parseEnvBool(process.env.BOT_MARK_MESSAGES_READ, true);
     // Auto-restart can cause Puppeteer session locks ("browser already running") if Chrome doesn't exit cleanly.
     // Keep it OFF by default; can be enabled when the environment is stable.
@@ -438,6 +546,7 @@ export class WhatsAppClient {
         disableWwebjsPatches,
         debugMessages: this.debugMessages,
         enableMessagePolling: this.enableMessagePolling,
+        includeLidInPolling: this.includeLidInPolling,
         markMessagesRead: this.markMessagesRead
       },
       'Inicializando WhatsApp (puppeteer)'
@@ -1036,51 +1145,7 @@ export class WhatsAppClient {
     if (!ready) {
       throw new Error('WhatsApp client not ready');
     }
-    const isLid = typeof chatId === 'string' && chatId.endsWith('@lid');
-    if (isLid) {
-      logger.warn({ chatId }, 'sendText: chatId con formato @lid — intentando envío con fallback @c.us');
-    }
-    let result: any = null;
-    try {
-      result = await this.client.sendMessage(chatId, text);
-    } catch (err: any) {
-      const msg = String(err && err.message ? err.message : err).toLowerCase();
-      const isLidChatTableError = msg.includes('lid is missing in chat table');
-      if (!isLidChatTableError) {
-        throw err;
-      }
-
-      // Fallback robusto: resolver el número con getNumberId y reenviar al ID serializado.
-      const raw = String(chatId).replace(/@.*/, '').replace(/[^0-9]/g, '');
-      let resolved: any = null;
-      try {
-        if (raw.length > 0) {
-          resolved = await (this.client as any).getNumberId(raw);
-        }
-      } catch (resolveErr) {
-        logger.warn({ chatId, raw, resolveErr }, 'sendText: fallo getNumberId tras error LID');
-      }
-
-      const resolvedId = resolved?._serialized ?? null;
-      if (resolvedId) {
-        logger.warn({ chatId, resolvedId }, 'sendText: reintentando con número resuelto por getNumberId');
-        result = await this.client.sendMessage(resolvedId, text);
-      } else {
-        throw err;
-      }
-    }
-    if (result == null && isLid) {
-      // Fallback: WhatsApp multi-device usa @lid para identificar contactos, pero el Store
-      // puede tener el chat indexado como @c.us. Intentamos con los mismos dígitos + @c.us.
-      const altChatId = chatId.replace(/@lid$/, '@c.us');
-      logger.warn({ chatId, altChatId }, 'sendText @lid devolvió null — reintentando con @c.us');
-      result = await this.client.sendMessage(altChatId, text);
-      if (result == null) {
-        logger.warn({ chatId, altChatId }, 'sendText: ambos @lid y @c.us fallaron — mensaje no enviado');
-      } else {
-        logger.info({ chatId, altChatId }, 'sendText: mensaje enviado exitosamente con fallback @c.us');
-      }
-    }
+    await this.sendMessageWithFallback(chatId, text);
   }
 
   // Enviar media (base64) a un chat
@@ -1090,7 +1155,7 @@ export class WhatsAppClient {
       throw new Error('WhatsApp client not ready');
     }
     const media = new MessageMedia(mimeType, base64Data, filename);
-    await this.client.sendMessage(chatId, media);
+    await this.sendMessageWithFallback(chatId, media);
   }
 
   async getState(): Promise<{ state: string | null; info: any }> {
