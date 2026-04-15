@@ -217,7 +217,7 @@ async function main(): Promise<void> {
       if (BUSINESS_HOURS[0]) parts.push(`Dom ${BUSINESS_HOURS[0].open}-${BUSINESS_HOURS[0].close}`);
       if (BUSINESS_HOURS[6]) parts.push(`Sáb ${BUSINESS_HOURS[6].open}-${BUSINESS_HOURS[6].close}`);
       return parts.join(', ');
-    } catch (e) {
+    } catch {
       return 'Horario no disponible';
     }
   }
@@ -557,7 +557,7 @@ async function main(): Promise<void> {
           }
         }
       }
-    } catch (e) {
+    } catch {
       // best-effort: si falla el check, continuar normal
     }
 
@@ -602,7 +602,7 @@ async function main(): Promise<void> {
     let customerRecord: any = null;
     try {
       customerRecord = await apiClient.findCustomerByPhone(fromNorm);
-    } catch (e) {
+    } catch {
       // No customer found, continue
     }
 
@@ -689,7 +689,7 @@ async function main(): Promise<void> {
           try {
             // Importante: NO autocrear clientes. Solo asociar el pago si el cliente ya existe.
             let client: any = null;
-            try { client = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
+            try { client = await apiClient.findCustomerByPhone(fromNorm); } catch { /* ignore */ }
 
             const paymentPayload: any = {
               client_id: client && client.id ? client.id : undefined,
@@ -938,7 +938,7 @@ async function main(): Promise<void> {
             let client: any = null;
             try {
               client = await apiClient.findCustomerByPhone(phone);
-            } catch (e) {
+            } catch {
               // ignore – puede no existir en el sistema
             }
 
@@ -1568,7 +1568,7 @@ async function main(): Promise<void> {
         try {
           // Ensure client exists
           let client: any = null;
-          try { client = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
+          try { client = await apiClient.findCustomerByPhone(fromNorm); } catch { /* ignore */ }
           if (!client) {
               // No autocrear clientes
           }
@@ -1658,7 +1658,7 @@ async function main(): Promise<void> {
           try {
             // Try to find client and contract to infer monthly amount
             let clientForAmount: any = null;
-            try { clientForAmount = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
+            try { clientForAmount = await apiClient.findCustomerByPhone(fromNorm); } catch { /* ignore */ }
             // No autocrear clientes
             if (clientForAmount && clientForAmount.id) {
               const contracts = await apiClient.listContracts({ client_id: clientForAmount.id });
@@ -1739,7 +1739,7 @@ async function main(): Promise<void> {
               errInfo.data = e.response.data;
             }
             if (e && e.code) errInfo.code = e.code;
-          } catch (ee) {
+          } catch {
             // ignore
           }
           logger.warn({ errInfo, chatId, payload: { phone: fromNorm, months: asNum, backendReceiptId: payload.backendReceiptId } }, 'Error informando al backend sobre meses');
@@ -1761,7 +1761,7 @@ async function main(): Promise<void> {
               try {
                 // Retry creating payment in backend
                 let clientRetry: any = null;
-                try { clientRetry = await apiClient.findCustomerByPhone(fromNorm); } catch (e) { /* ignore */ }
+                try { clientRetry = await apiClient.findCustomerByPhone(fromNorm); } catch { /* ignore */ }
                 if (!clientRetry) {
                   // No autocrear clientes
                 }
@@ -1790,7 +1790,7 @@ async function main(): Promise<void> {
                 }
               } catch (e2: any) {
                 logger.warn({ e2, chatId }, 'Reintento fallido aplicando meses');
-                try { await updateReceiptEntry(payload.receiptId, { status: 'apply_failed', apply_error_retry: String(e2 && e2.message ? e2.message : e2) }); } catch (ee) { /* ignore */ }
+                try { await updateReceiptEntry(payload.receiptId, { status: 'apply_failed', apply_error_retry: String(e2 && e2.message ? e2.message : e2) }); } catch { /* ignore */ }
               }
             }, retryDelayMs);
           } catch (ee) {
@@ -2467,7 +2467,7 @@ async function main(): Promise<void> {
       // Activate agent mode
       agentMode.set(chatId, true);
       chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
-      try { touchTimer(chatId); } catch (e) { /* ignore */ }
+      try { touchTimer(chatId); } catch { /* ignore */ }
       menuShown.delete(chatId);
       lastMenuItems.delete(chatId);
       logger.info({ chatId, trigger: lc }, 'Chat puesto en modo agente (palabra clave)');
@@ -2560,7 +2560,7 @@ async function main(): Promise<void> {
             // Activate agent mode and notify admin just like the generic agent transfer flow
             agentMode.set(chatId, true);
             chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
-            try { touchTimer(chatId); } catch (e) { /* ignore */ }
+            try { touchTimer(chatId); } catch { /* ignore */ }
             menuShown.delete(chatId);
             lastMenuItems.delete(chatId);
             logger.info({ chatId }, 'Chat puesto en modo agente (opción 5)');
@@ -2689,7 +2689,7 @@ async function main(): Promise<void> {
             awaitingReceipt.set(chatId, true);
             // keep short timeout for receipt upload
             chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
-            try { touchTimer(chatId); } catch (e) { /* ignore */ }
+            try { touchTimer(chatId); } catch { /* ignore */ }
             await message.reply('Por favor adjunta una foto o PDF del comprobante ahora. Si deseas cancelar escribe "salir".');
             return;
           }
@@ -2842,7 +2842,7 @@ async function main(): Promise<void> {
   }
 
   // Convert image buffer (jpg/png) to a single-page PDF buffer
-  async function imageBufferToPdfBuffer(imageBuf: Buffer, filename: string) {
+  async function imageBufferToPdfBuffer(imageBuf: Buffer, _filename: string) {
     // dynamic import to avoid build-time ESM issues
     const mod = await import('pdfkit');
     const PDFDocument: any = mod && (mod as any).default ? (mod as any).default : mod;
@@ -3080,7 +3080,7 @@ async function main(): Promise<void> {
               const buff = await fs.readFile(pdfPath);
               base64data = buff.toString('base64');
               filename = path.basename(pdfPath);
-            } catch (e) {
+            } catch {
               // ignore
             }
           } else if (pdfUrl) {
@@ -3089,7 +3089,7 @@ async function main(): Promise<void> {
               base64data = Buffer.from(resp.data).toString('base64');
               const urlObj = new URL(pdfUrl);
               filename = path.basename(urlObj.pathname) || filename;
-            } catch (e) {
+            } catch {
               // ignore
             }
           }
@@ -3107,7 +3107,7 @@ async function main(): Promise<void> {
               const buff = await fs.readFile(entry.reconciled_pdf);
               base64data = buff.toString('base64');
               filename = path.basename(entry.reconciled_pdf);
-            } catch (e) {
+            } catch {
               // ignore
             }
           }

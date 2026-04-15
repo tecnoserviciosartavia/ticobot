@@ -8,7 +8,6 @@ import { formatWhatsAppId } from './utils/phone.js';
 import { apiClient } from './api-client.js';
 import { exec as _exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import path from 'node:path';
 
 const { Client, LocalAuth, MessageMedia } = pkg;
 
@@ -227,6 +226,19 @@ export class WhatsAppClient {
     return targets;
   }
 
+  private isRetryableSendError(error: unknown): boolean {
+    const message = String((error as any)?.message ?? error ?? '').toLowerCase();
+    return (
+      message === 't' ||
+      message.includes('execution context') ||
+      message.includes('protocol error') ||
+      message.includes('context was destroyed') ||
+      message.includes('cannot find context') ||
+      message.includes('evaluation failed') ||
+      message.includes('lid is missing in chat table')
+    );
+  }
+
   private async sendMessageWithFallback(chatId: string, payload: string | InstanceType<typeof MessageMedia>): Promise<void> {
     const isLid = typeof chatId === 'string' && chatId.endsWith('@lid');
     if (isLid) {
@@ -251,11 +263,21 @@ export class WhatsAppClient {
         return;
       } catch (error: any) {
         lastError = error;
-        const msg = String(error?.message ?? error).toLowerCase();
         logger.warn({ chatId, target, err: error }, 'sendMessageWithFallback: error enviando a target; probando fallback');
 
-        // Error comun en @lid: intentar siguiente target sin abortar.
-        if (msg.includes('lid is missing in chat table')) {
+        if (this.isRetryableSendError(error)) {
+          try {
+            await this.applyWwebjsSafetyStubs();
+            const retried = await this.client.sendMessage(target, payload as any);
+            if (retried != null) {
+              logger.info({ chatId, target }, 'sendMessageWithFallback: enviado tras reintento local con stubs');
+              return;
+            }
+            sawNullResult = true;
+          } catch (retryError) {
+            lastError = retryError;
+            logger.warn({ chatId, target, err: retryError }, 'sendMessageWithFallback: reintento local falló; continuando con fallback');
+          }
           continue;
         }
       }
@@ -591,7 +613,7 @@ export class WhatsAppClient {
                 (window as any).WWebJS.sendSeen = async () => {
                   return;
                 };
-              } catch (e) {
+              } catch {
                 // ignore
               }
             }
@@ -707,7 +729,7 @@ export class WhatsAppClient {
                               } catch { return null; }
                             };
                           }
-                        } catch (e) {
+                        } catch {
                           // ignore
                         }
                       });
@@ -738,15 +760,15 @@ export class WhatsAppClient {
                               } catch { return null; }
                             };
                           }
-                        } catch (e) {}
+                        } catch {}
                       });
                     }
                   }
-                } catch (e) {
+                } catch {
                   // ignore per-target failures
                 }
               });
-            } catch (e) {
+            } catch {
               // ignore
             }
 
@@ -763,7 +785,7 @@ export class WhatsAppClient {
                           return;
                         };
                         (window as any).WWebJS.markedUnread = false;
-                      } catch (e) {}
+                      } catch {}
                     });
                   } else if (p && typeof p.addInitScript === 'function') {
                     await p.addInitScript(() => {
@@ -773,14 +795,14 @@ export class WhatsAppClient {
                           return;
                         };
                         (window as any).WWebJS.markedUnread = false;
-                      } catch (e) {}
+                      } catch {}
                     });
                   }
-                } catch (e) {
+                } catch {
                   // ignore per-page failures
                 }
               }
-            } catch (e) {
+            } catch {
               // ignore
             }
 
@@ -793,8 +815,8 @@ export class WhatsAppClient {
             if (ok) break;
             await new Promise((r) => setTimeout(r, 250));
           }
-        } catch (e) {
-          logger.debug({ e }, 'No se pudo instalar inyección evaluateOnNewDocument');
+        } catch (error) {
+          logger.debug({ err: error }, 'No se pudo instalar inyección evaluateOnNewDocument');
         }
       })();
     }

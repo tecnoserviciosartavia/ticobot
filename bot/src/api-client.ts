@@ -354,7 +354,7 @@ class ApiClient {
     try {
       const res = await this.fetchFromBackend(`/paused-contacts/check/${whatsappNumber}`);
       return res?.is_paused === true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }

@@ -75,7 +75,6 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   }
 
   // Build a detailed subscription reminder similar to the provided template
-  const clientName = reminder.client?.name ?? '';
   // Nombre de empresa: solo desde settings/UI (company_name). Si no existe, usar fallback mínimo.
   const companyName = String((config as any).companyName ?? '').trim() || 'Empresa';
   
