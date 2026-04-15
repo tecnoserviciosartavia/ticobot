@@ -5,6 +5,7 @@ use App\Http\Controllers\Web\ClientController as WebClientController;
 use App\Http\Controllers\Web\ContractController as WebContractController;
 use App\Http\Controllers\Web\ConciliationController as WebConciliationController;
 use App\Http\Controllers\Web\DashboardController;
+use App\Http\Controllers\Web\LogsController;
 use App\Http\Controllers\Web\PaymentController as WebPaymentController;
 use App\Http\Controllers\Web\ReminderController as WebReminderController;
 use Illuminate\Support\Facades\Route;
@@ -18,6 +19,8 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/logs', [LogsController::class, 'index'])->name('logs.index');
+    Route::get('/logs/fetch', [LogsController::class, 'fetch'])->name('logs.fetch');
 
     // Cobranzas (deuda = NO existe pago registrado)
     Route::get('/collections', function () {
