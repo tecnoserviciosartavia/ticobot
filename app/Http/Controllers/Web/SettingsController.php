@@ -38,6 +38,29 @@ class SettingsController extends Controller
             'settings' => $all,
             'whatsapp' => WhatsAppStatus::snapshot(),
             'services' => $services,
+            'logSources' => [
+                [
+                    'key' => 'laravel',
+                    'label' => 'Laravel (storage/logs/laravel.log)',
+                    'exists' => is_readable(env('WEB_LOG_LARAVEL_PATH', storage_path('logs/laravel.log'))),
+                ],
+                [
+                    'key' => 'bot_local',
+                    'label' => 'Bot local (bot/log.out)',
+                    'exists' => is_readable(env('WEB_LOG_BOT_PATH', base_path('bot/log.out'))),
+                ],
+                [
+                    'key' => 'pm2_out',
+                    'label' => 'PM2 bot output (ticobot-out.log)',
+                    'exists' => is_readable(env('WEB_LOG_PM2_OUT_PATH', '/home/fabian/.pm2/logs/ticobot-out.log')),
+                ],
+                [
+                    'key' => 'pm2_error',
+                    'label' => 'PM2 bot errors (ticobot-error.log)',
+                    'exists' => is_readable(env('WEB_LOG_PM2_ERROR_PATH', '/home/fabian/.pm2/logs/ticobot-error.log')),
+                ],
+            ],
+            'logDefaultSource' => 'bot_local',
         ]);
     }
 

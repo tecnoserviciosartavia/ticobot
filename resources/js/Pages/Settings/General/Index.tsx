@@ -2,6 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
 import type { PageProps } from '@/types';
 import WhatsAppConnectionCard, { WhatsAppStatus } from '@/Pages/Profile/Partials/WhatsAppConnectionCard';
+import LogsTab from '@/Pages/Settings/General/Partials/LogsTab';
 import { useRef, useState } from 'react';
 
 type ServiceItem = {
@@ -13,7 +14,19 @@ type ServiceItem = {
     updated_at?: string | null;
 };
 
-type Props = PageProps<{ settings: Record<string, string>; whatsapp?: WhatsAppStatus; services: ServiceItem[] }>;
+type LogSource = {
+    key: string;
+    label: string;
+    exists: boolean;
+};
+
+type Props = PageProps<{
+    settings: Record<string, string>;
+    whatsapp?: WhatsAppStatus;
+    services: ServiceItem[];
+    logSources: LogSource[];
+    logDefaultSource: string;
+}>;
 
 const currencySymbol = (currency: string) => {
     switch (currency) {
@@ -26,8 +39,8 @@ const currencySymbol = (currency: string) => {
     }
 };
 
-export default function SettingsIndex({ settings, whatsapp, services }: Props) {
-    const [activeTab, setActiveTab] = useState<'whatsapp' | 'general' | 'services'>(() => (whatsapp ? 'whatsapp' : 'general'));
+export default function SettingsIndex({ settings, whatsapp, services, logSources, logDefaultSource }: Props) {
+    const [activeTab, setActiveTab] = useState<'whatsapp' | 'general' | 'services' | 'logs'>(() => (whatsapp ? 'whatsapp' : 'general'));
     const [testSending, setTestSending] = useState(false);
     const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -143,6 +156,17 @@ export default function SettingsIndex({ settings, whatsapp, services }: Props) {
                                     }`}
                                 >
                                     Servicios
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('logs')}
+                                    className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition ${
+                                        activeTab === 'logs'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                    }`}
+                                >
+                                    Logs
                                 </button>
                             </div>
 
@@ -357,6 +381,13 @@ export default function SettingsIndex({ settings, whatsapp, services }: Props) {
                                     </table>
                                 </div>
                             </div>
+                        )}
+
+                        {activeTab === 'logs' && (
+                            <LogsTab
+                                sources={logSources}
+                                defaultSource={logDefaultSource}
+                            />
                         )}
                     </div>
                 </div>

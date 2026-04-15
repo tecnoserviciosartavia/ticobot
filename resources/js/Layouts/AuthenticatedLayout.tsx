@@ -58,12 +58,6 @@ export default function Authenticated({
                                 >
                                     Contabilidad
                                 </NavLink>
-                                <NavLink
-                                    href={route('logs.index')}
-                                    active={route().current('logs.*')}
-                                >
-                                    Logs
-                                </NavLink>
                             </div>
                         </div>
 
@@ -195,12 +189,6 @@ export default function Authenticated({
                             active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*')}
                         >
                             Contabilidad
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('logs.index')}
-                            active={route().current('logs.*')}
-                        >
-                            Logs
                         </ResponsiveNavLink>
                     </div>
 

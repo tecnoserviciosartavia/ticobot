@@ -6,12 +6,12 @@ import { logger } from './logger.js';
 import { ReminderMessagePayload, ReminderRecord } from './types.js';
 import { formatWhatsAppId } from './utils/phone.js';
 import { apiClient } from './api-client.js';
-import { exec as _exec } from 'node:child_process';
+import { execFile as _execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const { Client, LocalAuth, MessageMedia } = pkg;
 
-const exec = promisify(_exec);
+const execFile = promisify(_execFile);
 
 function parseEnvBool(value: string | undefined, defaultValue: boolean): boolean {
   if (value == null) return defaultValue;
@@ -1442,15 +1442,50 @@ export class WhatsAppClient {
       logger.warn({ err }, 'No se pudo cerrar pupBrowser en fallback');
     }
 
-    // Último recurso: matar procesos que estén usando el userDataDir (evita lock persistente)
+    // Último recurso: terminar procesos que usan el userDataDir (evita lock persistente).
+    // Evitamos `pkill -f` directo porque puede terminar el propio shell/proceso lanzador
+    // y generar rechazos por señal (SIGTERM) aunque el cleanup haya funcionado.
     try {
       const userDataDir = (this.client as any)?.options?.puppeteer?.userDataDir;
       if (userDataDir && typeof userDataDir === 'string' && userDataDir.trim().length > 0) {
-        const escaped = userDataDir.replace(/'/g, "'\\''");
-        await exec(`pkill -f '${escaped}' || true`);
+        let stdout = '';
+        try {
+          const pgrep = await execFile('pgrep', ['-f', userDataDir]);
+          stdout = String(pgrep.stdout || '');
+        } catch (error: any) {
+          // pgrep retorna código 1 cuando no encuentra procesos; no es error para cleanup.
+          if (Number(error?.code) !== 1) {
+            throw error;
+          }
+        }
+
+        const currentPid = process.pid;
+        const parentPid = process.ppid;
+        const candidates = stdout
+          .split(/\s+/)
+          .map((x) => Number(x.trim()))
+          .filter((pid) => Number.isInteger(pid) && pid > 0)
+          .filter((pid) => pid !== currentPid && pid !== parentPid);
+
+        let terminated = 0;
+        for (const pid of candidates) {
+          try {
+            process.kill(pid, 'SIGTERM');
+            terminated += 1;
+          } catch (error: any) {
+            const code = String(error?.code || '');
+            if (code !== 'ESRCH' && code !== 'EPERM') {
+              logger.debug({ err: error, pid }, 'cleanup WhatsApp: no se pudo terminar un proceso candidato');
+            }
+          }
+        }
+
+        if (terminated > 0) {
+          logger.info({ terminated }, 'cleanup WhatsApp: procesos de sesion terminados');
+        }
       }
     } catch (err) {
-      logger.warn({ err }, 'No se pudo ejecutar pkill de cleanup para WhatsApp');
+      logger.warn({ err }, 'No se pudo ejecutar cleanup de procesos para WhatsApp');
     }
   }
 }
