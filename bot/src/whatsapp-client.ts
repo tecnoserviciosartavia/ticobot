@@ -528,8 +528,9 @@ export class WhatsAppClient {
   // los eventos y el bot deja de procesar mensajes. El polling fallback permite seguir
   // respondiendo leyendo chats no leídos.
   this.enableMessagePolling = parseEnvBool(process.env.BOT_ENABLE_MESSAGE_POLLING, true);
-    // Mantener @lid fuera del polling por defecto para evitar errores intermitentes de fetchMessages.
-    this.includeLidInPolling = parseEnvBool(process.env.BOT_POLL_INCLUDE_LID, false);
+    // Priorizar recepción: incluir @lid por defecto. Si causa inestabilidad puntual,
+    // puede deshabilitarse con BOT_POLL_INCLUDE_LID=false.
+    this.includeLidInPolling = parseEnvBool(process.env.BOT_POLL_INCLUDE_LID, true);
     this.markMessagesRead = parseEnvBool(process.env.BOT_MARK_MESSAGES_READ, true);
     // Auto-restart can cause Puppeteer session locks ("browser already running") if Chrome doesn't exit cleanly.
     // Keep it OFF by default; can be enabled when the environment is stable.
