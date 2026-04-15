@@ -60,7 +60,7 @@ class SettingsController extends Controller
                     'exists' => is_readable(env('WEB_LOG_PM2_ERROR_PATH', '/home/fabian/.pm2/logs/ticobot-error.log')),
                 ],
             ],
-            'logDefaultSource' => 'bot_local',
+            'logDefaultSource' => 'pm2_out',
         ]);
     }
 

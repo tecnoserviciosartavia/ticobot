@@ -22,8 +22,29 @@ type Props = {
     defaultSource: string;
 };
 
+type ViewMode = 'all' | 'whatsapp_inbound' | 'system';
+
+const whatsappInboundPatterns: RegExp[] = [
+    /mensaje entrante de whatsapp/i,
+    /whatsapp message \(debug\)/i,
+    /whatsapp message_create \(debug\)/i,
+    /procesando mensaje vía polling \(fallback\)/i,
+];
+
+const systemNoisePatterns: RegExp[] = [
+    /mensaje entrante de whatsapp/i,
+    /whatsapp message \(debug\)/i,
+    /whatsapp message_create \(debug\)/i,
+    /procesando mensaje vía polling \(fallback\)/i,
+    /body:\s*".*"/i,
+    /chatId:\s*".*"/i,
+    /from:\s*".*@/i,
+];
+
 export default function LogsTab({ sources, defaultSource }: Props) {
     const [source, setSource] = useState<string>(defaultSource);
+    const [viewMode, setViewMode] = useState<ViewMode>('all');
+    const [searchText, setSearchText] = useState<string>('');
     const [lineLimit, setLineLimit] = useState<number>(250);
     const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
     const [autoScroll, setAutoScroll] = useState<boolean>(true);
@@ -40,6 +61,23 @@ export default function LogsTab({ sources, defaultSource }: Props) {
         () => sources.find((item) => item.key === source),
         [sources, source],
     );
+
+    const filteredLines = useMemo(() => {
+        let out = [...lines];
+
+        if (viewMode === 'whatsapp_inbound') {
+            out = out.filter((line) => whatsappInboundPatterns.some((rx) => rx.test(line)));
+        } else if (viewMode === 'system') {
+            out = out.filter((line) => !systemNoisePatterns.some((rx) => rx.test(line)));
+        }
+
+        const q = searchText.trim().toLowerCase();
+        if (q) {
+            out = out.filter((line) => line.toLowerCase().includes(q));
+        }
+
+        return out;
+    }, [lines, viewMode, searchText]);
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);
@@ -157,12 +195,52 @@ export default function LogsTab({ sources, defaultSource }: Props) {
                     <span className="text-gray-700 dark:text-gray-300">Seguir al final</span>
                 </label>
 
+                <label className="flex flex-col gap-1 text-sm md:col-span-2 lg:col-span-2">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Filtro rápido</span>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('all')}
+                            className={`rounded px-3 py-1 text-xs font-semibold ${viewMode === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}
+                        >
+                            Todo
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('whatsapp_inbound')}
+                            className={`rounded px-3 py-1 text-xs font-semibold ${viewMode === 'whatsapp_inbound' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}
+                        >
+                            Solo WhatsApp entrante
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('system')}
+                            className={`rounded px-3 py-1 text-xs font-semibold ${viewMode === 'system' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}
+                        >
+                            Solo sistema
+                        </button>
+                    </div>
+                </label>
+
+                <label className="flex flex-col gap-1 text-sm md:col-span-2 lg:col-span-2">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Buscar texto</span>
+                    <input
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        placeholder="Ej: Mensaje entrante, ERROR, reminder, scheduler"
+                        className="rounded-md border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                    />
+                </label>
+
                 <div className="md:col-span-2 lg:col-span-4 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                     <span className="rounded bg-gray-100 px-2 py-1 dark:bg-gray-700 dark:text-gray-200">
                         {activeLabel || selectedSource?.label || 'Fuente de logs'}
                     </span>
                     <span>
                         Última lectura: {updatedAt ? new Date(updatedAt).toLocaleString('es-CR') : 'N/A'}
+                    </span>
+                    <span>
+                        Mostrando: {filteredLines.length} línea(s)
                     </span>
                     {activePath && <span className="truncate">Archivo: {activePath}</span>}
                     <button
@@ -185,12 +263,12 @@ export default function LogsTab({ sources, defaultSource }: Props) {
                 ref={viewportRef}
                 className="h-[58vh] overflow-auto rounded-lg border border-gray-200 bg-black p-4 font-mono text-xs leading-5 text-green-200 dark:border-gray-700"
             >
-                {loading && lines.length === 0 ? (
+                {loading && filteredLines.length === 0 ? (
                     <div className="text-gray-300">Cargando logs...</div>
-                ) : lines.length === 0 ? (
+                ) : filteredLines.length === 0 ? (
                     <div className="text-gray-300">No hay líneas para mostrar en esta fuente.</div>
                 ) : (
-                    lines.map((line, index) => (
+                    filteredLines.map((line, index) => (
                         <div key={`${index}-${line.slice(0, 30)}`}>{line}</div>
                     ))
                 )}
