@@ -113,8 +113,14 @@ class PaymentStatusController extends Controller
      */
     public function resumeContact($clientId, $whatsappNumber)
     {
+        $normalized = preg_replace('/[^0-9]/', '', $whatsappNumber);
+        $last8 = substr($normalized, -8);
+
         $deleted = PausedContact::where('client_id', $clientId)
-            ->where('whatsapp_number', $whatsappNumber)
+            ->where(function ($q) use ($normalized, $last8) {
+                $q->where('whatsapp_number', $normalized)
+                    ->orWhere('whatsapp_number', 'like', "%$last8");
+            })
             ->delete();
 
         if (!$deleted) {
@@ -179,7 +185,10 @@ class PaymentStatusController extends Controller
     public function isPaused($whatsappNumber)
     {
         $normalized = preg_replace('/[^0-9]/', '', $whatsappNumber);
-        $paused = PausedContact::where('whatsapp_number', $normalized)->exists();
+        $last8 = substr($normalized, -8);
+        $paused = PausedContact::where('whatsapp_number', $normalized)
+            ->orWhere('whatsapp_number', 'like', "%$last8")
+            ->exists();
 
         return response()->json([
             'success' => true,

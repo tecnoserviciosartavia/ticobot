@@ -79,6 +79,16 @@ class ApiClient {
     });
   }
 
+  async markFailed(reminderId: number, reason: string): Promise<void> {
+    await this.http.patch(`reminders/${reminderId}`, {
+      status: 'failed',
+      response_payload: {
+        error: reason,
+        failed_at: new Date().toISOString()
+      }
+    });
+  }
+
   async reportWhatsappQr(qr: string): Promise<void> {
     await this.http.post('whatsapp/qr', { qr });
   }

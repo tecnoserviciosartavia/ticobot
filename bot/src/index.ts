@@ -374,6 +374,7 @@ async function main(): Promise<void> {
   }
 
   const lc = body.toLowerCase();
+  const lcNorm = lc.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   mark('parsed');
     const chatId = message.from;
     const fromUser = String(chatId || '').replace(/@c\.us$/, '');
@@ -2442,7 +2443,7 @@ async function main(): Promise<void> {
     }
 
     // If user asks for menu, display and mark menu active for this chat
-    if (lc === 'menu' || lc === 'inicio' || lc === 'help') {
+    if (lcNorm === 'menu' || lcNorm === 'inicio' || lcNorm === 'help') {
       try {
         await showMainMenu();
         return;
@@ -2762,17 +2763,13 @@ async function main(): Promise<void> {
       // El admin debe invocar explícitamente `adminmenu` para ver su menú.
       if (isAdminUser) {
         logger.debug({ chatId }, 'Admin: no mostrar menú normal automáticamente');
+        await message.reply('Para administrar el bot escribe *adminmenu*. Si deseas el menú de cliente escribe *menu*.');
         return;
       }
 
-      if (startedNewLocalDay) {
-        await showMainMenu();
-        return;
-      }
-
-      // No enviar menú automático: evitamos bucles de menú y respuestas inesperadas.
-      // Guía mínima para que el usuario solicite el menú cuando lo necesite.
-      await message.reply('Escribe "menu" para ver las opciones disponibles o "agente" para hablar con un asesor.');
+      // Cualquier mensaje en estado idle abre el menú automáticamente.
+      // Esto evita que el usuario quede en una respuesta guía sin opciones.
+      await showMainMenu();
       return;
     } catch (error: any) {
       logger.error({

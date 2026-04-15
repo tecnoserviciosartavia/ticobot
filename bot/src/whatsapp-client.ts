@@ -176,7 +176,7 @@ export class WhatsAppClient {
 
       if (!Array.isArray(result)) return [];
       return result
-        .filter((x: any) => x && typeof x.id === 'string' && !String(x.id).endsWith('@lid') && !String(x.id).endsWith('@broadcast'))
+        .filter((x: any) => x && typeof x.id === 'string' && !String(x.id).endsWith('@broadcast'))
         .map((x: any) => ({ id: String(x.id), unreadCount: Number(x.unreadCount || 0) }));
     } catch (error) {
       logger.debug({ err: error }, 'No se pudo listar chats no leídos (lightweight)');
@@ -252,6 +252,23 @@ export class WhatsAppClient {
       this.messagePollTimer = null;
     }
     this.messagePollNextAt = null;
+  }
+
+  private async ensureConnectedAsReady(): Promise<boolean> {
+    if (this.isReady) return true;
+
+    try {
+      const state = await (this.client as any).getState?.();
+      if (state === 'CONNECTED') {
+        this.isReady = true;
+        this.startMessagePolling();
+        return true;
+      }
+    } catch (error) {
+      logger.debug({ err: error }, 'No se pudo verificar estado CONNECTED para promocionar ready');
+    }
+
+    return false;
   }
 
   private kickMessagePollingSoon(): void {
@@ -993,6 +1010,11 @@ export class WhatsAppClient {
       throw new Error(`El cliente ${reminder.client?.name ?? reminder.client_id} no tiene teléfono configurado.`);
     }
 
+    const ready = await this.ensureConnectedAsReady();
+    if (!ready) {
+      throw new Error('WhatsApp client not ready');
+    }
+
     const chatId = formatWhatsAppId(reminder.client.phone);
     await this.client.sendMessage(chatId, payload.content);
 
@@ -1010,7 +1032,8 @@ export class WhatsAppClient {
 
   // Enviar texto arbitrario a un chat (útil para admin queue u otros usos)
   async sendText(chatId: string, text: string): Promise<void> {
-    if (!this.isReady) {
+    const ready = await this.ensureConnectedAsReady();
+    if (!ready) {
       throw new Error('WhatsApp client not ready');
     }
     const isLid = typeof chatId === 'string' && chatId.endsWith('@lid');
@@ -1062,7 +1085,8 @@ export class WhatsAppClient {
 
   // Enviar media (base64) a un chat
   async sendMedia(chatId: string, base64Data: string, mimeType: string, filename?: string): Promise<void> {
-    if (!this.isReady) {
+    const ready = await this.ensureConnectedAsReady();
+    if (!ready) {
       throw new Error('WhatsApp client not ready');
     }
     const media = new MessageMedia(mimeType, base64Data, filename);

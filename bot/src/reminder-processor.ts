@@ -211,6 +211,19 @@ export class ReminderProcessor {
     } catch (error) {
       logger.error({ err: error, reminderId: reminder.id }, 'No se pudo enviar el recordatorio');
 
+      const errorMessage = String((error as any)?.message ?? '');
+      const missingPhone = /no tiene tel[eé]fono configurado/i.test(errorMessage);
+
+      if (missingPhone) {
+        try {
+          await apiClient.markFailed(reminder.id, 'Cliente sin telefono configurado');
+          logger.warn({ reminderId: reminder.id }, 'Recordatorio marcado como failed por cliente sin telefono');
+          return;
+        } catch (err) {
+          logger.error({ err, reminderId: reminder.id }, 'Error marcando recordatorio como failed');
+        }
+      }
+
       // Intentar devolver el recordatorio a estado 'pending' para que pueda ser reintentado
       try {
         const attempts = typeof reminder.attempts === 'number' ? reminder.attempts : undefined;
