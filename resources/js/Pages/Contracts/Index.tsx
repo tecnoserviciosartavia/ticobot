@@ -26,8 +26,7 @@ interface Paginated<T> {
 
 interface ContractsPageProps extends PageProps<{
     contracts: Paginated<ContractSummary>;
-    filters: { client_id: number | null; billing_cycle: string | null };
-    clients: Array<{ id: number; name: string }>;
+    filters: { client_query?: string | null; client_id?: number | null; billing_cycle: string | null };
     billingCycles: string[];
 }> {}
 
@@ -58,9 +57,13 @@ const formatDate = (value: string | null) => {
     });
 };
 
-export default function ContractsIndex({ contracts, filters, clients, billingCycles }: ContractsPageProps) {
+export default function ContractsIndex({ contracts, filters, billingCycles }: ContractsPageProps) {
+    const initialClientQuery =
+        (typeof filters.client_query === 'string' ? filters.client_query : '') ||
+        (typeof filters.client_id === 'number' && Number.isFinite(filters.client_id) ? String(filters.client_id) : '');
+
     const { data, setData } = useForm({
-        client_id: filters.client_id?.toString() ?? '',
+        client_query: initialClientQuery,
         billing_cycle: filters.billing_cycle ?? '',
     });
 
@@ -78,7 +81,7 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
     };
 
     const reset = () => {
-        setData('client_id', '');
+        setData('client_query', '');
         setData('billing_cycle', '');
         router.get(route('contracts.index'), {}, {
             preserveScroll: true,
@@ -120,24 +123,19 @@ export default function ContractsIndex({ contracts, filters, clients, billingCyc
                     <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
                         <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
                             <form onSubmit={submit} className="flex flex-col gap-4 md:flex-row md:items-end">
-                                <div className="w-full md:w-64">
-                                    <label htmlFor="client_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <div className="w-full md:w-96">
+                                    <label htmlFor="client_query" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Cliente
                                     </label>
-                                    <select
-                                        id="client_id"
-                                        name="client_id"
-                                        value={data.client_id}
-                                        onChange={(event) => setData('client_id', event.target.value)}
+                                    <input
+                                        id="client_query"
+                                        name="client_query"
+                                        type="text"
+                                        value={data.client_query}
+                                        onChange={(event) => setData('client_query', event.target.value)}
+                                        placeholder="Escribe el nombre del cliente"
                                         className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
-                                    >
-                                        <option value="">Todos</option>
-                                        {clients.map((client) => (
-                                            <option key={client.id} value={client.id}>
-                                                {client.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    />
                                 </div>
                                 <div className="w-full md:w-64">
                                     <label htmlFor="billing_cycle" className="block text-sm font-medium text-gray-700 dark:text-gray-300">

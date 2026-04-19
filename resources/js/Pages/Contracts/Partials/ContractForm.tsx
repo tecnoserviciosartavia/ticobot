@@ -4,7 +4,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { Link } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
-import type { FormEventHandler } from 'react';
+import type { ChangeEvent, FormEventHandler } from 'react';
 
 interface ClientOption {
     id: number;
@@ -14,7 +14,6 @@ interface ClientOption {
 
 interface ContractFormData {
     client_id: number | string;
-    name: string;
     amount: string;
     currency: string;
     discount_amount?: string;
@@ -266,20 +265,6 @@ export default function ContractForm({
                 </div>
                 )}
 
-                <div>
-                    <InputLabel htmlFor="name" value="Nombre del contrato" />
-                    <TextInput
-                        id="name"
-                        name="name"
-                        value={data.name}
-                        onChange={(event) => onChange('name', event.target.value)}
-                        className="mt-1 block w-full"
-                        required
-                        autoFocus
-                    />
-                    <InputError message={errors.name} className="mt-2" />
-                </div>
-
                 <div className="md:col-span-2">
                     <InputLabel htmlFor="service_ids" value="Servicios / plataformas" />
                     <select
@@ -441,7 +426,7 @@ export default function ContractForm({
                         min="0"
                         step="0.01"
                         value={(data.discount_amount ?? '') as any}
-                        onChange={(event) => onChange('discount_amount', event.target.value)}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) => onChange('discount_amount', event.target.value)}
                         className="mt-1 block w-full"
                         placeholder={`Ej: 500 (${currencySymbol(data.currency)})`}
                     />
@@ -530,7 +515,7 @@ export default function ContractForm({
                         name="next_due_date"
                         type="date"
                         value={data.next_due_date}
-                        onChange={(event) => onChange('next_due_date', event.target.value)}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) => onChange('next_due_date', event.target.value)}
                         className="mt-1 block w-full"
                     />
                     <InputError message={errors.next_due_date} className="mt-2" />
@@ -545,7 +530,7 @@ export default function ContractForm({
                         min="0"
                         max="60"
                         value={data.grace_period_days}
-                        onChange={(event) => onChange('grace_period_days', event.target.value)}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) => onChange('grace_period_days', event.target.value)}
                         className="mt-1 block w-full"
                     />
                     <InputError message={errors.grace_period_days} className="mt-2" />

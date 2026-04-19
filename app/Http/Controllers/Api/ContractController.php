@@ -47,7 +47,6 @@ class ContractController extends Controller
     {
         $data = $request->validate([
             'client_id' => ['required', 'exists:clients,id'],
-            'name' => ['required', 'string', 'max:255'],
             'contract_type_id' => ['nullable', 'exists:contract_types,id'],
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', 'string', 'size:3'],
@@ -83,7 +82,6 @@ class ContractController extends Controller
     public function update(Request $request, Contract $contract): JsonResponse
     {
         $data = $request->validate([
-            'name' => ['sometimes', 'required', 'string', 'max:255'],
             'contract_type_id' => ['nullable', 'exists:contract_types,id'],
             'amount' => ['sometimes', 'required', 'numeric', 'min:0'],
             'currency' => ['sometimes', 'required', 'string', 'size:3'],

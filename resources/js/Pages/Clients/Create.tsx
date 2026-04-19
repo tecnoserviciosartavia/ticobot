@@ -26,7 +26,6 @@ export default function CreateClient({ statuses, defaultStatus, services }: Crea
     const [contractModalOpen, setContractModalOpen] = useState(false);
     const [contractForm, setContractForm] = useState({
         client_id: '0',
-        name: '',
         amount: '0.00',
         currency: 'CRC',
         discount_amount: '0',
@@ -70,7 +69,7 @@ export default function CreateClient({ statuses, defaultStatus, services }: Crea
             if (err?.response?.status === 422) {
                 setContractErrors(err.response.data?.errors ?? {});
             } else {
-                setContractErrors({ name: 'No se pudo guardar el contrato. Intente de nuevo.' });
+                setContractErrors({ amount: 'No se pudo guardar el contrato. Intente de nuevo.' });
             }
         } finally {
             setContractProcessing(false);

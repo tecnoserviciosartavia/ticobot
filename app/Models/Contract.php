@@ -14,7 +14,6 @@ class Contract extends Model
 
     protected $fillable = [
         'client_id',
-        'name',
         'amount',
         'discount_amount',
         'currency',
@@ -32,6 +31,36 @@ class Contract extends Model
         'next_due_date' => 'date',
         'metadata' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Contract $contract): void {
+            // Temporary placeholder until the database assigns the contract ID.
+            $contract->name = 'TC-PENDING';
+        });
+
+        static::created(function (Contract $contract): void {
+            $expectedCode = self::buildCodeFromId((int) $contract->id);
+
+            if ($contract->name !== $expectedCode) {
+                $contract->forceFill(['name' => $expectedCode])->saveQuietly();
+            }
+        });
+
+        static::updating(function (Contract $contract): void {
+            if ($contract->isDirty('name')) {
+                $contract->name = (string) $contract->getOriginal('name');
+            }
+        });
+    }
+
+    public static function buildCodeFromId(int $id): string
+    {
+        $digits = (string) max(0, $id);
+        $width = max(4, strlen($digits));
+
+        return 'TC'.str_pad($digits, $width, '0', STR_PAD_LEFT);
+    }
 
     public function client()
     {

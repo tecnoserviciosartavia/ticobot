@@ -140,7 +140,7 @@ export default function ClientsIndex({ clients, filters, statuses, services }: C
                                 onSubmit={submit}
                                 className="flex flex-col gap-4 md:flex-row md:items-end"
                             >
-                                <div className="flex-1">
+                                <div className="w-full md:w-96">
                                     <label
                                         htmlFor="search"
                                         className="block text-sm font-medium text-gray-700 dark:text-gray-300"

@@ -29,7 +29,6 @@ export default function ContractsEdit({ contract, clients, services }: Contracts
     const form = useForm({
         client_id: contract.client_id.toString(),
         notes: contract.notes ?? '',
-        name: contract.name ?? '',
         amount: contract.amount?.toString() ?? '',
         currency: contract.currency ?? 'CRC',
         discount_amount: (contract.discount_amount ?? 0).toString(),

@@ -537,15 +537,65 @@ class ClientController extends Controller
         $contract->loadMissing(['services:id,name,account_email,password,pin']);
 
         $servicesData = $contract->services
-            ->map(fn (Service $s) => [
-                'name' => $s->name,
-                'account_email' => $s->account_email,
-                'password' => $s->password,
-                'pin' => $s->pivot?->pin_override ?: $s->pin,
-            ])
+            ->map(function (Service $s) use ($contract, $client) {
+                $resolvedPin = $this->resolveAccessPinForClientAssignment(
+                    $s->name,
+                    $client->phone,
+                    $s->pivot?->pin_override,
+                    $s->pin
+                );
+
+                $currentOverride = $s->pivot?->pin_override;
+                if ($resolvedPin !== null && $currentOverride !== $resolvedPin) {
+                    $contract->services()->updateExistingPivot($s->id, ['pin_override' => $resolvedPin]);
+                }
+
+                return [
+                    'name' => $s->name,
+                    'account_email' => $s->account_email,
+                    'password' => $s->password,
+                    'pin' => $resolvedPin,
+                ];
+            })
             ->all();
 
         $whatsApp->sendPlatformAccessMessages($client->phone, $servicesData);
+    }
+
+    private function resolveAccessPinForClientAssignment(?string $serviceName, ?string $clientPhone, mixed $submittedPin = null, ?string $fallbackPin = null): ?string
+    {
+        $manualPin = trim((string) ($submittedPin ?? ''));
+        if ($manualPin !== '') {
+            return $manualPin;
+        }
+
+        $generatedPin = $this->buildAccessPinFromPhone($serviceName, $clientPhone);
+        if ($generatedPin !== null) {
+            return $generatedPin;
+        }
+
+        $fallbackPin = trim((string) ($fallbackPin ?? ''));
+
+        return $fallbackPin !== '' ? $fallbackPin : null;
+    }
+
+    private function buildAccessPinFromPhone(?string $serviceName, ?string $clientPhone): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) ($clientPhone ?? ''));
+        if ($digits === '') {
+            return null;
+        }
+
+        $lastFour = substr($digits, -4);
+        if ($lastFour === false || $lastFour === '') {
+            return null;
+        }
+
+        if (str_contains(mb_strtolower((string) ($serviceName ?? '')), 'prime')) {
+            return $lastFour . substr($lastFour, -1);
+        }
+
+        return $lastFour;
     }
 
     /**

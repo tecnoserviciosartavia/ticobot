@@ -123,6 +123,25 @@ export class WhatsAppClient {
                 };
               }
 
+              if (typeof (window as any).WWebJS.getChats !== 'function') {
+                (window as any).WWebJS.getChats = async () => {
+                  try {
+                    const chats = Store?.Chat?.getModelsArray?.() || [];
+                    return chats
+                      .map((chat: any) => {
+                        try {
+                          return chat?.serialize ? chat.serialize() : chat;
+                        } catch {
+                          return null;
+                        }
+                      })
+                      .filter(Boolean);
+                  } catch {
+                    return [];
+                  }
+                };
+              }
+
               if (!Store.NewsletterMetadataCollection) Store.NewsletterMetadataCollection = {};
               if (typeof Store.NewsletterMetadataCollection.update !== 'function') {
                 Store.NewsletterMetadataCollection.update = async () => {
@@ -399,6 +418,132 @@ export class WhatsAppClient {
     return false;
   }
 
+  private async sendTextViaStoreFallback(chatId: string, text: string, options?: Record<string, any>): Promise<boolean> {
+    try {
+      const page: any = (this.client as any).pupPage;
+      if (!page || typeof page.evaluate !== 'function') return false;
+
+      const result = await page.evaluate(async (targetChatId: string, content: string, rawOptions?: Record<string, any>) => {
+        try {
+          const Store: any = (window as any).Store;
+          if (!Store?.SendMessage?.addAndSendMsgToChat || !Store?.MsgKey?.newId) return false;
+
+          const getChat = async (value: string) => {
+            try {
+              const viaWwebjs = (window as any).WWebJS?.getChat
+                ? await (window as any).WWebJS.getChat(value, { getAsModel: false })
+                : null;
+              if (viaWwebjs) return viaWwebjs;
+            } catch {
+              // ignore
+            }
+
+            try {
+              return Store.Chat?.get?.(value) ?? Store.Chat?.find?.(value) ?? null;
+            } catch {
+              // ignore
+            }
+
+            try {
+              const wid = Store.WidFactory?.createWid?.(value);
+              if (!wid) return null;
+              return Store.Chat?.get?.(wid) ?? Store.Chat?.find?.(wid) ?? null;
+            } catch {
+              return null;
+            }
+          };
+
+          const chat = await getChat(targetChatId);
+          if (!chat) return false;
+
+          const opts = rawOptions && typeof rawOptions === 'object' ? { ...rawOptions } : {};
+          const quotedMessageId = typeof opts.quotedMessageId === 'string' ? opts.quotedMessageId : null;
+          const waitUntilMsgSent = Boolean(opts.waitUntilMsgSent);
+          delete opts.quotedMessageId;
+          delete opts.waitUntilMsgSent;
+          delete opts.sendSeen;
+          delete opts.extraOptions;
+
+          let quotedMsgOptions: Record<string, any> = {};
+          if (quotedMessageId) {
+            let quotedMessage = Store.Msg?.get?.(quotedMessageId);
+            if (!quotedMessage) {
+              try {
+                quotedMessage = (await Store.Msg?.getMessagesById?.([quotedMessageId]))?.messages?.[0] ?? null;
+              } catch {
+                quotedMessage = null;
+              }
+            }
+            if (quotedMessage) {
+              const canReply = Store.ReplyUtils
+                ? Store.ReplyUtils.canReplyMsg(quotedMessage.unsafe())
+                : quotedMessage.canReply?.();
+              if (canReply) {
+                quotedMsgOptions = quotedMessage.msgContextInfo(chat);
+              }
+            }
+          }
+
+          const lidUser = Store.User?.getMaybeMeLidUser?.();
+          const meUser = Store.User?.getMaybeMePnUser?.();
+          const newId = await Store.MsgKey.newId();
+          let from = typeof chat.id?.isLid === 'function' && chat.id.isLid() ? lidUser : meUser;
+          let participant;
+
+          if (typeof chat.id?.isGroup === 'function' && chat.id.isGroup()) {
+            from = chat.groupMetadata && chat.groupMetadata.isLidAddressingMode ? lidUser : meUser;
+            participant = Store.WidFactory?.asUserWidOrThrow?.(from);
+          }
+
+          if (typeof chat.id?.isStatus === 'function' && chat.id.isStatus()) {
+            participant = Store.WidFactory?.asUserWidOrThrow?.(from);
+          }
+
+          const newMsgKey = new Store.MsgKey({
+            from,
+            to: chat.id,
+            id: newId,
+            participant,
+            selfDir: 'out',
+          });
+
+          const ephemeralFields = Store.EphemeralFields?.getEphemeralFields?.(chat) || {};
+          const message = {
+            ...opts,
+            id: newMsgKey,
+            ack: 0,
+            body: content,
+            from,
+            to: chat.id,
+            local: true,
+            self: 'out',
+            t: Math.floor(Date.now() / 1000),
+            isNewMsg: true,
+            type: 'chat',
+            ...ephemeralFields,
+            ...quotedMsgOptions,
+          };
+
+          const resultTuple = Store.SendMessage.addAndSendMsgToChat(chat, message);
+          if (!Array.isArray(resultTuple)) return false;
+          const [msgPromise, sendMsgResultPromise] = resultTuple;
+          await msgPromise;
+          if (waitUntilMsgSent) await sendMsgResultPromise;
+          return true;
+        } catch (error: any) {
+          return { ok: false, error: String(error?.message || error) };
+        }
+      }, chatId, text, options ?? {});
+
+      if (result === true) return true;
+      logger.warn({ chatId, result }, 'sendTextViaStoreFallback no pudo enviar el mensaje');
+      return false;
+    } catch (error) {
+      logger.warn({ chatId, err: error }, 'sendTextViaStoreFallback falló');
+      return false;
+    }
+  }
+
   private kickMessagePollingSoon(): void {
     if (!this.enableMessagePolling) return;
     if (!this.inboundHandler) return;
@@ -655,6 +800,21 @@ export class WhatsAppClient {
           return await originalSendMessage(...patchedArgs);
         } catch (err: any) {
           const msg = err?.message || String(err);
+          if (
+            typeof patchedArgs[0] === 'string'
+            && typeof patchedArgs[1] === 'string'
+            && (
+              msg.includes('WWebJS.sendMessage is not a function')
+              || msg.includes('window.WWebJS.sendMessage is not a function')
+              || msg.includes('WWebJS.getMessageModel is not a function')
+            )
+          ) {
+            const sent = await this.sendTextViaStoreFallback(patchedArgs[0], patchedArgs[1], patchedArgs[2]);
+            if (sent) {
+              logger.warn({ chatId: patchedArgs[0] }, 'sendMessage recuperado con fallback Store por falta de WWebJS.sendMessage');
+              return;
+            }
+          }
           if (msg.includes('markedUnread') || msg.includes('marked unread')) {
             // En algunos entornos este error ocurre *después* de que WhatsApp envía el mensaje.
             // No queremos que el bot se caiga o quede en loop reintentando; registramos y continuamos.

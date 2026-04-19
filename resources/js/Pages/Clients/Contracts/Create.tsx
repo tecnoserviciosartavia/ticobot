@@ -14,7 +14,6 @@ interface CreateClientContractProps extends PageProps {
 export default function CreateClientContract({ client, services, defaultCurrency, defaultBillingCycle, returnTo }: CreateClientContractProps) {
     const form = useForm({
         client_id: client.id,
-        name: '',
         amount: '0.00',
         currency: defaultCurrency ?? 'CRC',
         discount_amount: '0',

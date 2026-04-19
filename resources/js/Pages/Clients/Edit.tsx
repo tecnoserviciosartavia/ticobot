@@ -36,7 +36,6 @@ export default function EditClient({ client, statuses, services }: EditClientPag
     const [contractModalOpen, setContractModalOpen] = useState(false);
     const [contractForm, setContractForm] = useState({
         client_id: String(client.id),
-        name: '',
         amount: '0.00',
         currency: 'CRC',
         discount_amount: '0',
@@ -80,7 +79,7 @@ export default function EditClient({ client, statuses, services }: EditClientPag
             if (err?.response?.status === 422) {
                 setContractErrors(err.response.data?.errors ?? {});
             } else {
-                setContractErrors({ name: 'No se pudo guardar el contrato. Intente de nuevo.' });
+                setContractErrors({ amount: 'No se pudo guardar el contrato. Intente de nuevo.' });
             }
         } finally {
             setContractProcessing(false);

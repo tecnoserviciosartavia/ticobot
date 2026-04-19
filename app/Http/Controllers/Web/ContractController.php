@@ -23,7 +23,6 @@ class ContractController extends Controller
     public function quickStore(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
@@ -43,7 +42,6 @@ class ContractController extends Controller
 
         $contract = Contract::create([
             'client_id' => null,
-            'name' => $data['name'],
             'amount' => $data['amount'],
             'discount_amount' => max(0, $discount),
             'currency' => $data['currency'],
@@ -112,7 +110,6 @@ class ContractController extends Controller
     public function storeForClient(Request $request, Client $client): RedirectResponse
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
@@ -132,7 +129,6 @@ class ContractController extends Controller
 
         $contract = Contract::create([
             'client_id' => $client->id,
-            'name' => $data['name'],
             'amount' => $data['amount'],
             'discount_amount' => max(0, $discount),
             'currency' => $data['currency'],
@@ -179,15 +175,17 @@ class ContractController extends Controller
 
     public function index(Request $request): Response
     {
-        $clientId = (int) $request->query('client_id', 0) ?: null;
+        $clientQuery = trim((string) $request->query('client_query', ''));
         $billingCycle = trim((string) $request->query('billing_cycle', ''));
 
         $query = Contract::query()
             ->with(['client:id,name'])
             ->withCount(['reminders', 'payments']);
 
-        if ($clientId) {
-            $query->where('client_id', $clientId);
+        if ($clientQuery !== '') {
+            $query->whereHas('client', function ($q) use ($clientQuery) {
+                $q->where('name', 'like', "%{$clientQuery}%");
+            });
         }
 
         if ($billingCycle !== '') {
@@ -211,6 +209,7 @@ class ContractController extends Controller
                 'updated_at' => $contract->updated_at?->toIso8601String(),
             ]);
 
+        // Compatibilidad temporal: mantener lista de clientes para bundles frontend en cache.
         $clients = Client::query()
             ->select('id', 'name', 'phone')
             ->orderBy('name')
@@ -227,7 +226,8 @@ class ContractController extends Controller
         return Inertia::render('Contracts/Index', [
             'contracts' => $contracts,
             'filters' => [
-                'client_id' => $clientId,
+                'client_query' => $clientQuery !== '' ? $clientQuery : null,
+                'client_id' => null,
                 'billing_cycle' => $billingCycle !== '' ? $billingCycle : null,
             ],
             'clients' => $clients,
@@ -382,17 +382,16 @@ class ContractController extends Controller
                     continue;
                 }
 
-                $name = $data['name'] ?? $data['contract_name'] ?? 'Servicio';
+                $sourceName = trim((string) ($data['name'] ?? $data['contract_name'] ?? ''));
                 $amountRaw = $data['amount'] ?? $data['monto'] ?? null;
                 $amount = isset($amountRaw) && $amountRaw !== '' ? (float) $amountRaw : null;
-                if (! $name || $amount === null) {
+                if ($amount === null) {
                     $skipped++;
                     continue;
                 }
 
                 $attrs = [
                     'client_id' => $client->id,
-                    'name' => $name,
                     'amount' => $amount,
                     'currency' => strtoupper($data['currency'] ?? $data['moneda'] ?? 'CRC'),
                     'billing_cycle' => $data['billing_cycle'] ?? 'monthly',
@@ -405,8 +404,11 @@ class ContractController extends Controller
                     'notes' => $data['notes'] ?? null,
                 ];
 
-                // Try to find existing contract by name + client
-                $existing = Contract::where('client_id', $client->id)->where('name', $attrs['name'])->first();
+                // Try to find existing contract by source name (when provided in file) + client.
+                $existing = null;
+                if ($sourceName !== '') {
+                    $existing = Contract::where('client_id', $client->id)->where('name', $sourceName)->first();
+                }
                 if ($existing) {
                     $existing->fill($attrs);
                     if ($existing->isDirty()) { $existing->save(); $updated++; } else { $skipped++; }
@@ -671,7 +673,6 @@ class ContractController extends Controller
     {
         $data = $request->validate([
             'client_id' => ['required', Rule::exists('clients', 'id')],
-            'name' => ['required', 'string', 'max:255'],
             // amount se calcula a partir de service_ids
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
@@ -692,7 +693,6 @@ class ContractController extends Controller
 
         return [
             'client_id' => $data['client_id'],
-            'name' => $data['name'],
             'notes' => $data['notes'] ?? null,
             'amount' => 0,
             'discount_amount' => max(0, $discount),

@@ -171,7 +171,7 @@ class WhatsAppNotificationService
             $name = strtoupper($service['name'] ?? '');
             $email = $service['account_email'] ?? null;
             $password = $service['password'] ?? null;
-            $pin = $service['pin'] ?? null;
+            $pin = $this->resolveAccessPinFromPhone($phone, $service['name'] ?? null, $service['pin'] ?? null);
 
             if (! $email && ! $password) {
                 continue;
@@ -207,6 +207,35 @@ class WhatsAppNotificationService
         return $sent;
     }
 
+    private function resolveAccessPinFromPhone(string $phone, ?string $serviceName, mixed $providedPin = null): ?string
+    {
+        $serviceNameNorm = mb_strtolower((string) ($serviceName ?? ''));
+        if (str_contains($serviceNameNorm, 'spotify')) {
+            return null;
+        }
+
+        $providedPin = trim((string) ($providedPin ?? ''));
+        if ($providedPin !== '') {
+            return $providedPin;
+        }
+
+        $digits = preg_replace('/\D+/', '', $phone);
+        if ($digits === '') {
+            return null;
+        }
+
+        $lastFour = substr($digits, -4);
+        if ($lastFour === false || $lastFour === '') {
+            return null;
+        }
+
+        if (str_contains($serviceNameNorm, 'prime')) {
+            return $lastFour . substr($lastFour, -1);
+        }
+
+        return $lastFour;
+    }
+
     /**
      * Envía un mensaje de texto simple por WhatsApp
      *
@@ -218,6 +247,7 @@ class WhatsAppNotificationService
     {
         try {
             $attempt = 0;
+            $maxAttempts = 5;
             $response = null;
 
             do {
@@ -233,16 +263,20 @@ class WhatsAppNotificationService
                 }
 
                 $body = (string) $response->body();
+                $bodyLower = strtolower($body);
                 $retryableLidError = $response->status() === 500
-                    && str_contains(strtolower($body), 'lid is missing in chat table');
+                    && str_contains($bodyLower, 'lid is missing in chat table');
+                $retryableNotReady = $response->status() === 503
+                    || str_contains($bodyLower, 'not ready');
 
-                if ($retryableLidError && $attempt < 3) {
-                    usleep(600000);
+                if (($retryableLidError || $retryableNotReady) && $attempt < $maxAttempts) {
+                    // Give the bot a short window to finish startup/session recovery.
+                    usleep($retryableNotReady ? 1200000 : 600000);
                     continue;
                 }
 
                 break;
-            } while ($attempt < 3);
+            } while ($attempt < $maxAttempts);
 
             if ($response && $response->successful()) {
                 return true;
@@ -250,6 +284,7 @@ class WhatsAppNotificationService
 
             Log::warning('Error al enviar mensaje de texto por bot webhook', [
                 'phone' => $phone,
+                'attempts' => $attempt,
                 'status' => $response?->status(),
                 'response' => $response?->body(),
             ]);

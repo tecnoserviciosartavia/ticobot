@@ -480,3 +480,114 @@ nohup: ignoring input
       "stdout": "",
       "stderr": ""
     }
+nohup: ignoring input
+
+> ticobot-bot@0.1.0 start
+> node dist/index.js
+
+[20:53:32] [32mINFO[39m (ticobot-whatsapp/919275): [36mInicializando WhatsApp (puppeteer)[39m
+    headless: true
+    hasCustomUserAgent: true
+    wwebVersion: null
+    wwebCacheType: null
+    wwebCacheStrict: false
+    disableWwebjsPatches: false
+    debugMessages: true
+    enableMessagePolling: true
+    markMessagesRead: true
+[20:53:33] [41mFATAL[49m (ticobot-whatsapp/919275): [36mError inicializando cliente de WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1443:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:4413:3)
+    }
+[20:53:33] [41mFATAL[49m (ticobot-whatsapp/919275): [36mEl bot de WhatsApp se detuvo por un error inesperado[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1443:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:4413:3)
+    }
+[20:53:33] [33mWARN[39m (ticobot-whatsapp/919275): [36mWhatsAppClient.destroy falló; intentando cleanup alternativo[39m
+    err: {
+      "type": "TypeError",
+      "message": "Cannot read properties of null (reading 'close')",
+      "stack":
+          TypeError: Cannot read properties of null (reading 'close')
+              at Client.destroy (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:876:31)
+              at WhatsAppClient.shutdown (file:///home/fabian/ticobot/bot/dist/index.js:1698:25)
+              at file:///home/fabian/ticobot/bot/dist/index.js:4818:28
+              at file:///home/fabian/ticobot/bot/dist/index.js:4823:5
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    }
+[20:53:33] [33mWARN[39m (ticobot-whatsapp/919275): [36mNo se pudo ejecutar pkill de cleanup para WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true\n",
+      "stack":
+          Error: Command failed: pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true
+          
+              at genericNodeError (node:internal/errors:984:15)
+              at wrappedFn (node:internal/errors:538:14)
+              at ChildProcess.exithandler (node:child_process:422:12)
+              at ChildProcess.emit (node:events:524:28)
+              at maybeClose (node:internal/child_process:1104:16)
+              at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+      "code": null,
+      "killed": false,
+      "signal": "SIGTERM",
+      "cmd": "pkill -f '/home/fabian/ticobot/bot/storage/whatsapp-session/session' || true",
+      "stdout": "",
+      "stderr": ""
+    }
+nohup: ignoring input
+
+> ticobot-bot@0.1.0 start
+> node dist/index.js
+
+[03:20:46] [32mINFO[39m (ticobot-whatsapp/1052634): [36mInicializando WhatsApp (puppeteer)[39m
+    headless: true
+    hasCustomUserAgent: true
+    wwebVersion: null
+    wwebCacheType: null
+    wwebCacheStrict: false
+    disableWwebjsPatches: false
+    debugMessages: true
+    enableMessagePolling: true
+    includeLidInPolling: true
+    markMessagesRead: true
+[03:20:47] [41mFATAL[49m (ticobot-whatsapp/1052634): [36mError inicializando cliente de WhatsApp[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1710:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:4670:3)
+    }
+[03:20:47] [41mFATAL[49m (ticobot-whatsapp/1052634): [36mEl bot de WhatsApp se detuvo por un error inesperado[39m
+    err: {
+      "type": "Error",
+      "message": "The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.",
+      "stack":
+          Error: The browser is already running for /home/fabian/ticobot/bot/storage/whatsapp-session/session. Use a different `userDataDir` or stop the running browser first.
+              at ChromeLauncher.launch (/home/fabian/ticobot/bot/node_modules/puppeteer-core/lib/cjs/puppeteer/node/BrowserLauncher.js:174:23)
+              at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+              at async Client.initialize (/home/fabian/ticobot/bot/node_modules/whatsapp-web.js/src/Client.js:331:23)
+              at async WhatsAppClient.initialize (file:///home/fabian/ticobot/bot/dist/index.js:1710:7)
+              at async main (file:///home/fabian/ticobot/bot/dist/index.js:4670:3)
+    }

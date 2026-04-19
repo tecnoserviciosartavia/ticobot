@@ -302,18 +302,26 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                                 <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{labelForBillingCycle(contract.billing_cycle)}</td>
                                                 <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{contract.next_due_date ? formatDate(contract.next_due_date) : '—'}</td>
                                                 <td className="px-4 py-3 text-right">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeContract(contract)}
-                                                        disabled={(contract.payments_count ?? 0) > 0}
-                                                        className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold ${
-                                                            (contract.payments_count ?? 0) > 0
-                                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                                : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200'
-                                                        }`}
-                                                    >
-                                                        Eliminar
-                                                    </button>
+                                                    <div className="flex justify-end gap-2">
+                                                        <Link
+                                                            href={route('contracts.edit', contract.id)}
+                                                            className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
+                                                        >
+                                                            Editar
+                                                        </Link>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeContract(contract)}
+                                                            disabled={(contract.payments_count ?? 0) > 0}
+                                                            className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold ${
+                                                                (contract.payments_count ?? 0) > 0
+                                                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                                    : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200'
+                                                            }`}
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
