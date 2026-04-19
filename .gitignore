@@ -25,7 +25,7 @@ Homestead.yaml
 Thumbs.db
 
 # Bot files
-/bot/.env
+!/bot/.env
 /bot/node_modules
 /bot/dist
 /bot/.wwebjs_cache
