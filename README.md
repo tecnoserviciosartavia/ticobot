@@ -102,27 +102,28 @@ La pantalla de **Configuración del sistema** ahora incluye una pestaña **Logs*
 ## 🛠️ Stack Tecnológico
 
 ### Backend
-- **Laravel 12** - Framework PHP moderno
+- **PHP** con **Laravel 11** — Framework MVC, API REST, scheduler, comandos Artisan
 - **SQLite/MySQL** - Base de datos (SQLite por defecto para desarrollo)
 - **Laravel Sanctum** - Autenticación API
-- **Laravel Inertia** - SSR sin API tradicional
+- **Laravel Inertia** - SPA integrada con Laravel (sin API tradicional)
 - **PhpSpreadsheet** - Procesamiento de archivos Excel
 - **DomPDF** - Generación de PDFs
 
 ### Frontend
-- **React 18** - Librería UI reactiva
-- **TypeScript** - Tipado estático
-- **Inertia.js** - Stack moderno full-stack
-- **Tailwind CSS** - Framework CSS utility-first
-- **Vite** - Build tool ultrarrápido
+- **React 18** con **TypeScript** — UI reactiva con tipado estático
+- **Inertia.js** — Stack full-stack sin JSON API separada
+- **Tailwind CSS** — Framework CSS utility-first
+- **Vite** + **PostCSS** — Build tool ultrarrápido
 - **Headless UI** - Componentes accesibles
 
 ### Bot WhatsApp
-- **Node.js 18+** - Runtime JavaScript
-- **TypeScript** - Desarrollo tipado
+- **TypeScript** con **Node.js** — Runtime del bot (directorio `bot/`)
 - **whatsapp-web.js** - Cliente WhatsApp no oficial
 - **Puppeteer** - Headless browser para WhatsApp Web
 - **Axios** - Cliente HTTP para API Laravel
+
+### Base de Datos
+- **MySQL** (producción) / **SQLite** (desarrollo) vía Eloquent ORM de Laravel
 
 ---
 

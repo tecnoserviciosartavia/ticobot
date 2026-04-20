@@ -608,6 +608,7 @@ class ClientController extends Controller
             DB::beginTransaction();
 
             $clientName = $client->name;
+            $clientPhone = $client->phone;
 
             // Get all payments to delete their receipts and conciliations
             $payments = $client->payments()->get();
@@ -639,6 +640,27 @@ class ClientController extends Controller
             $client->delete();
 
             DB::commit();
+
+            if (!empty($clientPhone)) {
+                $farewellMessage = "Lamentamos que no quisieras renovar con nosotros las plataformas, hemos eliminado los perfiles asignados.\n\n"
+                    . "Si desea renovar y volver a disfrutar de nuestros servicios solamente escríbenos y activamos nuevamente su perfil.";
+
+                try {
+                    $sent = app(WhatsAppNotificationService::class)->sendTextMessage((string) $clientPhone, $farewellMessage);
+                    if (! $sent) {
+                        \Log::warning('Mensaje de baja de cliente no enviado por WhatsApp (respuesta false)', [
+                            'client_name' => $clientName,
+                            'client_phone' => $clientPhone,
+                        ]);
+                    }
+                } catch (\Throwable $sendError) {
+                    \Log::warning('No se pudo enviar mensaje de baja de cliente por WhatsApp', [
+                        'client_name' => $clientName,
+                        'client_phone' => $clientPhone,
+                        'error' => $sendError->getMessage(),
+                    ]);
+                }
+            }
 
             return redirect()
                 ->route('clients.index')

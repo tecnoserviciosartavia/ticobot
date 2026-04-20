@@ -43,6 +43,8 @@ export class WhatsAppClient {
   private messagePollTimer: NodeJS.Timeout | null = null;
   private messagePollNextAt: number | null = null;
   private processedMessageIds = new Map<string, number>();
+  private pollingChatCooldownUntil = new Map<string, number>();
+  private pollingChatFailureCount = new Map<string, number>();
   private messagePollConsecutiveFailures = 0;
   private messagePollingDisabledLogged = false;
   private wwebjsStubsApplied = false;
@@ -578,6 +580,7 @@ export class WhatsAppClient {
     const activeIntervalMs = Number(process.env.BOT_MESSAGE_POLL_ACTIVE_MS || 2000);
     const maxChats = Number(process.env.BOT_MESSAGE_POLL_MAX_CHATS || 5);
     const maxPerChat = Number(process.env.BOT_MESSAGE_POLL_MAX_PER_CHAT || 15);
+  const chatErrorCooldownMs = Number(process.env.BOT_MESSAGE_POLL_CHAT_ERROR_COOLDOWN_MS || 180000);
 
     let nextDelay = idleIntervalMs;
 
@@ -590,6 +593,12 @@ export class WhatsAppClient {
       }
 
       for (const c of unreadChats) {
+        const now = Date.now();
+        const cooldownUntil = this.pollingChatCooldownUntil.get(c.id) || 0;
+        if (cooldownUntil > now) {
+          continue;
+        }
+
         const unreadCount = Math.min(Number(c.unreadCount || 0), Math.max(1, maxPerChat));
         if (unreadCount <= 0) continue;
 
@@ -599,8 +608,23 @@ export class WhatsAppClient {
           chat = await (this.client as any).getChatById?.(c.id);
           if (!chat) continue;
           messages = await chat.fetchMessages({ limit: Math.max(8, Math.min(maxPerChat, unreadCount + 3)) });
+          this.pollingChatFailureCount.delete(c.id);
+          this.pollingChatCooldownUntil.delete(c.id);
         } catch (error) {
-          logger.debug({ err: error, chatId: c.id }, 'No se pudo fetchMessages en polling');
+          const errMessage = String((error as any)?.message || error || '');
+          const failures = (this.pollingChatFailureCount.get(c.id) || 0) + 1;
+          this.pollingChatFailureCount.set(c.id, failures);
+
+          if (errMessage.includes('waitForChatLoading')) {
+            const until = Date.now() + chatErrorCooldownMs;
+            this.pollingChatCooldownUntil.set(c.id, until);
+            logger.debug(
+              { err: error, chatId: c.id, failures, cooldownMs: chatErrorCooldownMs },
+              'No se pudo fetchMessages en polling (chat en cooldown temporal)'
+            );
+          } else {
+            logger.debug({ err: error, chatId: c.id, failures }, 'No se pudo fetchMessages en polling');
+          }
           continue;
         }
 
