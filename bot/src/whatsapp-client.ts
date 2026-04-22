@@ -1135,16 +1135,59 @@ export class WhatsAppClient {
           );
 
           // Workaround: a veces WhatsApp queda en CONNECTED pero whatsapp-web.js no emite `ready`.
-          // Si podemos hacer una llamada real (getContacts) asumimos que está usable y marcamos listo.
+          // Intentamos confirmar usabilidad con llamadas reales; si fallan por APIs inyectadas,
+          // habilitamos modo degradado para no bloquear respuestas del bot.
           if (state === 'CONNECTED') {
             try {
-              const contacts = await Promise.race([
-                this.client.getContacts(),
-                new Promise<never>((_, reject) => setTimeout(() => reject(new Error('getContacts timeout')), 10000))
-              ]);
+              const getChatsFn = (this.client as any).getChats;
+              const getContactsFn = (this.client as any).getContacts;
+              let usable = false;
+              let usableEvidence = 'none';
+
+              if (typeof getChatsFn === 'function') {
+                try {
+                  const chats = await Promise.race([
+                    getChatsFn.call(this.client),
+                    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('getChats timeout')), 10000))
+                  ]);
+
+                  if (Array.isArray(chats)) {
+                    usable = true;
+                    usableEvidence = 'getChats';
+                  }
+                } catch (error) {
+                  logger.debug({ err: error }, 'No se pudo confirmar usabilidad con getChats');
+                }
+              }
+
+              if (!usable && typeof getContactsFn === 'function') {
+                try {
+                  const contacts = await Promise.race([
+                    getContactsFn.call(this.client),
+                    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('getContacts timeout')), 10000))
+                  ]);
+
+                  if (Array.isArray(contacts)) {
+                    usable = true;
+                    usableEvidence = 'getContacts';
+                  }
+                } catch (error) {
+                  logger.debug({ err: error }, 'No se pudo confirmar usabilidad con getContacts');
+                }
+              }
+
+              // Si el estado es CONNECTED, permitimos modo degradado para evitar quedar atascados.
+              if (!usable) {
+                usable = true;
+                usableEvidence = 'connected_degraded_mode';
+              }
+
+              if (!usable) {
+                throw new Error('No se pudo confirmar usabilidad del cliente');
+              }
 
               logger.info(
-                { contactsCount: Array.isArray(contacts) ? contacts.length : null },
+                { usableEvidence },
                 'Cliente de WhatsApp usable sin evento ready (ready inferido)'
               );
 
