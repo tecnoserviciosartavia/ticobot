@@ -21,6 +21,12 @@ class SettingsController extends Controller
             return [$s->key => $s->value];
         })->toArray();
 
+        // Nunca exponer contraseñas reales al frontend.
+        $all['sinpe_imap_password_configured'] = empty($all['sinpe_imap_password']) ? '0' : '1';
+        $all['sinpe_smtp_password_configured'] = empty($all['sinpe_smtp_password']) ? '0' : '1';
+        $all['sinpe_imap_password'] = '';
+        $all['sinpe_smtp_password'] = '';
+
         $services = Service::query()
             ->orderByDesc('is_active')
             ->orderBy('name')
@@ -67,6 +73,7 @@ class SettingsController extends Controller
     public function update(Request $request)
     {
         $data = $request->validate([
+            '_settings_section' => 'nullable|string|in:general,mail',
             // "service_name" se mantiene solo por compatibilidad; ya no se configura desde la UI.
             'service_name' => 'nullable|string',
             'company_name' => 'nullable|string',
@@ -74,7 +81,15 @@ class SettingsController extends Controller
             'payment_contact' => 'nullable|string',
             'bank_accounts' => 'nullable|string',
             'beneficiary_name' => 'nullable|string',
+            'sinpe_auto_conciliation_enabled' => 'nullable|boolean',
+            'sinpe_imap_folder' => 'nullable|string|max:255',
+            'sinpe_imap_username' => 'nullable|string|max:255',
+            'sinpe_imap_password' => 'nullable|string|max:255',
+            'sinpe_smtp_password' => 'nullable|string|max:255',
         ]);
+
+        $settingsSection = (string) ($data['_settings_section'] ?? 'general');
+        unset($data['_settings_section']);
 
         if (array_key_exists('service_name', $data)) {
             Setting::set('service_name', $data['service_name'] ?? '');
@@ -95,7 +110,118 @@ class SettingsController extends Controller
             Setting::set('beneficiary_name', $data['beneficiary_name'] ?? '');
         }
 
+        if (array_key_exists('sinpe_auto_conciliation_enabled', $data)) {
+            Setting::set('sinpe_auto_conciliation_enabled', ! empty($data['sinpe_auto_conciliation_enabled']) ? '1' : '0');
+        }
+
+        // Configuración fija de DreamHost (IMAP entrada, SMTP salida).
+        Setting::set('sinpe_imap_host', 'imap.dreamhost.com');
+        Setting::set('sinpe_imap_port', '993');
+        Setting::set('sinpe_imap_encryption', 'ssl');
+        Setting::set('sinpe_smtp_host', 'smtp.dreamhost.com');
+        Setting::set('sinpe_smtp_port', '587');
+        Setting::set('sinpe_smtp_encryption', 'tls');
+
+        foreach ([
+            'sinpe_imap_folder',
+            'sinpe_imap_username',
+        ] as $simpleKey) {
+            if (array_key_exists($simpleKey, $data)) {
+                Setting::set($simpleKey, (string) ($data[$simpleKey] ?? ''));
+            }
+        }
+
+        // SMTP usa el mismo correo de DreamHost para autenticación.
+        if (array_key_exists('sinpe_imap_username', $data)) {
+            Setting::set('sinpe_smtp_username', (string) ($data['sinpe_imap_username'] ?? ''));
+        }
+
+        // Contraseñas: solo actualizar si viene un valor no vacío.
+        if (! empty($data['sinpe_imap_password'])) {
+            Setting::set('sinpe_imap_password', (string) $data['sinpe_imap_password']);
+        }
+
+        if (! empty($data['sinpe_smtp_password'])) {
+            Setting::set('sinpe_smtp_password', (string) $data['sinpe_smtp_password']);
+        } elseif (! empty($data['sinpe_imap_password'])) {
+            // Mantener IMAP/SMTP sincronizados cuando se cambia una sola contraseña.
+            Setting::set('sinpe_smtp_password', (string) $data['sinpe_imap_password']);
+        }
+
+        if ($settingsSection === 'mail') {
+            $imapPassword = ! empty($data['sinpe_imap_password'])
+                ? (string) $data['sinpe_imap_password']
+                : (string) Setting::get('sinpe_imap_password', '');
+
+            [$ok, $message] = $this->verifyImapConnection([
+                'host' => (string) Setting::get('sinpe_imap_host', ''),
+                'port' => (int) Setting::get('sinpe_imap_port', 0),
+                'encryption' => (string) Setting::get('sinpe_imap_encryption', 'ssl'),
+                'folder' => (string) ($data['sinpe_imap_folder'] ?? Setting::get('sinpe_imap_folder', 'BCR')),
+                'username' => (string) ($data['sinpe_imap_username'] ?? Setting::get('sinpe_imap_username', '')),
+                'password' => $imapPassword,
+            ]);
+
+            return redirect()->back()->with('success', 'Configuración de correo guardada.')->with('mail_status', [
+                'ok' => $ok,
+                'message' => $message,
+            ]);
+        }
+
         return redirect()->back()->with('success', 'Configuración guardada.');
+    }
+
+    /**
+     * @param array<string,mixed> $config
+     * @return array{0:bool,1:string}
+     */
+    private function verifyImapConnection(array $config): array
+    {
+        if (! function_exists('imap_open')) {
+            return [false, 'No se pudo verificar: la extensión IMAP no está habilitada en PHP.'];
+        }
+
+        $host = trim((string) ($config['host'] ?? ''));
+        $port = (int) ($config['port'] ?? 0);
+        $folder = trim((string) ($config['folder'] ?? 'BCR'));
+        $username = trim((string) ($config['username'] ?? ''));
+        $password = (string) ($config['password'] ?? '');
+        $encryption = trim((string) ($config['encryption'] ?? 'ssl'));
+
+        if ($host === '' || $port <= 0 || $folder === '' || $username === '' || $password === '') {
+            return [false, 'Configuración incompleta: revisa host, puerto, carpeta, usuario y contraseña IMAP.'];
+        }
+
+        $flags = '/imap';
+        if ($encryption === 'ssl') {
+            $flags .= '/ssl';
+        } elseif ($encryption === 'tls') {
+            $flags .= '/tls';
+        } else {
+            $flags .= '/notls';
+        }
+        $flags .= '/novalidate-cert';
+
+        $mailboxPath = sprintf('{%s:%d%s}%s', $host, $port, $flags, ltrim($folder));
+        $imap = @imap_open($mailboxPath, $username, $password);
+        if (! $imap) {
+            $errors = imap_errors();
+            $detail = is_array($errors) && count($errors) > 0 ? (string) end($errors) : 'No fue posible abrir el buzón.';
+
+            $normalizedDetail = strtolower($detail);
+            if (str_contains($normalizedDetail, 'basicauthblocked') || str_contains($normalizedDetail, 'authfailed') || str_contains($normalizedDetail, 'logondenied')) {
+                return [
+                    false,
+                    'Conexión IMAP fallida: autenticación bloqueada por el proveedor. Verifica correo y contraseña de aplicación de DreamHost.',
+                ];
+            }
+
+            return [false, 'Conexión IMAP fallida: ' . $detail];
+        }
+
+        @imap_close($imap);
+
+        return [true, 'Conexión IMAP exitosa. La carpeta de correo está accesible.'];
     }
 
     public function sendTestReminder(Request $request)

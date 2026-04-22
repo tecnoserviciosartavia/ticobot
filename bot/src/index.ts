@@ -62,6 +62,19 @@ async function main(): Promise<void> {
     ...ADMIN_PHONES_RAW.map(s => normalizeCR(s))
   ]));
 
+  const DEFAULT_AD_LEAD_KEYWORDS = [
+    'quiero mas informacion',
+    'quiero más informacion',
+    'quiero mas información',
+    'quiero más información',
+    'mas informacion',
+    'más informacion',
+    'mas información',
+    'más información',
+    'informacion',
+    'información',
+  ];
+
   function normalizeToChatId(num?: string) {
     if (!num) return null;
     const digits = String(num).replace(/[^0-9]/g, '');
@@ -504,6 +517,23 @@ async function main(): Promise<void> {
       try {
         const raw = (msg as any)?._data ?? {};
 
+        const socialLinkPattern = /(https?:\/\/)?(l\.)?(m\.)?(fb\.com|facebook\.com|fb\.me|instagram\.com|ig\.me)\b/i;
+        const candidateLinks = [
+          raw?.sourceUrl,
+          raw?.referral?.source_url,
+          raw?.ctwaContext?.sourceUrl,
+          raw?.contextInfo?.externalAdReply?.sourceUrl,
+          raw?.contextInfo?.externalAdReply?.canonicalUrl,
+          plainBody,
+        ]
+          .map((v) => String(v || ''))
+          .filter(Boolean);
+
+        const socialHit = candidateLinks.find((v) => socialLinkPattern.test(v));
+        if (socialHit) {
+          return { isAdLead: true, evidence: 'social.source_link' };
+        }
+
         // Señales comunes en eventos provenientes de anuncios/referrals.
         const directSignals: Array<{ ok: boolean; evidence: string }> = [
           { ok: !!raw?.referral, evidence: 'raw.referral' },
@@ -520,7 +550,7 @@ async function main(): Promise<void> {
 
         // Fallback: revisar texto serializado en busca de claves típicas de campaña.
         const serialized = JSON.stringify(raw).toLowerCase();
-        if (/(click.?to.?whatsapp|ctwa|referral|sourceurl|utm_|campaign|adset|adid|externaladreply)/i.test(serialized)) {
+        if (/(click.?to.?whatsapp|ctwa|referral|sourceurl|utm_|campaign|adset|adid|externaladreply|facebook\.com|fb\.com|fb\.me|instagram\.com|ig\.me)/i.test(serialized)) {
           return { isAdLead: true, evidence: 'raw.serialized.pattern' };
         }
 
@@ -529,11 +559,16 @@ async function main(): Promise<void> {
           .split(',')
           .map((s) => s.trim().toLowerCase())
           .filter(Boolean);
-        if (envKeywords.length > 0) {
+
+        const bodyKeywords = envKeywords.length > 0 ? envKeywords : DEFAULT_AD_LEAD_KEYWORDS;
+        if (bodyKeywords.length > 0) {
           const b = String(plainBody || '').toLowerCase();
-          const matchedKw = envKeywords.find((kw) => b.includes(kw));
+          const matchedKw = bodyKeywords.find((kw) => b.includes(kw));
           if (matchedKw) {
-            return { isAdLead: true, evidence: `body.keyword:${matchedKw}` };
+            return {
+              isAdLead: true,
+              evidence: envKeywords.length > 0 ? `body.keyword:${matchedKw}` : `body.default_keyword:${matchedKw}`,
+            };
           }
         }
       } catch {

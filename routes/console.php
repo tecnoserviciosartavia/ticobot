@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('services:notify-platform-payments')->hourly();
+Schedule::command('emails:reconcile-sinpe-bcr')->everyFiveMinutes();

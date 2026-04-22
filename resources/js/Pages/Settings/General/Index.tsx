@@ -4,6 +4,7 @@ import type { PageProps } from '@/types';
 import WhatsAppConnectionCard, { WhatsAppStatus } from '@/Pages/Profile/Partials/WhatsAppConnectionCard';
 import LogsTab from '@/Pages/Settings/General/Partials/LogsTab';
 import { useRef, useState } from 'react';
+import { usePage } from '@inertiajs/react';
 
 type ServiceItem = {
     id: number;
@@ -40,7 +41,9 @@ const currencySymbol = (currency: string) => {
 };
 
 export default function SettingsIndex({ settings, whatsapp, services, logSources, logDefaultSource }: Props) {
-    const [activeTab, setActiveTab] = useState<'whatsapp' | 'general' | 'services' | 'logs'>(() => (whatsapp ? 'whatsapp' : 'general'));
+    const page = usePage();
+    const flash = (page.props as any)?.flash ?? {};
+    const [activeTab, setActiveTab] = useState<'whatsapp' | 'general' | 'mail' | 'services' | 'logs'>(() => (whatsapp ? 'whatsapp' : 'general'));
     const [testSending, setTestSending] = useState(false);
     const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -50,6 +53,18 @@ export default function SettingsIndex({ settings, whatsapp, services, logSources
         payment_contact: settings.payment_contact ?? '',
         bank_accounts: settings.bank_accounts ?? '',
         beneficiary_name: settings.beneficiary_name ?? '',
+        sinpe_auto_conciliation_enabled: settings.sinpe_auto_conciliation_enabled ?? '0',
+        sinpe_imap_host: settings.sinpe_imap_host ?? 'imap.dreamhost.com',
+        sinpe_imap_port: settings.sinpe_imap_port ?? '993',
+        sinpe_imap_encryption: settings.sinpe_imap_encryption ?? 'ssl',
+        sinpe_imap_folder: settings.sinpe_imap_folder ?? 'BCR',
+        sinpe_imap_username: settings.sinpe_imap_username ?? '',
+        sinpe_imap_password: '',
+        sinpe_smtp_host: settings.sinpe_smtp_host ?? 'smtp.dreamhost.com',
+        sinpe_smtp_port: settings.sinpe_smtp_port ?? '587',
+        sinpe_smtp_encryption: settings.sinpe_smtp_encryption ?? 'tls',
+        sinpe_smtp_username: settings.sinpe_smtp_username ?? '',
+        sinpe_smtp_password: '',
     });
 
     const testForm = useForm({
@@ -145,6 +160,17 @@ export default function SettingsIndex({ settings, whatsapp, services, logSources
                                     }`}
                                 >
                                     General
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('mail')}
+                                    className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition ${
+                                        activeTab === 'mail'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                    }`}
+                                >
+                                    Configuración de correo
                                 </button>
                                 <button
                                     type="button"
@@ -329,6 +355,94 @@ export default function SettingsIndex({ settings, whatsapp, services, logSources
                             <div className="flex items-center justify-end gap-3">
                                 <button type="submit" className="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 px-4 py-2 text-white font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Guardar</button>
                             </div>
+                                </form>
+                            </div>
+                        )}
+
+                        {activeTab === 'mail' && (
+                            <div className="p-6">
+                                <div className="mb-4">
+                                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Configuración de correo</h3>
+                                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                        Configura IMAP/SMTP para leer correos SINPE y conciliar pagos automáticamente.
+                                    </p>
+                                </div>
+
+                                <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200">
+                                    Esta sección usa configuración fija de DreamHost. IMAP es entrada y SMTP es salida. Solo debes ingresar correo y contraseña de aplicación.
+                                </div>
+
+                                {flash.mail_status && (
+                                    <div
+                                        className={`mb-4 rounded-md px-3 py-2 text-sm ${flash.mail_status.ok
+                                            ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                                            : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-200'}`}
+                                    >
+                                        {String(flash.mail_status.message || '')}
+                                    </div>
+                                )}
+
+                                <form onSubmit={submit} className="space-y-4">
+                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                                        <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            <input
+                                                type="checkbox"
+                                                checked={String(form.data.sinpe_auto_conciliation_enabled) === '1'}
+                                                onChange={(e) => form.setData('sinpe_auto_conciliation_enabled', e.target.checked ? '1' : '0')}
+                                                className="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                            />
+                                            Habilitar conciliación automática desde correo
+                                        </label>
+                                    </div>
+
+                                    <div className="rounded-md border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-600 dark:text-gray-300">
+                                        <div>IMAP: imap.dreamhost.com | Puerto 993 | SSL</div>
+                                        <div>SMTP: smtp.dreamhost.com | Puerto 587 | TLS</div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Correo DreamHost</label>
+                                            <input
+                                                value={form.data.sinpe_imap_username}
+                                                onChange={(e) => form.setData('sinpe_imap_username', e.target.value)}
+                                                placeholder="correo@tudominio.com"
+                                                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contraseña DreamHost</label>
+                                            <input
+                                                type="password"
+                                                value={form.data.sinpe_imap_password}
+                                                onChange={(e) => form.setData('sinpe_imap_password', e.target.value)}
+                                                placeholder={String(settings.sinpe_imap_password_configured) === '1' ? 'Ya configurada (dejar vacío para no cambiar)' : 'Ingresar contraseña'}
+                                                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Carpeta IMAP</label>
+                                            <input
+                                                value={form.data.sinpe_imap_folder}
+                                                onChange={(e) => form.setData('sinpe_imap_folder', e.target.value)}
+                                                placeholder="BCR"
+                                                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-end gap-3 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                form.post(`${route('settings.update')}?_settings_section=mail`);
+                                            }}
+                                            className="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 px-4 py-2 text-white font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        >
+                                            Guardar y verificar conexión
+                                        </button>
+                                    </div>
                                 </form>
                             </div>
                         )}
