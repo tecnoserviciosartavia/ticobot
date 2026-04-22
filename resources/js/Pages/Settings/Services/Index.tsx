@@ -130,7 +130,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 {createForm.errors.name && <div className="mt-1 text-sm text-red-600">{createForm.errors.name}</div>}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium">Monto</label>
+                                <label className="block text-sm font-medium">Monto de cobro al cliente</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -143,7 +143,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 {createForm.errors.price && <div className="mt-1 text-sm text-red-600">{createForm.errors.price}</div>}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium">Costo (plataforma)</label>
+                                <label className="block text-sm font-medium">Costo fijo mensual (plataforma)</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -155,7 +155,7 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 {createForm.errors.cost && <div className="mt-1 text-sm text-red-600">{createForm.errors.cost}</div>}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium">Día de pago</label>
+                                <label className="block text-sm font-medium">Día de pago del costo mensual</label>
                                 <input
                                     type="number"
                                     min="1"
@@ -264,9 +264,9 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 <thead>
                                         <tr className="text-left text-sm text-gray-600 dark:text-gray-300">
                                         <th className="py-2 pr-4 min-w-[180px]">Nombre</th>
-                                        <th className="py-2 pr-4 min-w-[90px]">Monto</th>
-                                        <th className="py-2 pr-4 min-w-[90px]">Costo</th>
-                                            <th className="py-2 pr-4 min-w-[90px]">Día de pago</th>
+                                        <th className="py-2 pr-4 min-w-[90px]">Cobro cliente</th>
+                                        <th className="py-2 pr-4 min-w-[90px]">Costo fijo</th>
+                                            <th className="py-2 pr-4 min-w-[90px]">Pago costo</th>
                                         <th className="py-2 pr-4 min-w-[220px]">Correo de cuenta</th>
                                         <th className="py-2 pr-4 min-w-[170px]">Contraseña</th>
                                         <th className="py-2 pr-4 min-w-[120px]">PIN base</th>

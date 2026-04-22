@@ -12,7 +12,7 @@ class NotifyPlatformPaymentsCommand extends Command
 {
     protected $signature = 'services:notify-platform-payments';
 
-    protected $description = 'Envía recordatorios a admins cuando toca pagar costos de plataformas';
+    protected $description = 'Envía recordatorios a admins cuando vence el costo fijo mensual de una plataforma';
 
     public function handle(WhatsAppNotificationService $whatsApp): int
     {
@@ -110,6 +110,6 @@ class NotifyPlatformPaymentsCommand extends Command
         $amount = number_format($cost, 2, '.', ',');
         $emailLine = $accountEmail ? "\nCuenta: {$accountEmail}" : '';
 
-        return "Recordatorio de pago de plataforma\n\nServicio: {$serviceName}{$emailLine}\nCosto: {$symbol}{$amount}\nFecha de pago: {$dueDate}\n\nEste aviso se envía automaticamente el dia configurado del servicio.";
+        return "Recordatorio de costo mensual de plataforma\n\nServicio: {$serviceName}{$emailLine}\nTipo: costo fijo mensual de la plataforma\nCosto fijo mensual: {$symbol}{$amount}\nFecha de pago: {$dueDate}.";
     }
 }

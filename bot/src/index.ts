@@ -2610,6 +2610,7 @@ async function main(): Promise<void> {
 
               // Get client's contracts
               const contracts = await apiClient.listContracts({ client_id: client.id });
+              const payments = await apiClient.listPayments({ client_id: client.id, per_page: 200 });
               
               if (!contracts || contracts.length === 0) {
                 await message.reply('ℹ️ No tienes contratos activos en este momento.\n\nPara más información, escribe "agente" para hablar con un asesor.');
@@ -2623,6 +2624,17 @@ async function main(): Promise<void> {
               lines.push(`👤 Cliente: ${client.name || 'N/A'}`);
               lines.push(`📱 Teléfono: ${client.phone || fromUser}`);
               lines.push('');
+
+              const pendingStatuses = new Set(['unverified', 'pending', 'in_review']);
+              const verifiedStatuses = new Set(['verified', 'approved']);
+              const clientPayments = Array.isArray(payments) ? payments : [];
+              const clientPendingConciliationCount = clientPayments.filter((p: any) => pendingStatuses.has(String(p?.status || '').toLowerCase())).length;
+
+              if (clientPendingConciliationCount > 0) {
+                lines.push(`🟡 Comprobantes por conciliar: ${clientPendingConciliationCount}`);
+                lines.push('');
+              }
+
               lines.push('📋 *Tus Contratos:*');
               lines.push('');
 
@@ -2631,16 +2643,35 @@ async function main(): Promise<void> {
                               contract.status === 'paused' ? '⏸️ Pausado' : 
                               contract.status === 'cancelled' ? '❌ Cancelado' : 
                               '⚪ ' + (contract.status || 'Desconocido');
+
+                const contractPayments = clientPayments.filter((p: any) => Number(p?.contract_id || 0) === Number(contract.id));
+                const hasPendingConciliation = contractPayments.some((p: any) => pendingStatuses.has(String(p?.status || '').toLowerCase()));
+                const hasVerifiedPayment = contractPayments.some((p: any) => verifiedStatuses.has(String(p?.status || '').toLowerCase()));
+                const pendingConciliationCount = contractPayments.filter((p: any) => pendingStatuses.has(String(p?.status || '').toLowerCase())).length;
                 
                 lines.push(`🔹 *Contrato #${contract.id}*`);
                 lines.push(`   Servicio: ${contract.service_description || contract.contract_type?.name || 'N/A'}`);
-                lines.push(`   Estado: ${status}`);
+                lines.push(`   Estado contrato: ${status}`);
                 lines.push(`   Monto: ${contract.currency || 'CRC'} ${Number(contract.amount || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
                 
                 if (contract.next_due_date) {
                   const dueDate = new Date(contract.next_due_date);
-                  const today = new Date();
-                  const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  const dueDateStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+                  const now = new Date();
+                  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                  const diffDays = Math.ceil((dueDateStart.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
+
+                  let paymentStatusText = '🟢 Al día';
+                  if (hasPendingConciliation) {
+                    paymentStatusText = '🟡 Por conciliar (comprobante recibido)';
+                  } else if (diffDays <= 0 && !hasVerifiedPayment) {
+                    paymentStatusText = '🔴 Pendiente de pago';
+                  }
+
+                  lines.push(`   Estado de pago: ${paymentStatusText}`);
+                  if (pendingConciliationCount > 0) {
+                    lines.push(`   Comprobantes pendientes: ${pendingConciliationCount}`);
+                  }
                   
                   if (diffDays < 0) {
                     lines.push(`   ⚠️ Próximo pago: VENCIDO (${Math.abs(diffDays)} días de retraso)`);
@@ -2650,6 +2681,15 @@ async function main(): Promise<void> {
                     lines.push(`   ⏰ Próximo pago: En ${diffDays} día${diffDays !== 1 ? 's' : ''}`);
                   } else {
                     lines.push(`   📅 Próximo pago: ${dueDate.toLocaleDateString('es-CR')}`);
+                  }
+                } else {
+                  if (hasPendingConciliation) {
+                    lines.push('   Estado de pago: 🟡 Por conciliar (comprobante recibido)');
+                    lines.push(`   Comprobantes pendientes: ${pendingConciliationCount}`);
+                  } else if (hasVerifiedPayment) {
+                    lines.push('   Estado de pago: 🟢 Al día');
+                  } else {
+                    lines.push('   Estado de pago: ⚪ Sin fecha de próximo pago');
                   }
                 }
                 
