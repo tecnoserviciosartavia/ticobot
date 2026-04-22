@@ -27,6 +27,9 @@ async function main(): Promise<void> {
   const lastMenuItems = new Map<string, Array<any>>();
   // per-chat agent mode: when true the user is interacting with a human agent and the bot should pause
   const agentMode = new Map<string, boolean>();
+  // Chats detectados como lead de anuncio (Click-to-WhatsApp/referral).
+  // En estos chats priorizamos atención humana y evitamos mostrar menú automático.
+  const adLeadChats = new Map<string, { detectedAt: number; evidence: string }>();
   // throttle admin notifications per chat to avoid spamming admins
   const adminNotifiedAt = new Map<string, number>();
   const AGENT_NOTIFY_THROTTLE_MS = Number(process.env.AGENT_NOTIFY_THROTTLE_MS || 30 * 60 * 1000); // default 30 minutes
@@ -497,6 +500,49 @@ async function main(): Promise<void> {
     // Admin definido temprano para poder aplicar reglas de silencio.
     const isAdminUserEarly = isAdminChatId(chatId) || fromNorm === '50672140974';
 
+    const detectAdLead = (msg: any, plainBody: string): { isAdLead: boolean; evidence?: string } => {
+      try {
+        const raw = (msg as any)?._data ?? {};
+
+        // Señales comunes en eventos provenientes de anuncios/referrals.
+        const directSignals: Array<{ ok: boolean; evidence: string }> = [
+          { ok: !!raw?.referral, evidence: 'raw.referral' },
+          { ok: !!raw?.ctwaContext, evidence: 'raw.ctwaContext' },
+          { ok: !!raw?.adContextInfo, evidence: 'raw.adContextInfo' },
+          { ok: !!raw?.quotedAd, evidence: 'raw.quotedAd' },
+          { ok: !!raw?.contextInfo?.referral, evidence: 'raw.contextInfo.referral' },
+          { ok: !!raw?.contextInfo?.externalAdReply, evidence: 'raw.contextInfo.externalAdReply' },
+        ];
+        const hit = directSignals.find((x) => x.ok);
+        if (hit) {
+          return { isAdLead: true, evidence: hit.evidence };
+        }
+
+        // Fallback: revisar texto serializado en busca de claves típicas de campaña.
+        const serialized = JSON.stringify(raw).toLowerCase();
+        if (/(click.?to.?whatsapp|ctwa|referral|sourceurl|utm_|campaign|adset|adid|externaladreply)/i.test(serialized)) {
+          return { isAdLead: true, evidence: 'raw.serialized.pattern' };
+        }
+
+        // Fallback configurable por negocio: palabras del texto prefijado del anuncio.
+        const envKeywords = String(process.env.BOT_AD_KEYWORDS || '')
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean);
+        if (envKeywords.length > 0) {
+          const b = String(plainBody || '').toLowerCase();
+          const matchedKw = envKeywords.find((kw) => b.includes(kw));
+          if (matchedKw) {
+            return { isAdLead: true, evidence: `body.keyword:${matchedKw}` };
+          }
+        }
+      } catch {
+        // best-effort
+      }
+
+      return { isAdLead: false };
+    };
+
     // Atajo: si un admin escribe adminmenu, responder inmediatamente.
     // Esto evita esperas por checks de backend (paused/settings) cuando estamos en modo polling fallback.
     if (isAdminUserEarly && (lc === 'adminmenu' || lc === 'admin' || lc === 'menuadmin')) {
@@ -538,6 +584,56 @@ async function main(): Promise<void> {
       menuShown.set(chatId, true);
       lastMenuItems.set(chatId, [{ type: 'admin_menu' }]);
       return;
+    }
+
+    // Regla de anuncio: enrutar directo a asesor (misma lógica de opción 5) y no mostrar menú.
+    if (!isAdminUserEarly) {
+      const adSignal = detectAdLead(message as any, body);
+      if (adSignal.isAdLead) {
+        adLeadChats.set(chatId, { detectedAt: Date.now(), evidence: String(adSignal.evidence || 'unknown') });
+      }
+
+      if (adLeadChats.has(chatId) && !agentMode.get(chatId)) {
+        const isOutsideHours = !_isWithinBusinessHours();
+        let agentMsg = '';
+        if (isOutsideHours) {
+          agentMsg = `⏰ Actualmente estamos fuera del horario de atención.\n\nNuestro horario: ${formatBusinessHours()}\n\n✅ He registrado tu solicitud y un asesor te contactará cuando inicie el horario de atención.`;
+        } else {
+          agentMsg = 'Para hablar con un asesor, por favor comunícate con nuestro equipo de soporte o escribe "agente" para que te transferamos. Un asesor te contactará a la brevedad.';
+        }
+
+        await message.reply(agentMsg);
+
+        agentMode.set(chatId, true);
+        chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
+        try { touchTimer(chatId); } catch { /* ignore */ }
+        menuShown.delete(chatId);
+        lastMenuItems.delete(chatId);
+        logger.info({ chatId, adEvidence: adLeadChats.get(chatId)?.evidence }, 'Chat puesto en modo agente por origen anuncio');
+
+        try {
+          const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
+          const adminChatId = normalizeToChatId(adminPhone);
+          const now = Date.now();
+          const lastNotified = adminNotifiedAt.get(chatId) || 0;
+          if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
+            const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
+            const offHoursSuffix = isOutsideHours
+              ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.`
+              : '';
+            const notifyText = `${offHoursPrefix}Cliente ${fromUser} (${chatId}) solicita atención de un asesor (lead de anuncio). Mensaje: "${String(body).slice(0, 200)}"${offHoursSuffix}`;
+            await whatsappClient.sendText(adminChatId, notifyText);
+            adminNotifiedAt.set(chatId, now);
+            logger.info({ adminChatId, chatId, outsideHours: isOutsideHours }, 'Admin notificado sobre lead de anuncio');
+          } else {
+            logger.debug({ chatId, lastNotified, throttleMs: AGENT_NOTIFY_THROTTLE_MS }, 'Omitida notificación admin por throttle (lead de anuncio)');
+          }
+        } catch (e: any) {
+          logger.warn({ e }, 'No se pudo notificar al admin sobre lead de anuncio');
+        }
+
+        return;
+      }
     }
 
     // Modo silencio por contacto pausado: si un número está en paused-contacts, el bot NO responde.
@@ -2444,6 +2540,11 @@ async function main(): Promise<void> {
 
     // If user asks for menu, display and mark menu active for this chat
     if (lcNorm === 'menu' || lcNorm === 'inicio' || lcNorm === 'help') {
+      if (!isAdminUser && adLeadChats.has(chatId)) {
+        await message.reply('Tu solicitud ya fue enviada a un asesor. En breve te atenderemos por este chat.');
+        return;
+      }
+
       try {
         await showMainMenu();
         return;

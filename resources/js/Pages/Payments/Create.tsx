@@ -2,7 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { labelForChannel } from '@/lib/labels';
-import { FormEventHandler, useEffect, useState } from 'react';
+import { FormEventHandler, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 
 interface Client {
@@ -56,8 +56,52 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
 
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [loadingContracts, setLoadingContracts] = useState(false);
+    const [clientSearch, setClientSearch] = useState('');
+    const [clientOpen, setClientOpen] = useState(false);
+    const [highlightedClient, setHighlightedClient] = useState(-1);
+    const clientBoxRef = useRef<HTMLDivElement | null>(null);
+
+    const selectedClient = useMemo(
+        () => clients.find((client) => String(client.id) === data.client_id),
+        [clients, data.client_id],
+    );
+
+    const filteredClients = useMemo(() => {
+        const q = clientSearch.trim().toLowerCase();
+        if (!q) {
+            return clients.slice(0, 50);
+        }
+
+        return clients
+            .filter((client) => {
+                const name = client.name.toLowerCase();
+                const phone = String(client.phone || '').toLowerCase();
+                return name.includes(q) || phone.includes(q);
+            })
+            .slice(0, 50);
+    }, [clients, clientSearch]);
+
     const selectedContract = contracts.find((c) => c.id.toString() === data.contract_id);
     const isMonthlyContract = selectedContract?.billing_cycle === 'monthly';
+
+    useEffect(() => {
+        const onClickOutside = (event: MouseEvent) => {
+            if (!clientBoxRef.current) {
+                return;
+            }
+
+            const target = event.target as Node;
+            if (!clientBoxRef.current.contains(target)) {
+                setClientOpen(false);
+                setHighlightedClient(-1);
+            }
+        };
+
+        document.addEventListener('mousedown', onClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', onClickOutside);
+        };
+    }, []);
 
     // Load contracts when client is selected
     useEffect(() => {
@@ -131,6 +175,56 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
         post(route('payments.store'));
     };
 
+    const selectClient = (client: Client) => {
+        setData((prev) => ({ ...prev, client_id: String(client.id) }));
+        setClientSearch('');
+        setClientOpen(false);
+        setHighlightedClient(-1);
+    };
+
+    const onClientInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!clientOpen && event.key === 'ArrowDown') {
+            setClientOpen(true);
+            setHighlightedClient(0);
+            return;
+        }
+
+        if (!clientOpen) {
+            return;
+        }
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            if (!filteredClients.length) {
+                return;
+            }
+            setHighlightedClient((prev) => (prev + 1) % filteredClients.length);
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            if (!filteredClients.length) {
+                return;
+            }
+            setHighlightedClient((prev) => (prev <= 0 ? filteredClients.length - 1 : prev - 1));
+            return;
+        }
+
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            if (highlightedClient >= 0 && filteredClients[highlightedClient]) {
+                selectClient(filteredClients[highlightedClient]);
+            }
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setClientOpen(false);
+            setHighlightedClient(-1);
+        }
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -154,28 +248,73 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
                     <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-lg">
                         <form onSubmit={submit} className="space-y-6 p-6">
                             {/* Client Selection */}
-                            <div>
+                            <div ref={clientBoxRef}>
                                 <label
                                     htmlFor="client_id"
                                     className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                                 >
                                     Cliente <span className="text-red-500">*</span>
                                 </label>
-                                <select
-                                    id="client_id"
-                                    name="client_id"
-                                    value={data.client_id}
-                                    onChange={(e) => setData((prev) => ({ ...prev, client_id: e.target.value }))}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                    required
-                                >
-                                    <option value="">Seleccionar cliente...</option>
-                                    {clients.map((client) => (
-                                        <option key={client.id} value={client.id}>
-                                            {client.name} ({client.phone})
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="relative">
+                                    <input
+                                        id="client_id"
+                                        name="client_id"
+                                        type="text"
+                                        value={selectedClient ? `${selectedClient.name} (${selectedClient.phone})` : clientSearch}
+                                        onChange={(e) => {
+                                            setClientSearch(e.target.value);
+                                            setData((prev) => ({ ...prev, client_id: '' }));
+                                            setClientOpen(true);
+                                            setHighlightedClient(0);
+                                        }}
+                                        onFocus={() => {
+                                            setClientOpen(true);
+                                            setHighlightedClient(filteredClients.length ? 0 : -1);
+                                        }}
+                                        onKeyDown={onClientInputKeyDown}
+                                        placeholder="Buscar cliente por nombre o teléfono"
+                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        required
+                                    />
+
+                                    {selectedClient && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setClientSearch('');
+                                                setData((prev) => ({ ...prev, client_id: '' }));
+                                                setClientOpen(false);
+                                                setHighlightedClient(-1);
+                                            }}
+                                            className="absolute right-2 top-3 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                                            aria-label="Limpiar cliente"
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+
+                                    {clientOpen && (
+                                        <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                                            {filteredClients.length === 0 && (
+                                                <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                                    No hay resultados
+                                                </li>
+                                            )}
+                                            {filteredClients.map((client, idx) => (
+                                                <li
+                                                    key={client.id}
+                                                    className={`cursor-pointer px-3 py-2 text-sm ${highlightedClient === idx ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700/60'}`}
+                                                    onMouseEnter={() => setHighlightedClient(idx)}
+                                                    onMouseLeave={() => setHighlightedClient(-1)}
+                                                    onMouseDown={(ev) => ev.preventDefault()}
+                                                    onClick={() => selectClient(client)}
+                                                >
+                                                    {client.name} ({client.phone})
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
                                 {errors.client_id && (
                                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                                         {errors.client_id}
