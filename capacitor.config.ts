@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-const serverUrl = process.env.CAPACITOR_SERVER_URL || 'https://tu-dominio.com';
+const serverUrl = process.env.CAPACITOR_SERVER_URL || 'https://ticocast.com';
 
 const config: CapacitorConfig = {
   appId: 'com.ticocast.ticobot',
