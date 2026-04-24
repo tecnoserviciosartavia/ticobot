@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { ReminderMessagePayload, ReminderRecord } from './types.js';
-import { formatWhatsAppId } from './utils/phone.js';
+import { chatIdToPhoneDigits, formatWhatsAppId, normalizeWhatsAppUserChatId } from './utils/phone.js';
 import { apiClient } from './api-client.js';
 import { execFile as _execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -22,10 +22,12 @@ function parseEnvBool(value: string | undefined, defaultValue: boolean): boolean
 }
 
 export type IncomingMessageHandler = (message: pkg.Message) => Promise<void> | void;
+export type OutboundFromMeMessageHandler = (message: pkg.Message) => Promise<void> | void;
 
 export class WhatsAppClient {
   private readonly client: pkg.Client;
   private inboundHandler?: IncomingMessageHandler;
+  private outboundFromMeHandler?: OutboundFromMeMessageHandler;
   private listenersAttached = false;
   private restartInProgress = false;
   private isReady = false;
@@ -43,6 +45,7 @@ export class WhatsAppClient {
   private messagePollTimer: NodeJS.Timeout | null = null;
   private messagePollNextAt: number | null = null;
   private processedMessageIds = new Map<string, number>();
+  private botSentMessageIds = new Map<string, number>();
   private pollingChatCooldownUntil = new Map<string, number>();
   private pollingChatFailureCount = new Map<string, number>();
   private messagePollConsecutiveFailures = 0;
@@ -222,27 +225,12 @@ export class WhatsAppClient {
       targets.push(id);
     };
 
-    const isLid = input.endsWith('@lid');
-    const digits = input.replace(/@.*/, '').replace(/[^0-9]/g, '');
-
-    // Recomendado: usar @c.us como canónico y dejar @lid como fallback.
-    if (isLid && digits.length >= 8) {
-      try {
-        pushUnique(formatWhatsAppId(digits));
-      } catch {
-        // ignore invalid number
-      }
+    const canonical = normalizeWhatsAppUserChatId(input);
+    if (canonical) {
+      pushUnique(canonical);
     }
 
     pushUnique(input);
-
-    if (!isLid && digits.length >= 8) {
-      try {
-        pushUnique(formatWhatsAppId(digits));
-      } catch {
-        // ignore invalid number
-      }
-    }
 
     return targets;
   }
@@ -281,6 +269,7 @@ export class WhatsAppClient {
         if (target !== chatId) {
           logger.info({ chatId, target }, 'sendMessageWithFallback: enviado por fallback');
         }
+        this.markBotSentMessage(result as pkg.Message);
         return;
       } catch (error: any) {
         lastError = error;
@@ -291,6 +280,7 @@ export class WhatsAppClient {
             await this.applyWwebjsSafetyStubs();
             const retried = await this.client.sendMessage(target, payload as any);
             if (retried != null) {
+              this.markBotSentMessage(retried as pkg.Message);
               logger.info({ chatId, target }, 'sendMessageWithFallback: enviado tras reintento local con stubs');
               return;
             }
@@ -313,6 +303,7 @@ export class WhatsAppClient {
         if (resolvedId && !targets.includes(resolvedId)) {
           const resolvedResult = await this.client.sendMessage(resolvedId, payload as any);
           if (resolvedResult != null) {
+            this.markBotSentMessage(resolvedResult as pkg.Message);
             logger.info({ chatId, resolvedId }, 'sendMessageWithFallback: enviado via getNumberId');
             return;
           }
@@ -393,6 +384,38 @@ export class WhatsAppClient {
         this.processedMessageIds.delete(oldestKey);
       }
     }
+  }
+
+  private markBotSentMessage(message: pkg.Message): void {
+    const id = (message as any)?.id?._serialized;
+    if (!id) return;
+
+    const now = Date.now();
+    this.botSentMessageIds.set(String(id), now);
+
+    if (this.botSentMessageIds.size > 500) {
+      const cutoff = now - (10 * 60 * 1000);
+      for (const [key, timestamp] of this.botSentMessageIds.entries()) {
+        if (timestamp < cutoff) {
+          this.botSentMessageIds.delete(key);
+        }
+      }
+    }
+  }
+
+  private wasSentByBot(message: pkg.Message): boolean {
+    const id = (message as any)?.id?._serialized;
+    if (!id) return false;
+
+    const timestamp = this.botSentMessageIds.get(String(id));
+    if (!timestamp) return false;
+
+    if ((Date.now() - timestamp) > (10 * 60 * 1000)) {
+      this.botSentMessageIds.delete(String(id));
+      return false;
+    }
+
+    return true;
   }
 
   private stopMessagePolling(): void {
@@ -1290,8 +1313,20 @@ export class WhatsAppClient {
 
     }
 
-    if (this.debugMessages) {
-      this.client.on('message_create', (message: pkg.Message) => {
+    this.client.on('message_create', async (message: pkg.Message) => {
+      try {
+        if (Boolean((message as any).fromMe) && this.outboundFromMeHandler && !this.wasSentByBot(message)) {
+          await this.outboundFromMeHandler(message);
+        }
+      } catch (error) {
+        logger.error({ err: error }, 'Error manejando mensaje saliente fromMe');
+      }
+
+      if (!this.debugMessages) {
+        return;
+      }
+
+      try {
         try {
           const body = String((message as any).body ?? '');
           const bodyPreview = body.length > 200 ? body.slice(0, 200) + '…' : body;
@@ -1310,8 +1345,10 @@ export class WhatsAppClient {
         } catch (e) {
           logger.debug({ e }, 'No se pudo loguear message_create');
         }
-      });
-    }
+      } catch (e) {
+        logger.debug({ e }, 'No se pudo procesar message_create');
+      }
+    });
 
     this.client.on('message', async (message: pkg.Message) => {
       try {
@@ -1364,6 +1401,10 @@ export class WhatsAppClient {
     }
   }
 
+  registerOutboundFromMeHandler(handler: OutboundFromMeMessageHandler): void {
+    this.outboundFromMeHandler = handler;
+  }
+
   async sendReminder(reminder: ReminderRecord, payload: ReminderMessagePayload): Promise<void> {
     if (!reminder.client?.phone) {
       throw new Error(`El cliente ${reminder.client?.name ?? reminder.client_id} no tiene teléfono configurado.`);
@@ -1375,7 +1416,7 @@ export class WhatsAppClient {
     }
 
     const chatId = formatWhatsAppId(reminder.client.phone);
-    await this.client.sendMessage(chatId, payload.content);
+    await this.sendMessageWithFallback(chatId, payload.content);
 
     if (payload.attachments?.length) {
       for (const attachment of payload.attachments) {
@@ -1384,7 +1425,7 @@ export class WhatsAppClient {
           : attachment.data.toString('base64');
 
         const media = new MessageMedia(attachment.mimeType, base64Data, attachment.filename);
-        await this.client.sendMessage(chatId, media);
+        await this.sendMessageWithFallback(chatId, media);
       }
     }
   }
@@ -1524,7 +1565,7 @@ export class WhatsAppClient {
           continue;
         }
 
-        const phone = String(chatId).replace(/@c\.us$/, '').replace(/[^0-9]/g, '');
+        const phone = chatIdToPhoneDigits(chatId);
         if (!phone || phone.length < 8) {
           if (result.sample.length < 20) result.sample.push({ chatId, phone: phone || '', action: 'skip', reason: 'invalid_phone' });
           continue;

@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Models\PushDeviceToken;
 use App\Models\Service;
+use App\Services\PushNotificationService;
 use App\Services\WhatsAppNotificationService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -14,7 +16,7 @@ class NotifyPlatformPaymentsCommand extends Command
 
     protected $description = 'Envía recordatorios a admins cuando vence el costo fijo mensual de una plataforma';
 
-    public function handle(WhatsAppNotificationService $whatsApp): int
+    public function handle(WhatsAppNotificationService $whatsApp, PushNotificationService $push): int
     {
         $tz = (string) config('app.timezone', 'America/Costa_Rica');
         $today = Carbon::today($tz);
@@ -33,6 +35,7 @@ class NotifyPlatformPaymentsCommand extends Command
             ->get();
 
         $sent = 0;
+        $pushSent = 0;
         foreach ($services as $service) {
             $paymentDay = (int) ($service->payment_day ?? 0);
             if ($paymentDay < 1) {
@@ -73,9 +76,54 @@ class NotifyPlatformPaymentsCommand extends Command
                 ]);
                 $sent++;
             }
+
+            $pushTokens = PushDeviceToken::query()
+                ->where('is_active', true)
+                ->pluck('token');
+
+            foreach ($pushTokens as $token) {
+                $alreadyPushSent = DB::table('service_payment_push_notifications')
+                    ->where('service_id', $service->id)
+                    ->where('due_date', $dueDate)
+                    ->where('token', $token)
+                    ->exists();
+
+                if ($alreadyPushSent) {
+                    continue;
+                }
+
+                $title = 'Costo mensual por pagar';
+                $body = sprintf(
+                    '%s · %s%s · vence %s',
+                    $service->name,
+                    strtoupper((string) $service->currency) === 'USD' ? '$' : 'CRC ',
+                    number_format((float) $service->cost, 2, '.', ','),
+                    $dueDate
+                );
+
+                $ok = $push->sendToToken((string) $token, $title, $body, [
+                    'type' => 'platform_cost_due',
+                    'service_id' => (string) $service->id,
+                    'due_date' => $dueDate,
+                ]);
+
+                if (! $ok) {
+                    continue;
+                }
+
+                DB::table('service_payment_push_notifications')->insert([
+                    'service_id' => $service->id,
+                    'due_date' => $dueDate,
+                    'token' => (string) $token,
+                    'sent_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $pushSent++;
+            }
         }
 
-        $this->info("Recordatorios de costos de plataforma enviados: {$sent}");
+        $this->info("Recordatorios de costos de plataforma enviados: {$sent} (WhatsApp), {$pushSent} (Push app)");
         return self::SUCCESS;
     }
 
@@ -110,6 +158,6 @@ class NotifyPlatformPaymentsCommand extends Command
         $amount = number_format($cost, 2, '.', ',');
         $emailLine = $accountEmail ? "\nCuenta: {$accountEmail}" : '';
 
-        return "Recordatorio de costo mensual de plataforma\n\nServicio: {$serviceName}{$emailLine}\nTipo: costo fijo mensual de la plataforma\nCosto fijo mensual: {$symbol}{$amount}\nFecha de pago: {$dueDate}.";
+        return "Recordatorio de costo mensual de plataforma\n\nServicio: {$serviceName}{$emailLine}\nTipo: costo fijo mensual de la plataforma\nCosto fijo mensual: {$symbol}{$amount}\nFecha de pago: {$dueDate}.\nNo corresponde al cobro por uso al cliente.";
     }
 }

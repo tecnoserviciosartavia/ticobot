@@ -55,7 +55,7 @@ export default function AccountingIndex({ by_status_currency, totals, active_con
   return (
     <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">Contabilidad</h2>}>
       <Head title="Contabilidad" />
-      <div className="dark">
+      <div>
         <div className="py-6">
         <div className="w-full px-4 sm:px-6 lg:px-8 space-y-8">
           <AccountingTabs active="accounting" />

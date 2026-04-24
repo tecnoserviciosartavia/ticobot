@@ -104,7 +104,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">Indicadores</h2>}>
             <Head title="Indicadores" />
 
-            <div className="dark">
+            <div>
                 <div className="py-6">
                 <div className="w-full space-y-8 px-4 sm:px-6 lg:px-8">
                     <AccountingTabs active="indicators" />

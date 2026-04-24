@@ -8,6 +8,7 @@ import path from 'path';
 import http from 'http';
 import { URL } from 'url';
 import axios from 'axios';
+import { chatIdToPhoneDigits, normalizeChatIdForState, normalizeWhatsAppUserChatId } from './utils/phone.js';
 
 const whatsappClient = new WhatsAppClient();
 const processor = new ReminderProcessor(whatsappClient);
@@ -33,6 +34,7 @@ async function main(): Promise<void> {
   // throttle admin notifications per chat to avoid spamming admins
   const adminNotifiedAt = new Map<string, number>();
   const AGENT_NOTIFY_THROTTLE_MS = Number(process.env.AGENT_NOTIFY_THROTTLE_MS || 30 * 60 * 1000); // default 30 minutes
+  const MANUAL_REPLY_PAUSE_MS = Number(process.env.BOT_MANUAL_REPLY_PAUSE_MS || 10 * 60 * 1000);
   // awaiting receipt uploads per chat
   const awaitingReceipt = new Map<string, boolean>();
   // pending confirmation for an unsolicited media receipt: store downloaded media until user confirms
@@ -77,16 +79,16 @@ async function main(): Promise<void> {
 
   function normalizeToChatId(num?: string) {
     if (!num) return null;
-    const digits = String(num).replace(/[^0-9]/g, '');
-    let phone = digits;
-    if (phone.length === 8) phone = (config.defaultCountryCode || '506') + phone;
-    if (!/^[0-9]{8,15}$/.test(phone)) return null;
-    return phone.endsWith('@c.us') ? phone : phone + '@c.us';
+    return normalizeWhatsAppUserChatId(num);
+  }
+
+  function normalizeStateChatId(rawChatId?: string | null) {
+    return normalizeChatIdForState(rawChatId);
   }
 
   function isAdminChatId(chatId?: string) {
     if (!chatId) return false;
-    const user = chatId.replace(/@c\.us$/, '');
+    const user = chatIdToPhoneDigits(chatId);
     const normalized = normalizeCR(user);
     return ADMIN_PHONES.includes(user) || ADMIN_PHONES.includes(normalized);
   }
@@ -150,6 +152,33 @@ async function main(): Promise<void> {
     }, timeout);
     chatTimers.set(chatId, timer);
   }
+
+  whatsappClient.registerOutboundFromMeHandler(async (message) => {
+    const rawTarget = String((message as any).to || (message as any).from || '').trim();
+    if (!rawTarget || rawTarget.endsWith('@broadcast') || rawTarget.endsWith('@g.us')) {
+      return;
+    }
+
+    const chatId = normalizeStateChatId(rawTarget);
+    if (!chatId || isAdminChatId(chatId)) {
+      return;
+    }
+
+    const phoneDigits = chatIdToPhoneDigits(chatId);
+    if (!/^\d{8,15}$/.test(phoneDigits)) {
+      return;
+    }
+
+    agentMode.set(chatId, true);
+    chatTimeoutMs.set(chatId, MANUAL_REPLY_PAUSE_MS);
+    menuShown.delete(chatId);
+    lastMenuItems.delete(chatId);
+    awaitingReceipt.delete(chatId);
+    pendingConfirmReceipt.delete(chatId);
+    awaitingMonths.delete(chatId);
+    try { touchTimer(chatId); } catch { /* ignore */ }
+    logger.info({ rawTarget, chatId, phoneDigits, pauseMs: MANUAL_REPLY_PAUSE_MS }, 'Chat puesto en pausa temporal automática por respuesta manual del operador');
+  });
 
   // Business hours config (simple default, puede ampliarse desde env si es necesario)
   // Default business hours (can be overridden by env BOT_BUSINESS_HOURS as JSON or by backend settings.business_hours)
@@ -392,8 +421,8 @@ async function main(): Promise<void> {
   const lc = body.toLowerCase();
   const lcNorm = lc.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   mark('parsed');
-    const chatId = message.from;
-    const fromUser = String(chatId || '').replace(/@c\.us$/, '');
+    const chatId = normalizeStateChatId(message.from);
+    const fromUser = chatIdToPhoneDigits(chatId);
     const fromNorm = normalizeCR(fromUser);
     const slowMs = Number(process.env.BOT_SLOW_MESSAGE_MS || 2500);
     const send = async (text: string) => {
@@ -501,6 +530,8 @@ async function main(): Promise<void> {
         const label = (item.reply_message ?? '').split('\n')[0] || '';
         lines.push(`${item.keyword} - ${label}`);
       });
+      lines.push('');
+      lines.push('⏳ Este chat se finalizará automáticamente si no recibimos respuesta en 10 minutos.');
       lines.push('');
       lines.push('Escribe "menu" para volver al inicio o "salir" para finalizar la conversación.');
 

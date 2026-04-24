@@ -1,3 +1,5 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Force dark visuals for accounting sections regardless of the global theme toggle. */
+

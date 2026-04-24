@@ -87,7 +87,7 @@ export default function CollectionsIndex() {
     <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">Cobranzas</h2>}>
       <Head title="Cobranzas" />
 
-      <div className="dark">
+      <div>
         <div className="py-6">
         <div className="w-full px-4 sm:px-6 lg:px-8 space-y-6">
           <AccountingTabs active="collections" />

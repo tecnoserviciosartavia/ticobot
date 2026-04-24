@@ -31,5 +31,8 @@
         "tailwindcss": "^3.2.1",
         "typescript": "^5.0.2",
         "vite": "^7.0.7"
+    },
+    "dependencies": {
+        "@capacitor/push-notifications": "^8.0.3"
     }
 }

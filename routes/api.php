@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ReminderController;
 use App\Http\Controllers\Api\WhatsAppStatusController;
 use App\Http\Controllers\Api\ContractTypeController;
 use App\Http\Controllers\Api\BotMenuController;
+use App\Http\Controllers\Api\PushDeviceTokenController;
 use App\Http\Controllers\api\PaymentStatusController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,6 +22,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('payments/{payment}/status', [PaymentController::class, 'updateStatus']);
     Route::post('payments/{payment}/receipts', [PaymentController::class, 'attachReceipt']);
     Route::post('payments/receipts/bot', [PaymentController::class, 'storeReceiptFromBot']);
+    Route::post('push/device-token', [PushDeviceTokenController::class, 'store']);
+    Route::delete('push/device-token', [PushDeviceTokenController::class, 'destroy']);
 
     Route::apiResource('clients', ClientController::class)->names('api.clients');
     Route::apiResource('contracts', ContractController::class)->names('api.contracts');
