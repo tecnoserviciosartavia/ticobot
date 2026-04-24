@@ -88,7 +88,7 @@ export default function CollectionsIndex() {
       <Head title="Cobranzas" />
 
       <div className="py-6">
-        <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
+        <div className="w-full px-4 sm:px-6 lg:px-8 space-y-6">
           <AccountingTabs active="collections" />
           <div className="bg-white shadow rounded-lg p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -135,40 +135,65 @@ export default function CollectionsIndex() {
             {loading ? (
               <div className="p-4 text-sm text-gray-600">Cargando…</div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr className="border-b">
-                      <th className="py-2 px-3 text-left">Bucket</th>
-                      <th className="py-2 px-3 text-left">Cliente</th>
-                      <th className="py-2 px-3 text-left">Contacto</th>
-                      <th className="py-2 px-3 text-left">Contrato</th>
-                      <th className="py-2 px-3 text-left">Vence</th>
-                      <th className="py-2 px-3 text-right">Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {all.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-6 px-3 text-center text-gray-500">No hay deudas según la regla actual.</td>
+              <>
+                <div className="space-y-3 md:hidden">
+                  {all.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-500">No hay deudas según la regla actual.</div>
+                  ) : (
+                    all.map(({ bucket, row }) => (
+                      <div key={`${bucket}-${row.contract.id}`} className="rounded-lg border p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{bucket}</div>
+                            <div className="mt-1 font-medium text-gray-900">{row.client?.name || '—'}</div>
+                            <div className="text-xs text-gray-500">{row.client?.phone || row.client?.email || '—'}</div>
+                          </div>
+                          <div className="text-right font-mono font-semibold text-gray-900">{fmtMoney(row.contract.amount, row.contract.currency)}</div>
+                        </div>
+                        <div className="mt-3 space-y-1 text-sm text-gray-600">
+                          <div>Contrato: {row.contract.name || `#${row.contract.id}`}</div>
+                          <div>Vence: {row.contract.next_due_date || '—'}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr className="border-b">
+                        <th className="py-2 px-3 text-left">Bucket</th>
+                        <th className="py-2 px-3 text-left">Cliente</th>
+                        <th className="py-2 px-3 text-left">Contacto</th>
+                        <th className="py-2 px-3 text-left">Contrato</th>
+                        <th className="py-2 px-3 text-left">Vence</th>
+                        <th className="py-2 px-3 text-right">Monto</th>
                       </tr>
-                    ) : (
-                      all.map(({ bucket, row }) => (
-                        <tr key={`${bucket}-${row.contract.id}`} className="border-b last:border-b-0">
-                          <td className="py-2 px-3 whitespace-nowrap">{bucket}</td>
-                          <td className="py-2 px-3">{row.client?.name || '—'}</td>
-                          <td className="py-2 px-3 font-mono text-xs">
-                            {row.client?.phone || row.client?.email || '—'}
-                          </td>
-                          <td className="py-2 px-3">{row.contract.name || `#${row.contract.id}`}</td>
-                          <td className="py-2 px-3 whitespace-nowrap">{row.contract.next_due_date || '—'}</td>
-                          <td className="py-2 px-3 text-right font-mono">{fmtMoney(row.contract.amount, row.contract.currency)}</td>
+                    </thead>
+                    <tbody>
+                      {all.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-6 px-3 text-center text-gray-500">No hay deudas según la regla actual.</td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      ) : (
+                        all.map(({ bucket, row }) => (
+                          <tr key={`${bucket}-${row.contract.id}`} className="border-b last:border-b-0">
+                            <td className="py-2 px-3 whitespace-nowrap">{bucket}</td>
+                            <td className="py-2 px-3">{row.client?.name || '—'}</td>
+                            <td className="py-2 px-3 font-mono text-xs">
+                              {row.client?.phone || row.client?.email || '—'}
+                            </td>
+                            <td className="py-2 px-3">{row.contract.name || `#${row.contract.id}`}</td>
+                            <td className="py-2 px-3 whitespace-nowrap">{row.contract.next_due_date || '—'}</td>
+                            <td className="py-2 px-3 text-right font-mono">{fmtMoney(row.contract.amount, row.contract.currency)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </div>

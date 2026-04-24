@@ -22,6 +22,22 @@ class SinpeBcrEmailConciliationService
      */
     public function run(): array
     {
+        return $this->scanMailbox('UNSEEN', true);
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    public function syncMailbox(): array
+    {
+        return $this->scanMailbox('ALL', false);
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    private function scanMailbox(string $criteria, bool $markSeen): array
+    {
         $stats = [
             'checked' => 0,
             'parsed' => 0,
@@ -54,23 +70,29 @@ class SinpeBcrEmailConciliationService
         }
 
         try {
-            $emails = imap_search($mailbox, 'UNSEEN') ?: [];
+            $emails = imap_search($mailbox, $criteria) ?: [];
             foreach ($emails as $msgNo) {
                 $stats['checked']++;
+                $messageUid = (string) (@imap_uid($mailbox, (int) $msgNo) ?: $msgNo);
+                $overview = $this->fetchOverviewImap($mailbox, (int) $msgNo);
+                $mailSubject = $overview['subject'] ?? null;
+                $isRead = (bool) ($overview['is_read'] ?? false);
 
                 try {
-                    $body = $this->fetchBodyImap($mailbox, (int) $msgNo);
+                    $body = $this->fetchBodyImap($mailbox, (int) $msgNo, ! $markSeen);
                     $parsed = $this->parser->parse($body);
 
                     if (! $parsed) {
                         $stats['skipped']++;
-                        $this->markSeenImap($mailbox, $msgNo);
+                        if ($markSeen) {
+                            $this->markSeenImap($mailbox, $msgNo);
+                        }
                         continue;
                     }
 
                     $stats['parsed']++;
 
-                    $result = $this->processParsedMessage($parsed, (string) $msgNo);
+                    $result = $this->processParsedMessage($parsed, $messageUid, $mailSubject, $isRead);
                     if ($result) {
                         $stats['conciliated']++;
                     } else {
@@ -83,7 +105,9 @@ class SinpeBcrEmailConciliationService
                         'error' => $e->getMessage(),
                     ]);
                 } finally {
-                    $this->markSeenImap($mailbox, $msgNo);
+                    if ($markSeen) {
+                        $this->markSeenImap($mailbox, $msgNo);
+                    }
                 }
             }
         } finally {
@@ -160,17 +184,31 @@ class SinpeBcrEmailConciliationService
         @imap_setflag_full($mailbox, (string) $msgNo, '\\Seen');
     }
 
-    private function fetchBodyImap($mailbox, int $msgNo): string
+    /**
+     * @return array{subject:?string,is_read:bool}
+     */
+    private function fetchOverviewImap($mailbox, int $msgNo): array
+    {
+        $overview = @imap_fetch_overview($mailbox, (string) $msgNo, 0);
+        $item = $overview[0] ?? null;
+
+        return [
+            'subject' => $item ? imap_utf8((string) ($item->subject ?? '')) : null,
+            'is_read' => (bool) ($item->seen ?? false),
+        ];
+    }
+
+    private function fetchBodyImap($mailbox, int $msgNo, bool $peek = false): string
     {
         $structure = @imap_fetchstructure($mailbox, $msgNo);
         if (! $structure) {
-            return (string) @imap_body($mailbox, $msgNo);
+            return (string) @imap_body($mailbox, $msgNo, $peek ? FT_PEEK : 0);
         }
 
         if (! empty($structure->parts) && is_array($structure->parts)) {
             foreach ($structure->parts as $index => $part) {
                 $partNumber = (string) ($index + 1);
-                $raw = (string) @imap_fetchbody($mailbox, $msgNo, $partNumber);
+                $raw = (string) @imap_fetchbody($mailbox, $msgNo, $partNumber, $peek ? FT_PEEK : 0);
                 if ($raw === '') {
                     continue;
                 }
@@ -182,51 +220,61 @@ class SinpeBcrEmailConciliationService
             }
         }
 
-        return (string) @imap_body($mailbox, $msgNo);
+        return (string) @imap_body($mailbox, $msgNo, $peek ? FT_PEEK : 0);
     }
 
     /**
      * @param array<string,mixed> $parsed
      */
-    private function processParsedMessage(array $parsed, string $messageUid): bool
+    private function processParsedMessage(array $parsed, string $messageUid, ?string $mailSubject, bool $isRead): bool
     {
         $reference = (string) ($parsed['reference'] ?? '');
         if ($reference === '') {
             return false;
         }
 
-        $existing = DB::table('sinpe_email_transactions')->where('reference', $reference)->exists();
+        $existing = DB::table('sinpe_email_transactions')->where('reference', $reference)->first();
         if ($existing) {
+            DB::table('sinpe_email_transactions')
+                ->where('reference', $reference)
+                ->update([
+                    'message_uid' => $messageUid,
+                    'mail_subject' => $mailSubject,
+                    'is_read' => $isRead,
+                    'raw_excerpt' => (string) ($parsed['raw_excerpt'] ?? ''),
+                    'updated_at' => now(),
+                ]);
+
             return false;
         }
 
         $amount = (float) ($parsed['amount'] ?? 0);
         if ($amount <= 0) {
-            $this->storeTransaction($parsed, $messageUid, 'skipped', null, null, null, 'Monto no válido');
+            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'skipped', null, null, null, 'Monto no válido');
             return false;
         }
 
         $client = $this->matchClient($parsed);
         if (! $client) {
-            $this->storeTransaction($parsed, $messageUid, 'skipped', null, null, null, 'No se encontró cliente por origen/motivo');
+            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'skipped', null, null, null, 'No se encontró cliente por origen/motivo');
             return false;
         }
 
         $contract = $this->matchContractByAmount((int) $client->id, $amount);
         if (! $contract) {
-            $this->storeTransaction($parsed, $messageUid, 'skipped', (int) $client->id, null, null, 'Monto no coincide con contrato del cliente');
+            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'skipped', (int) $client->id, null, null, 'Monto no coincide con contrato del cliente');
             return false;
         }
 
         $payment = $this->findOrCreatePaymentForManualReview($client, $contract, $parsed, $amount);
         if (! $payment) {
-            $this->storeTransaction($parsed, $messageUid, 'error', (int) $client->id, (int) $contract->id, null, 'No se pudo crear/actualizar pago');
+            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'error', (int) $client->id, (int) $contract->id, null, 'No se pudo crear/actualizar pago');
             return false;
         }
 
         $this->ensureConciliationInReview($payment);
 
-        $this->storeTransaction($parsed, $messageUid, 'in_review', (int) $client->id, (int) $contract->id, (int) $payment->id, 'Detectado por SINPE correo y enviado a revisión manual');
+        $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'in_review', (int) $client->id, (int) $contract->id, (int) $payment->id, 'Detectado por correo y enviado a revisión manual');
 
         return true;
     }
@@ -481,6 +529,8 @@ class SinpeBcrEmailConciliationService
     private function storeTransaction(
         array $parsed,
         string $messageUid,
+        ?string $mailSubject,
+        bool $isRead,
         string $status,
         ?int $clientId,
         ?int $contractId,
@@ -495,6 +545,8 @@ class SinpeBcrEmailConciliationService
             'amount' => (float) ($parsed['amount'] ?? 0),
             'performed_at' => $parsed['performed_at'] ?? null,
             'message_uid' => $messageUid,
+            'mail_subject' => $mailSubject,
+            'is_read' => $isRead,
             'status' => $status,
             'matched_client_id' => $clientId,
             'matched_contract_id' => $contractId,

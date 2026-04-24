@@ -57,6 +57,7 @@ export default function ClientsIndex({ clients, filters, statuses, services }: C
     const flashError = (page.props as any)?.flash?.error as string | undefined;
 
     const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [showMobileFilters, setShowMobileFilters] = useState(false);
 
     const clientRows = clients?.data ?? [];
     const paginationLinks = clients?.links ?? [];
@@ -103,16 +104,16 @@ export default function ClientsIndex({ clients, filters, statuses, services }: C
                             Gestiona los clientes, contratos asociados y su historial de recordatorios.
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                         <Link
                             href={route('clients.import')}
-                            className="inline-flex items-center rounded-md bg-white dark:bg-gray-800 px-4 py-2 text-sm font-semibold text-indigo-600 ring-1 ring-inset ring-indigo-200 shadow-sm transition hover:bg-indigo-50 dark:bg-indigo-900/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            className="inline-flex items-center justify-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-indigo-600 ring-1 ring-inset ring-indigo-200 shadow-sm transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-gray-800 dark:bg-indigo-900/30"
                         >
                             Importar
                         </Link>
                         <Link
                             href={route('clients.create')}
-                            className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                         >
                             Nuevo cliente
                         </Link>
@@ -135,10 +136,23 @@ export default function ClientsIndex({ clients, filters, statuses, services }: C
                         </div>
                     )}
                     <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
-                        <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
+                        <div className="border-b border-gray-200 bg-gray-50 px-4 py-4 dark:border-gray-700 dark:bg-gray-700/50 sm:px-6">
+                            <div className="mb-3 flex items-center justify-between gap-3 md:hidden">
+                                <div>
+                                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">{paginationMeta.total} cliente(s)</div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMobileFilters((value) => !value)}
+                                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm dark:border-gray-600 dark:text-gray-300"
+                                >
+                                    {showMobileFilters ? 'Ocultar' : 'Mostrar'}
+                                </button>
+                            </div>
                             <form
                                 onSubmit={submit}
-                                className="flex flex-col gap-4 md:flex-row md:items-end"
+                                className={`${showMobileFilters ? 'flex' : 'hidden'} flex-col gap-4 md:flex md:flex-row md:items-end`}
                             >
                                 <div className="w-full md:w-96">
                                     <label
@@ -201,7 +215,7 @@ export default function ClientsIndex({ clients, filters, statuses, services }: C
                                         ))}
                                     </select>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex flex-col gap-2 sm:flex-row">
                                     <button
                                         type="submit"
                                         className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
@@ -219,7 +233,66 @@ export default function ClientsIndex({ clients, filters, statuses, services }: C
                             </form>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        <div className="space-y-3 p-4 md:hidden">
+                            {clientRows.map((client) => (
+                                <div key={client.id} className="rounded-lg border border-gray-200 p-4 shadow-sm dark:border-gray-700">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <Link href={route('clients.show', client.id)} className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                                                {client.name}
+                                            </Link>
+                                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{client.email ?? '—'}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">{client.phone ?? '—'}</div>
+                                        </div>
+                                        <StatusBadge status={client.status} />
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                                        <div className="rounded-md bg-gray-50 px-2 py-2 dark:bg-gray-700/50">
+                                            <div className="text-gray-500 dark:text-gray-400">Contratos</div>
+                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{client.contracts_count}</div>
+                                        </div>
+                                        <div className="rounded-md bg-gray-50 px-2 py-2 dark:bg-gray-700/50">
+                                            <div className="text-gray-500 dark:text-gray-400">Recordatorios</div>
+                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{client.reminders_count}</div>
+                                        </div>
+                                        <div className="rounded-md bg-gray-50 px-2 py-2 dark:bg-gray-700/50">
+                                            <div className="text-gray-500 dark:text-gray-400">Pagos</div>
+                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{client.payments_count}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                                        Actualizado: {client.updated_at
+                                            ? new Date(client.updated_at).toLocaleDateString('es-CR', {
+                                                  day: '2-digit',
+                                                  month: 'short',
+                                                  year: 'numeric',
+                                              })
+                                            : '—'}
+                                    </div>
+
+                                    <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                                        <Link
+                                            href={route('clients.edit', client.id)}
+                                            className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                        >
+                                            Editar
+                                        </Link>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDelete(client.id, client.name)}
+                                            disabled={deletingId === client.id}
+                                            className="text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {deletingId === client.id ? 'Eliminando...' : 'Eliminar'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="hidden overflow-x-auto md:block">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
@@ -309,7 +382,7 @@ export default function ClientsIndex({ clients, filters, statuses, services }: C
                             </table>
                         </div>
 
-                        <div className="px-6 pb-6">
+                        <div className="px-4 pb-6 sm:px-6">
                             <div className="text-sm text-gray-500 dark:text-gray-400">
                                 Mostrando {paginationMeta.from ?? 0} - {paginationMeta.to ?? 0} de {paginationMeta.total} clientes
                             </div>

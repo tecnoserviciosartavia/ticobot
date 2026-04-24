@@ -7,8 +7,10 @@ use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\Client;
 use App\Models\Reminder;
+use App\Models\Service;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -149,6 +151,124 @@ class AccountingController extends Controller
             'selected_month' => $selectedMonth,
             'selected_month_label' => $this->monthLabel($selectedMonth),
             'services_profit' => $this->calculateServiceProfits($startOfMonth, $endOfMonth),
+        ]);
+    }
+
+    public function serviceClients(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'service_id' => ['required', 'integer', 'exists:services,id'],
+            'month' => ['nullable', 'string', 'regex:/^\d{4}-\d{2}$/'],
+        ]);
+
+        $serviceId = (int) $validated['service_id'];
+        $selectedMonth = $this->normalizeRequestedMonth($validated['month'] ?? null);
+        [$startOfMonth, $endOfMonth] = $this->monthRange($selectedMonth);
+
+        $service = Service::query()->findOrFail($serviceId);
+
+        $payments = Payment::query()
+            ->where('status', 'verified')
+            ->where(function ($q) use ($startOfMonth, $endOfMonth) {
+                $q->whereBetween('paid_at', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+                    ->orWhere(function ($sq) use ($startOfMonth, $endOfMonth) {
+                        $sq->whereNull('paid_at')
+                            ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
+                    });
+            })
+            ->whereHas('contract.services', function ($q) use ($serviceId) {
+                $q->where('services.id', $serviceId);
+            })
+            ->with([
+                'client:id,name,email,phone',
+                'contract.services',
+            ])
+            ->get();
+
+        $rowsByClient = [];
+        $totalRevenue = 0.0;
+
+        foreach ($payments as $payment) {
+            $contract = $payment->contract;
+            $client = $payment->client;
+
+            if (! $contract || ! $client) {
+                continue;
+            }
+
+            $services = $contract->services ?? collect();
+            if ($services->isEmpty()) {
+                continue;
+            }
+
+            $contractPriceTotal = 0.0;
+            $servicePriceTotal = 0.0;
+
+            foreach ($services as $serviceItem) {
+                $qty = (int) ($serviceItem->pivot->quantity ?? 1);
+                $price = (float) ($serviceItem->price ?? 0);
+                $lineTotal = $price * $qty;
+                $contractPriceTotal += $lineTotal;
+
+                if ((int) $serviceItem->id === $serviceId) {
+                    $servicePriceTotal += $lineTotal;
+                }
+            }
+
+            if ($contractPriceTotal <= 0 || $servicePriceTotal <= 0) {
+                continue;
+            }
+
+            $allocation = ((float) $payment->amount) * ($servicePriceTotal / $contractPriceTotal);
+            $clientId = (int) $client->id;
+
+            if (! isset($rowsByClient[$clientId])) {
+                $rowsByClient[$clientId] = [
+                    'client_id' => $clientId,
+                    'client_name' => (string) $client->name,
+                    'client_email' => (string) ($client->email ?? ''),
+                    'client_phone' => (string) ($client->phone ?? ''),
+                    'payments_count' => 0,
+                    'revenue' => 0.0,
+                    'cost' => 0.0,
+                    'margin' => 0.0,
+                ];
+            }
+
+            $rowsByClient[$clientId]['payments_count']++;
+            $rowsByClient[$clientId]['revenue'] += $allocation;
+            $totalRevenue += $allocation;
+        }
+
+        $totalCost = (float) ($service->cost ?? 0);
+        foreach ($rowsByClient as &$row) {
+            $rowCost = $totalRevenue > 0 ? $totalCost * ($row['revenue'] / $totalRevenue) : 0.0;
+            $row['cost'] = round($rowCost, 2);
+            $row['revenue'] = round($row['revenue'], 2);
+            $row['margin'] = round($row['revenue'] - $row['cost'], 2);
+        }
+        unset($row);
+
+        $rows = array_values($rowsByClient);
+        usort($rows, fn ($a, $b) => $b['revenue'] <=> $a['revenue']);
+
+        return response()->json([
+            'service' => [
+                'id' => (int) $service->id,
+                'name' => (string) $service->name,
+                'currency' => (string) ($service->currency ?? 'CRC'),
+                'account_email' => (string) ($service->account_email ?? ''),
+            ],
+            'selected_month' => $selectedMonth,
+            'selected_month_label' => $this->monthLabel($selectedMonth),
+            'rows' => $rows,
+            'summary' => [
+                'clients_count' => count($rows),
+                'payments_count' => (int) array_sum(array_column($rows, 'payments_count')),
+                'total_revenue' => round((float) array_sum(array_column($rows, 'revenue')), 2),
+                'total_cost' => round($totalCost, 2),
+                'total_margin' => round((float) array_sum(array_column($rows, 'margin')), 2),
+            ],
         ]);
     }
 

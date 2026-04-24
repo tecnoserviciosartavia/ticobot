@@ -139,7 +139,7 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                             Seguimiento detallado del cliente y sus operaciones de cobranza.
                         </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                         <StatusBadge status={client.status} />
                         <Link href={route('clients.contracts.create', client.id)}>
                             <PrimaryButton>+ Contrato</PrimaryButton>
@@ -194,11 +194,11 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                         <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                             <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Información de contacto</h3>
                             <dl className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                                <div className="flex justify-between">
+                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                     <dt className="text-gray-500 dark:text-gray-400">Correo</dt>
                                     <dd className="font-medium text-gray-900 dark:text-gray-100">{client.email ?? '—'}</dd>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                     <dt className="text-gray-500 dark:text-gray-400">Teléfono</dt>
                                     <dd className="font-medium text-gray-900 dark:text-gray-100">{client.phone ?? '—'}</dd>
                                 </div>
@@ -219,7 +219,7 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                     <ul className="mt-2 space-y-2">
                                         {reminders.length ? (
                                             reminders.map((reminder) => (
-                                                <li key={reminder.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
+                                                <li key={reminder.id} className="flex flex-col gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
                                                     <div>
                                                         <p className="font-medium text-gray-900 dark:text-gray-100">
                                                             {reminder.contract?.name ?? 'Recordatorio general'}
@@ -280,7 +280,43 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                 Ver recordatorios del cliente
                             </Link>
                         </div>
-                        <div className="mt-4 overflow-x-auto">
+                        <div className="mt-4 space-y-3 md:hidden">
+                            {contracts.length ? (
+                                contracts.map((contract) => (
+                                    <div key={contract.id} className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <div className="font-medium text-gray-900 dark:text-gray-100">{contract.name}</div>
+                                                <div className="text-sm text-gray-600 dark:text-gray-300">{formatAmount(contract.amount, contract.currency)}</div>
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">{labelForBillingCycle(contract.billing_cycle)}</div>
+                                        </div>
+                                        <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">Vence: {contract.next_due_date ? formatDate(contract.next_due_date) : '—'}</div>
+                                        <div className="mt-4 flex flex-wrap gap-2">
+                                            <Link
+                                                href={route('contracts.edit', contract.id)}
+                                                className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
+                                            >
+                                                Editar
+                                            </Link>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeContract(contract)}
+                                                disabled={(contract.payments_count ?? 0) > 0}
+                                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold ${(contract.payments_count ?? 0) > 0 ? 'cursor-not-allowed bg-gray-100 text-gray-400' : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200'}`}
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-gray-400 dark:border-gray-700">
+                                    Aún no hay contratos registrados para este cliente.
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-4 hidden overflow-x-auto md:block">
                             <table className="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>

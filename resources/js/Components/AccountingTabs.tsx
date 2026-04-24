@@ -1,22 +1,23 @@
 import { Link } from '@inertiajs/react';
 
-type Tab = 'indicators' | 'accounting' | 'payments' | 'collections';
+type Tab = 'indicators' | 'accounting' | 'payments' | 'collections' | 'sinpe_emails';
 
 interface Props {
     active: Tab;
 }
 
 const tabs: { id: Tab; label: string; routeName: string }[] = [
-    { id: 'accounting',  label: 'Resumen',      routeName: 'accounting.index' },
-    { id: 'indicators',  label: 'Indicadores', routeName: 'accounting.indicators' },
-    { id: 'payments',    label: 'Pagos',      routeName: 'payments.index' },
-    { id: 'collections', label: 'Cobranzas',  routeName: 'collections.index' },
+    { id: 'accounting',   label: 'Resumen',       routeName: 'accounting.index' },
+    { id: 'indicators',   label: 'Indicadores',   routeName: 'accounting.indicators' },
+    { id: 'payments',     label: 'Pagos',         routeName: 'payments.index' },
+    { id: 'collections',  label: 'Cobranzas',     routeName: 'collections.index' },
+    { id: 'sinpe_emails', label: 'Correos',  routeName: 'sinpe-emails.index' },
 ];
 
 export default function AccountingTabs({ active }: Props) {
     return (
-        <div className="border-b border-gray-200 mb-6">
-            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+        <div className="mb-6 overflow-x-auto border-b border-gray-200">
+            <nav className="-mb-px flex min-w-max gap-6 sm:min-w-0 sm:flex-wrap" aria-label="Tabs">
                 {tabs.map(tab => (
                     <Link
                         key={tab.id}

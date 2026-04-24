@@ -4,7 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import type { PageProps } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { labelForBillingCycle, labelForChannel, labelForStatus } from '@/lib/labels';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 
 interface Reminder {
     id: number;
@@ -86,6 +86,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
         scheduled_from: filters.scheduled_from ?? '',
         scheduled_to: filters.scheduled_to ?? '',
     });
+    const [showMobileFilters, setShowMobileFilters] = useState(false);
 
     const contractOptions = data.client_id
         ? contracts.filter((contract) => String(contract.client_id ?? '') === data.client_id)
@@ -134,10 +135,23 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
-                        <div className="flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col gap-4 border-b border-gray-200 bg-gray-50 px-4 py-4 dark:border-gray-700 dark:bg-gray-700/50 md:flex-row md:items-center md:justify-between sm:px-6">
+                            <div className="flex items-center justify-between gap-3 md:hidden">
+                                <div>
+                                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">{paginationMeta.total} recordatorio(s)</div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMobileFilters((value) => !value)}
+                                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm dark:border-gray-600 dark:text-gray-300"
+                                >
+                                    {showMobileFilters ? 'Ocultar' : 'Mostrar'}
+                                </button>
+                            </div>
                             <form
                                 onSubmit={submit}
-                                className="grid w-full grid-cols-1 gap-4 md:grid-cols-7 md:items-end"
+                                className={`${showMobileFilters ? 'grid' : 'hidden'} w-full grid-cols-1 gap-4 md:grid md:grid-cols-7 md:items-end`}
                             >
                                 <div>
                                     <label
@@ -292,7 +306,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                                     />
                                 </div>
 
-                                    <div className="flex gap-2 md:col-span-7">
+                                <div className="flex flex-col gap-2 sm:flex-row md:col-span-7">
                                     <button
                                         type="submit"
                                         className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 md:w-auto"
@@ -311,13 +325,74 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
 
                             <Link
                                 href={route('reminders.create')}
-                                className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 md:self-auto"
                             >
                                 Nuevo recordatorio
                             </Link>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        <div className="space-y-3 p-4 md:hidden">
+                            {reminderRows.map((reminder) => (
+                                <div key={reminder.id} className="rounded-lg border border-gray-200 p-4 shadow-sm dark:border-gray-700">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                {reminder.client?.name ?? 'Cliente eliminado'}
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">{reminder.client?.phone ?? 'Sin teléfono'}</div>
+                                        </div>
+                                        <StatusBadge status={reminder.status} />
+                                    </div>
+
+                                    <div className="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                                        <div>Programado: {formatDateTime(reminder.scheduled_for)}</div>
+                                        <div>Canal: {labelForChannel(reminder.channel)}</div>
+                                        <div>Recurrencia: {(() => {
+                                            const r: string | null | undefined = (reminder as any).recurrence;
+                                            if (!r) return '—';
+                                            return labelForBillingCycle(r);
+                                        })()}</div>
+                                        <div>Contrato: {reminder.contract?.name ?? '—'}</div>
+                                        {reminder.contract?.amount && (
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                {new Intl.NumberFormat('es-CR', {
+                                                    style: 'currency',
+                                                    currency: reminder.contract.currency ?? 'CRC',
+                                                }).format(Number.parseFloat(reminder.contract.amount))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                        <div className="rounded-md bg-gray-50 px-3 py-2 dark:bg-gray-700/50">
+                                            <div className="text-gray-500 dark:text-gray-400">Intentos</div>
+                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{reminder.attempts}</div>
+                                        </div>
+                                        <div className="rounded-md bg-gray-50 px-3 py-2 dark:bg-gray-700/50">
+                                            <div className="text-gray-500 dark:text-gray-400">Mensajes</div>
+                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{reminder.messages_count}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                                        {reminder.acknowledged_at
+                                            ? `Respuesta: ${formatDateTime(reminder.acknowledged_at)}`
+                                            : `Enviado: ${formatDateTime(reminder.sent_at)}`}
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <Link
+                                            href={route('reminders.show', reminder.id)}
+                                            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                                        >
+                                            Ver detalle
+                                        </Link>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="hidden overflow-x-auto md:block">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
@@ -421,7 +496,7 @@ export default function RemindersIndex({ reminders, filters, statuses, channels,
                             </table>
                         </div>
 
-                        <div className="px-6 pb-6">
+                        <div className="px-4 pb-6 sm:px-6">
                             <div className="text-sm text-gray-500 dark:text-gray-400">
                                 Mostrando {paginationMeta.from ?? 0} - {paginationMeta.to ?? 0} de {paginationMeta.total} recordatorios
                             </div>

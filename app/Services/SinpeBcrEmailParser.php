@@ -18,6 +18,11 @@ class SinpeBcrEmailParser
             return null;
         }
 
+            // Solo procesar correos de acreditación (créditos), ignorar débitos.
+            if (! preg_match('/acreditado/i', $scan)) {
+                return null;
+            }
+
         $reference = $this->extract('/Numero\s+de\s+referencia\s*:\s*([0-9]{10,})/i', $scan);
         $originPhoneRaw = $this->extract('/Telefono\s+origen\s*:\s*([0-9\s\-]+)/i', $scan);
         $originName = $this->extract('/Nombre\s+cliente\s+origen\s*:\s*(.+)/i', $scan);

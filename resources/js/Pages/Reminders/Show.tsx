@@ -111,7 +111,7 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
             <Head title={`Recordatorio ${reminder.id}`} />
 
             <div className="py-12">
-                <div className="mx-auto flex max-w-6xl flex-col gap-8 sm:px-6 lg:px-8">
+                <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
                     <section className="grid grid-cols-1 gap-6 rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50 md:grid-cols-3">
                         <div>
                             <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cliente</h3>
@@ -150,7 +150,7 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                     </section>
 
                     <section className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Detalle del mensaje</h3>
                             <span className="text-sm text-gray-500 dark:text-gray-400">{labelForChannel(reminder.channel)}</span>
                         </div>
@@ -175,7 +175,7 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                     </section>
 
                     <section className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Mensajes recientes</h3>
                             <span className="text-sm text-gray-500 dark:text-gray-400">Máximo 20 últimos eventos</span>
                         </div>
@@ -190,7 +190,7 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                                     key={message.id}
                                     className="rounded-md border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 p-4"
                                 >
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                                         <span className="font-semibold text-gray-800 dark:text-gray-100">
                                             {formatDateTime(message.sent_at)} · {message.direction ? message.direction.toUpperCase() : 'N/D'}
                                         </span>
@@ -217,7 +217,7 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                     </section>
 
                     <section className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Pagos relacionados</h3>
                             <Link
                                 href={route('payments.index', { reminder_id: reminder.id })}
@@ -226,7 +226,29 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                                 Ver en módulo de pagos
                             </Link>
                         </div>
-                        <div className="mt-4 overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700">
+                        <div className="mt-4 space-y-3 md:hidden">
+                            {payments.length === 0 && (
+                                <div className="rounded-md border border-dashed border-gray-200 p-4 text-center text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    Sin pagos vinculados a este recordatorio.
+                                </div>
+                            )}
+                            {payments.map((payment) => (
+                                <div key={payment.id} className="rounded-lg border border-gray-100 bg-white p-4 text-sm dark:border-gray-700 dark:bg-gray-800">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div className="font-medium text-gray-800 dark:text-gray-100">#{payment.id}</div>
+                                            <div className="text-sm text-gray-700 dark:text-gray-300">{formatCurrency(payment.amount, payment.currency)}</div>
+                                        </div>
+                                        <StatusBadge status={payment.status} />
+                                    </div>
+                                    <div className="mt-3 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                        <div>Referencia: {payment.reference ?? '—'}</div>
+                                        <div>Pagado: {formatDateTime(payment.paid_at)}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-4 hidden overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700 md:block">
                             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-700 text-sm">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>

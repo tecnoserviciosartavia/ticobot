@@ -95,6 +95,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
         paid_from: filters.paid_from ?? '',
         paid_to: filters.paid_to ?? '',
     });
+    const [showMobileFilters, setShowMobileFilters] = useState(false);
 
     // estado local para controlar cargas por fila
     const [loadingIds, setLoadingIds] = useState<number[]>([]);
@@ -145,7 +146,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                     </div>
                     <a
                         href={route('payments.create')}
-                        className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                        className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto dark:bg-indigo-500 dark:hover:bg-indigo-400"
                     >
                         <svg className="-ml-0.5 mr-1.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -158,13 +159,26 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
             <Head title="Pagos" />
 
             <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     <AccountingTabs active="payments" />
                     <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
-                        <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
+                        <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-4 py-4 sm:px-6">
+                            <div className="mb-3 flex items-center justify-between gap-3 md:hidden">
+                                <div>
+                                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">{paginationMeta.total} pago(s)</div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMobileFilters((value) => !value)}
+                                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm dark:border-gray-600 dark:text-gray-300"
+                                >
+                                    {showMobileFilters ? 'Ocultar' : 'Mostrar'}
+                                </button>
+                            </div>
                             <form
                                 onSubmit={submit}
-                                className="grid grid-cols-1 gap-4 md:grid-cols-5 md:items-end"
+                                className={`${showMobileFilters ? 'grid' : 'hidden'} grid-cols-1 gap-4 md:grid md:grid-cols-5 md:items-end`}
                             >
                                 <div>
                                     <label
@@ -246,7 +260,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                     />
                                 </div>
 
-                                <div className="flex gap-2">
+                                <div className="flex flex-col gap-2 sm:flex-row">
                                     <button
                                         type="submit"
                                         className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
@@ -264,7 +278,47 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                             </form>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        <div className="space-y-3 p-4 md:hidden">
+                            {paymentRows.map((payment) => (
+                                <div key={payment.id} className="rounded-lg border border-gray-200 p-4 shadow-sm dark:border-gray-700">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div className="font-medium text-gray-900 dark:text-gray-100">
+                                                {formatAmount(payment.amount, payment.currency)}
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">Ref: {payment.reference ?? '—'}</div>
+                                        </div>
+                                        <StatusBadge status={payment.status} />
+                                    </div>
+                                    <div className="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                                        <div>Cliente: {payment.client?.name ?? 'Cliente eliminado'}</div>
+                                        <div>Contrato: {payment.contract?.name ?? '—'}</div>
+                                        <div>Canal: {labelForChannel(payment.channel)}</div>
+                                        <div>Comprobantes: {payment.receipts_count}</div>
+                                        <div>Pagado: {formatDate(payment.paid_at)}</div>
+                                    </div>
+                                    {payment.reminder && (
+                                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                            Recordatorio #{payment.reminder.id}
+                                        </div>
+                                    )}
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                        {payment.status !== 'verified' && (
+                                            <ApplyAndConciliateButton
+                                                paymentId={payment.id}
+                                                receiptsCount={payment.receipts_count}
+                                                clientId={payment.client?.id || null}
+                                            />
+                                        )}
+                                        {!payment.has_conciliation && (
+                                            <DeletePaymentButton paymentId={payment.id} />
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="hidden overflow-x-auto md:block">
                             <table className="min-w-full table-fixed divide-y divide-gray-200">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
@@ -359,7 +413,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
 
                         {/* Componente botón definido abajo en el archivo */}
 
-                        <div className="px-6 pb-6">
+                        <div className="px-4 pb-6 sm:px-6">
                             <div className="text-sm text-gray-500 dark:text-gray-400">
                                 Mostrando {paginationMeta.from ?? 0} - {paginationMeta.to ?? 0} de {paginationMeta.total} pagos
                             </div>
@@ -496,7 +550,7 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 p-6 text-left align-middle shadow-xl transition-all">
+                                <Dialog.Panel className="w-full max-w-md max-h-[92vh] transform overflow-y-auto rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all dark:bg-gray-800">
                                     <Dialog.Title
                                         as="h3"
                                         className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4"

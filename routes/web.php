@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Web\ClientController as WebClientController;
 use App\Http\Controllers\Web\ContractController as WebContractController;
 use App\Http\Controllers\Web\ConciliationController as WebConciliationController;
+use App\Http\Controllers\Web\SinpeEmailController as WebSinpeEmailController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\LogsController;
 use App\Http\Controllers\Web\PaymentController as WebPaymentController;
@@ -76,9 +77,18 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::delete('/payments/{payment}', [WebPaymentController::class, 'destroy'])->name('payments.destroy');
     Route::get('/conciliations', [WebConciliationController::class, 'index'])->name('conciliations.index');
     Route::post('/conciliations', [WebConciliationController::class, 'store'])->name('conciliations.store');
+
+    // Correos SINPE BCR
+    Route::get('/sinpe-emails', [WebSinpeEmailController::class, 'index'])->name('sinpe-emails.index');
+    Route::post('/sinpe-emails/sync', [WebSinpeEmailController::class, 'sync'])->name('sinpe-emails.sync');
+    Route::get('/sinpe-emails/client-contracts', [WebSinpeEmailController::class, 'clientContracts'])->name('sinpe-emails.client-contracts');
+    Route::patch('/sinpe-emails/{id}/read', [WebSinpeEmailController::class, 'markRead'])->name('sinpe-emails.mark-read');
+    Route::post('/sinpe-emails/{id}/conciliate', [WebSinpeEmailController::class, 'conciliate'])->name('sinpe-emails.conciliate');
+    Route::delete('/sinpe-emails/{id}', [WebSinpeEmailController::class, 'destroy'])->name('sinpe-emails.destroy');
     // Accounting dashboard
     Route::get('/accounting', \App\Http\Controllers\Web\AccountingController::class . '@index')->name('accounting.index');
     Route::get('/accounting/indicators', \App\Http\Controllers\Web\AccountingController::class . '@indicators')->name('accounting.indicators');
+    Route::get('/accounting/indicators/service-clients', \App\Http\Controllers\Web\AccountingController::class . '@serviceClients')->name('accounting.indicators.service-clients');
 });
 
 Route::middleware('auth')->group(function () {
