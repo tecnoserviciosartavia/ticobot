@@ -4,7 +4,7 @@ const serverUrl = process.env.CAPACITOR_SERVER_URL || 'https://ticocast.com';
 
 const config: CapacitorConfig = {
   appId: 'com.ticocast.ticobot',
-  appName: 'TicoBot',
+  appName: 'TicoCast',
   webDir: 'public/build',
   server: {
     url: serverUrl,

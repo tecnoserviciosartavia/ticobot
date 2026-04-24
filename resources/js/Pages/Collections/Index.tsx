@@ -84,38 +84,39 @@ export default function CollectionsIndex() {
   }, [data]);
 
   return (
-    <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Cobranzas</h2>}>
+    <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">Cobranzas</h2>}>
       <Head title="Cobranzas" />
 
-      <div className="py-6">
+      <div className="dark">
+        <div className="py-6">
         <div className="w-full px-4 sm:px-6 lg:px-8 space-y-6">
           <AccountingTabs active="collections" />
-          <div className="bg-white shadow rounded-lg p-4">
+          <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <div className="text-sm text-gray-500">Regla: solo es deuda si NO existe pago registrado.</div>
-                {data && <div className="text-xs text-gray-400">Corte: {data.as_of}</div>}
+                <div className="text-sm text-gray-500 dark:text-gray-400">Regla: solo es deuda si NO existe pago registrado.</div>
+                {data && <div className="text-xs text-gray-400 dark:text-gray-500">Corte: {data.as_of}</div>}
               </div>
               <div className="flex items-end gap-2">
-                <label className="text-sm text-gray-600">Ventana próximos días</label>
+                <label className="text-sm text-gray-600 dark:text-gray-300">Ventana próximos días</label>
                 <input
                   type="number"
                   min={0}
                   max={31}
                   value={days}
                   onChange={(e) => setDays(Number(e.target.value || 0))}
-                  className="w-24 rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-24 rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                 />
                 <button
                   onClick={() => fetchOverview(days)}
-                  className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white"
+                  className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 dark:bg-indigo-600 dark:hover:bg-indigo-500"
                 >
                   Refrescar
                 </button>
               </div>
             </div>
 
-            {error && <div className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+            {error && <div className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">{error}</div>}
 
             {data && (
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -126,31 +127,31 @@ export default function CollectionsIndex() {
             )}
           </div>
 
-          <div className="bg-white shadow rounded-lg overflow-hidden">
-            <div className="border-b px-4 py-3">
-              <div className="font-medium text-gray-900">Clientes por cobrar</div>
-              <div className="text-sm text-gray-500">Ordenado por bucket (vencidos/hoy/próximos). Luego puedes filtrar y automatizar envíos.</div>
+          <div className="overflow-hidden rounded-lg bg-white shadow dark:bg-gray-800 dark:shadow-gray-900/50">
+            <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+              <div className="font-medium text-gray-900 dark:text-gray-100">Clientes por cobrar</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Ordenado por bucket (vencidos/hoy/próximos). Luego puedes filtrar y automatizar envíos.</div>
             </div>
 
             {loading ? (
-              <div className="p-4 text-sm text-gray-600">Cargando…</div>
+              <div className="p-4 text-sm text-gray-600 dark:text-gray-300">Cargando…</div>
             ) : (
               <>
                 <div className="space-y-3 md:hidden">
                   {all.length === 0 ? (
-                    <div className="p-4 text-center text-sm text-gray-500">No hay deudas según la regla actual.</div>
+                    <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">No hay deudas según la regla actual.</div>
                   ) : (
                     all.map(({ bucket, row }) => (
-                      <div key={`${bucket}-${row.contract.id}`} className="rounded-lg border p-4">
+                      <div key={`${bucket}-${row.contract.id}`} className="rounded-lg border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-800">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">{bucket}</div>
-                            <div className="mt-1 font-medium text-gray-900">{row.client?.name || '—'}</div>
-                            <div className="text-xs text-gray-500">{row.client?.phone || row.client?.email || '—'}</div>
+                            <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{bucket}</div>
+                            <div className="mt-1 font-medium text-gray-900 dark:text-gray-100">{row.client?.name || '—'}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{row.client?.phone || row.client?.email || '—'}</div>
                           </div>
-                          <div className="text-right font-mono font-semibold text-gray-900">{fmtMoney(row.contract.amount, row.contract.currency)}</div>
+                          <div className="text-right font-mono font-semibold text-gray-900 dark:text-gray-100">{fmtMoney(row.contract.amount, row.contract.currency)}</div>
                         </div>
-                        <div className="mt-3 space-y-1 text-sm text-gray-600">
+                        <div className="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
                           <div>Contrato: {row.contract.name || `#${row.contract.id}`}</div>
                           <div>Vence: {row.contract.next_due_date || '—'}</div>
                         </div>
@@ -160,33 +161,33 @@ export default function CollectionsIndex() {
                 </div>
 
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr className="border-b">
-                        <th className="py-2 px-3 text-left">Bucket</th>
-                        <th className="py-2 px-3 text-left">Cliente</th>
-                        <th className="py-2 px-3 text-left">Contacto</th>
-                        <th className="py-2 px-3 text-left">Contrato</th>
-                        <th className="py-2 px-3 text-left">Vence</th>
-                        <th className="py-2 px-3 text-right">Monto</th>
+                  <table className="min-w-full text-sm text-gray-700 dark:text-gray-300">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50">
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="px-3 py-2 text-left">Bucket</th>
+                        <th className="px-3 py-2 text-left">Cliente</th>
+                        <th className="px-3 py-2 text-left">Contacto</th>
+                        <th className="px-3 py-2 text-left">Contrato</th>
+                        <th className="px-3 py-2 text-left">Vence</th>
+                        <th className="px-3 py-2 text-right">Monto</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {all.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-6 px-3 text-center text-gray-500">No hay deudas según la regla actual.</td>
+                          <td colSpan={6} className="px-3 py-6 text-center text-gray-500 dark:text-gray-400">No hay deudas según la regla actual.</td>
                         </tr>
                       ) : (
                         all.map(({ bucket, row }) => (
-                          <tr key={`${bucket}-${row.contract.id}`} className="border-b last:border-b-0">
-                            <td className="py-2 px-3 whitespace-nowrap">{bucket}</td>
-                            <td className="py-2 px-3">{row.client?.name || '—'}</td>
-                            <td className="py-2 px-3 font-mono text-xs">
+                          <tr key={`${bucket}-${row.contract.id}`} className="last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                            <td className="px-3 py-2 whitespace-nowrap">{bucket}</td>
+                            <td className="px-3 py-2 text-gray-900 dark:text-gray-100">{row.client?.name || '—'}</td>
+                            <td className="px-3 py-2 font-mono text-xs">
                               {row.client?.phone || row.client?.email || '—'}
                             </td>
-                            <td className="py-2 px-3">{row.contract.name || `#${row.contract.id}`}</td>
-                            <td className="py-2 px-3 whitespace-nowrap">{row.contract.next_due_date || '—'}</td>
-                            <td className="py-2 px-3 text-right font-mono">{fmtMoney(row.contract.amount, row.contract.currency)}</td>
+                            <td className="px-3 py-2">{row.contract.name || `#${row.contract.id}`}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{row.contract.next_due_date || '—'}</td>
+                            <td className="px-3 py-2 text-right font-mono text-gray-900 dark:text-gray-100">{fmtMoney(row.contract.amount, row.contract.currency)}</td>
                           </tr>
                         ))
                       )}
@@ -197,6 +198,7 @@ export default function CollectionsIndex() {
             )}
           </div>
         </div>
+        </div>
       </div>
     </AuthenticatedLayout>
   );
@@ -204,8 +206,8 @@ export default function CollectionsIndex() {
 
 function StatCard({ title, value, color }: { title: string; value: number; color: string }) {
   return (
-    <div className="rounded border bg-white p-4">
-      <div className="text-sm text-gray-500">{title}</div>
+    <div className="rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+      <div className="text-sm text-gray-500 dark:text-gray-400">{title}</div>
       <div className={`mt-1 text-3xl font-bold ${color}`}>{value}</div>
     </div>
   );

@@ -117,7 +117,7 @@ export default function Authenticated({
                                         (previousState) => !previousState,
                                     )
                                 }
-                                className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
+                                className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none dark:hover:bg-gray-700 dark:hover:text-gray-300 dark:focus:bg-gray-700 dark:focus:text-gray-300"
                             >
                                 <svg
                                     className="h-6 w-6"
@@ -192,12 +192,12 @@ export default function Authenticated({
                         </ResponsiveNavLink>
                     </div>
 
-                    <div className="border-t border-gray-200 pb-1 pt-4">
+                    <div className="border-t border-gray-200 pb-1 pt-4 dark:border-gray-700 dark:bg-gray-800">
                         <div className="px-4">
-                            <div className="text-base font-medium text-gray-800">
+                            <div className="text-base font-medium text-gray-800 dark:text-gray-100">
                                 {user.name}
                             </div>
-                            <div className="text-sm font-medium text-gray-500">
+                            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
                                 {user.email}
                             </div>
                         </div>

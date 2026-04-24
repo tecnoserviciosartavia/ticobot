@@ -188,17 +188,17 @@ export default function PendingPayments({}: PageProps) {
                     {/* Summary Cards */}
                     {summary && (
                         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                            <div className="rounded-lg bg-white px-6 py-4 shadow">
-                                <div className="text-sm font-medium text-gray-500">
+                            <div className="rounded-lg bg-white px-6 py-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
+                                <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
                                     Clientes con pagos pendientes
                                 </div>
-                                <div className="mt-2 text-3xl font-bold text-gray-900">
+                                <div className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
                                     {summary.total_clients_with_pending}
                                 </div>
                             </div>
 
-                            <div className="rounded-lg bg-white px-6 py-4 shadow">
-                                <div className="text-sm font-medium text-gray-500">
+                            <div className="rounded-lg bg-white px-6 py-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
+                                <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
                                     Monto total pendiente (CRC)
                                 </div>
                                 <div className="mt-2 text-3xl font-bold text-red-600">
@@ -209,11 +209,11 @@ export default function PendingPayments({}: PageProps) {
                                 </div>
                             </div>
 
-                            <div className="rounded-lg bg-white px-6 py-4 shadow">
-                                <div className="text-sm font-medium text-gray-500">
+                            <div className="rounded-lg bg-white px-6 py-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
+                                <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
                                     Total de pagos pendientes
                                 </div>
-                                <div className="mt-2 text-3xl font-bold text-gray-900">
+                                <div className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
                                     {summary.by_currency.reduce((sum, c) => sum + c.count, 0)}
                                 </div>
                             </div>
@@ -221,89 +221,89 @@ export default function PendingPayments({}: PageProps) {
                     )}
 
                     {/* Card */}
-                    <div className="bg-white shadow sm:rounded-lg">
+                    <div className="bg-white shadow dark:bg-gray-800 dark:shadow-gray-900/50 sm:rounded-lg">
                         {errorMsg && (
-                            <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-700">
+                            <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
                                 {errorMsg}
                             </div>
                         )}
                         {/* Header */}
-                        <div className="border-b border-gray-200 px-6 py-4 sm:px-6">
-                            <h3 className="text-lg font-medium leading-6 text-gray-900">
+                        <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700 sm:px-6">
+                            <h3 className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100">
                                 💰 Clientes con Pagos Pendientes
                             </h3>
-                            <p className="mt-1 text-sm text-gray-500">
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                 Lista de clientes que tienen pagos sin completar
                             </p>
                         </div>
 
                         {/* Search */}
-                        <div className="border-b border-gray-200 px-6 py-4">
+                        <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
                             <div className="flex gap-2">
                                 <input
                                     type="text"
                                     placeholder="Buscar por nombre, teléfono o email..."
                                     value={search}
                                     onChange={(e) => handleSearch(e.target.value)}
-                                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
                                 />
                             </div>
                         </div>
 
                         {/* Table */}
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th className="px-6 py-3 text-left">
                                             <button
                                                 onClick={() => handleSort('name')}
-                                                className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-700 hover:text-gray-900"
+                                                className="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
                                             >
                                                 Nombre <SortIcon field="name" />
                                             </button>
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700 dark:text-gray-300">
                                             Teléfono
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
+                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700 dark:text-gray-300">
                                             Email
                                         </th>
                                         <th className="px-6 py-3 text-center">
                                             <button
                                                 onClick={() => handleSort('created_at')}
-                                                className="flex items-center justify-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-700 hover:text-gray-900"
+                                                className="flex items-center justify-center gap-1 text-xs font-medium uppercase tracking-wider text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
                                             >
                                                 Registrado <SortIcon field="created_at" />
                                             </button>
                                         </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-700">
+                                        <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-700 dark:text-gray-300">
                                             Pagos Pendientes
                                         </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-700">
+                                        <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-700 dark:text-gray-300">
                                             Monto Pendiente
                                         </th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">
+                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700 dark:text-gray-300">
                                             Acciones
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                     {loading ? (
                                         <tr>
-                                            <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                                            <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                                                 Cargando...
                                             </td>
                                         </tr>
                                     ) : clients.length === 0 ? (
                                         <tr>
-                                            <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                                            <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                                                 No hay clientes con pagos pendientes
                                             </td>
                                         </tr>
                                     ) : (
                                         clients.map((client) => (
-                                            <tr key={client.id} className="hover:bg-gray-50">
+                                            <tr key={client.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                                                 <td className="whitespace-nowrap px-6 py-4">
                                                     <Link
                                                         href={route('clients.show', client.id)}
@@ -312,17 +312,17 @@ export default function PendingPayments({}: PageProps) {
                                                         {client.name}
                                                     </Link>
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                                                     {client.phone || '-'}
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                                                     {client.email || '-'}
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-center text-sm text-gray-500">
+                                                <td className="whitespace-nowrap px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                                                     {formatDate(client.created_at)}
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4 text-right">
-                                                    <span className="inline-flex rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800">
+                                                    <span className="inline-flex rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800 dark:bg-red-900/20 dark:text-red-300">
                                                         {client.pending_payments_count}
                                                     </span>
                                                 </td>
@@ -336,13 +336,13 @@ export default function PendingPayments({}: PageProps) {
                                                     <div className="flex items-center justify-center gap-2">
                                                         <Link
                                                             href={route('clients.show', client.id)}
-                                                            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                                                            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/40"
                                                         >
                                                             Ver detalles
                                                         </Link>
                                                         <button
                                                             onClick={() => sendReminder(client.id)}
-                                                            className="inline-flex items-center gap-1 rounded-md bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-100"
+                                                            className="inline-flex items-center gap-1 rounded-md bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-300 dark:hover:bg-yellow-900/40"
                                                         >
                                                             Enviar recordatorio
                                                         </button>
@@ -357,9 +357,9 @@ export default function PendingPayments({}: PageProps) {
 
                         {/* Pagination */}
                         {pagination && pagination.last_page > 1 && (
-                            <div className="border-t border-gray-200 px-6 py-4">
+                            <div className="border-t border-gray-200 px-6 py-4 dark:border-gray-700">
                                 <div className="flex items-center justify-between">
-                                    <div className="text-sm text-gray-500">
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">
                                         Mostrando {pagination.from} a {pagination.to} de{' '}
                                         {pagination.total} clientes
                                     </div>
@@ -374,7 +374,7 @@ export default function PendingPayments({}: PageProps) {
                                                 className={`rounded px-3 py-1 text-sm font-medium ${
                                                     currentPage === page
                                                         ? 'bg-blue-600 text-white'
-                                                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                                                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
                                                 }`}
                                             >
                                                 {page}
