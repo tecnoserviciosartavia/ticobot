@@ -2,16 +2,25 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps } from '@/types';
 import { Head } from '@inertiajs/react';
 import DeleteUserForm from './Partials/DeleteUserForm';
+import UpdatePushNotificationPreferencesForm from './Partials/UpdatePushNotificationPreferencesForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 import WhatsAppConnectionCard, { WhatsAppStatus } from './Partials/WhatsAppConnectionCard';
 
 export default function Edit({
     mustVerifyEmail,
+    pushNotificationPreferences,
     status,
     whatsapp,
 }: PageProps<{
     mustVerifyEmail: boolean;
+    pushNotificationPreferences: {
+        daily_expected_payments: boolean;
+        overdue_payments: boolean;
+        platform_cost_due: boolean;
+        conciliation_pending: boolean;
+        whatsapp_manual_pause_events: boolean;
+    };
     status?: string;
     whatsapp: WhatsAppStatus;
 }>) {
@@ -39,6 +48,13 @@ export default function Edit({
 
                     <div className="bg-white dark:bg-gray-800 p-4 shadow sm:rounded-lg sm:p-8">
                         <UpdatePasswordForm className="max-w-xl" />
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 p-4 shadow sm:rounded-lg sm:p-8">
+                        <UpdatePushNotificationPreferencesForm
+                            preferences={pushNotificationPreferences}
+                            className="max-w-2xl"
+                        />
                     </div>
 
                     <div className="bg-white dark:bg-gray-800 p-4 shadow sm:rounded-lg sm:p-8">

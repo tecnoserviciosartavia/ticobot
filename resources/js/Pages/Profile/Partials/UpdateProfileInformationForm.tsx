@@ -21,6 +21,7 @@ export default function UpdateProfileInformation({
         useForm({
             name: user.name,
             email: user.email,
+            phone: user.phone ?? '',
         });
 
     const submit: FormEventHandler = (e) => {
@@ -72,6 +73,25 @@ export default function UpdateProfileInformation({
                     />
 
                     <InputError className="mt-2" message={errors.email} />
+                </div>
+
+                <div>
+                    <InputLabel htmlFor="phone" value="Teléfono (WhatsApp)" />
+
+                    <TextInput
+                        id="phone"
+                        type="tel"
+                        className="mt-1 block w-full"
+                        value={data.phone}
+                        onChange={(e) => setData('phone', e.target.value)}
+                        autoComplete="tel"
+                        placeholder="50688887777"
+                    />
+
+                    <InputError className="mt-2" message={errors.phone} />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Número con código de país (ej: 50688887777). Los admins recibirán notificaciones en este número.
+                    </p>
                 </div>
 
                 {mustVerifyEmail && user.email_verified_at === null && (

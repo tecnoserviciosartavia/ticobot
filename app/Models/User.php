@@ -22,6 +22,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'phone',
+        'profile_type',
+        'push_notification_preferences',
     ];
 
     /**
@@ -44,6 +47,12 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'push_notification_preferences' => 'array',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->profile_type === 'admin' || $this->profile_type === null;
     }
 }

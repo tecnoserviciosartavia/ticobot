@@ -403,6 +403,47 @@ class ApiClient {
   }
 
   /**
+   * Registrar un mensaje entrante en el chat general (para la UI de agentes).
+   */
+  async logChatInbound(payload: {
+    phone: string;
+    body?: string | null;
+    whatsapp_message_id?: string | null;
+    sent_at?: string | null;
+    metadata?: Record<string, any>;
+  }): Promise<void> {
+    try {
+      await this.http.post('chats/inbound', payload);
+    } catch (err: any) {
+      logger.debug({ err, phone: payload.phone }, 'No se pudo registrar mensaje en chat general');
+    }
+  }
+
+  /**
+   * Obtener mensajes de salida pendientes en la cola de la plataforma.
+   */
+  async getChatOutboundQueue(): Promise<Array<{ id: number; phone: string; body: string }>> {
+    try {
+      const res = await this.http.get<{ messages: Array<{ id: number; phone: string; body: string }> }>('chats/outbound-queue');
+      return res.data?.messages ?? [];
+    } catch (err: any) {
+      logger.debug({ err }, 'No se pudo obtener la cola de mensajes salientes');
+      return [];
+    }
+  }
+
+  /**
+   * Marcar un mensaje de la cola como enviado o fallido.
+   */
+  async updateChatMessageStatus(id: number, status: 'sent' | 'failed', whatsappMessageId?: string | null): Promise<void> {
+    try {
+      await this.http.patch(`chats/messages/${id}/status`, { status, whatsapp_message_id: whatsappMessageId ?? null });
+    } catch (err: any) {
+      logger.debug({ err, id }, 'No se pudo actualizar estado del mensaje de chat');
+    }
+  }
+
+  /**
    * Obtener recordatorios recientes de un cliente (últimas 24h, sent/pending)
    */
   async getRecentRemindersByClient(clientId: number): Promise<ReminderRecord[]> {

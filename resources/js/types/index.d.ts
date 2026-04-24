@@ -3,6 +3,15 @@ export interface User {
     name: string;
     email: string;
     email_verified_at?: string;
+    phone?: string;
+    profile_type?: string;
+    push_notification_preferences?: {
+        daily_expected_payments?: boolean;
+        overdue_payments?: boolean;
+        platform_cost_due?: boolean;
+        conciliation_pending?: boolean;
+        whatsapp_manual_pause_events?: boolean;
+    };
 }
 
 export type PageProps<

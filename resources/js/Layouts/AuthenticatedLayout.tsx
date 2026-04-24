@@ -12,6 +12,7 @@ export default function Authenticated({
     children,
 }: PropsWithChildren<{ header?: ReactNode }>) {
     const user = usePage().props.auth.user;
+    const isAdmin = !user.profile_type || user.profile_type === 'admin';
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
@@ -33,12 +34,14 @@ export default function Authenticated({
                             </div>
 
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('dashboard')}
-                                    active={route().current('dashboard')}
-                                >
-                                    Dashboard
-                                </NavLink>
+                                {isAdmin && (
+                                    <NavLink
+                                        href={route('dashboard')}
+                                        active={route().current('dashboard')}
+                                    >
+                                        Dashboard
+                                    </NavLink>
+                                )}
                                 <NavLink
                                     href={route('clients.index')}
                                     active={route().current('clients.*')}
@@ -51,18 +54,42 @@ export default function Authenticated({
                                 >
                                     Contratos
                                 </NavLink>
+                                {isAdmin && (
+                                    <NavLink
+                                        href={route('reminders.index')}
+                                        active={route().current('reminders.*')}
+                                    >
+                                        Recordatorios
+                                    </NavLink>
+                                )}
                                 <NavLink
-                                    href={route('reminders.index')}
-                                    active={route().current('reminders.*')}
+                                    href={route('conciliations.index')}
+                                    active={route().current('conciliations.*')}
                                 >
-                                    Recordatorios
+                                    Conciliaciones
                                 </NavLink>
                                 <NavLink
-                                    href={route('accounting.index')}
-                                    active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*')}
+                                    href={route('chats.index')}
+                                    active={route().current('chats.*')}
                                 >
-                                    Contabilidad
+                                    Chats
                                 </NavLink>
+                                {isAdmin && (
+                                    <NavLink
+                                        href={route('accounting.index')}
+                                        active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*')}
+                                    >
+                                        Contabilidad
+                                    </NavLink>
+                                )}
+                                {isAdmin && (
+                                    <NavLink
+                                        href={route('users.index')}
+                                        active={route().current('users.*')}
+                                    >
+                                        Usuarios
+                                    </NavLink>
+                                )}
                             </div>
                         </div>
 
@@ -98,11 +125,13 @@ export default function Authenticated({
                                         <Dropdown.Link
                                             href={route('profile.edit')}
                                         >
-                                            Profile
+                                            Perfil
                                         </Dropdown.Link>
-                                        <Dropdown.Link href={route('settings.index')}>
-                                            Configuración
-                                        </Dropdown.Link>
+                                        {isAdmin && (
+                                            <Dropdown.Link href={route('settings.index')}>
+                                                Configuración
+                                            </Dropdown.Link>
+                                        )}
                                         <Dropdown.Link
                                             href={route('logout')}
                                             method="post"
@@ -165,12 +194,14 @@ export default function Authenticated({
                     }
                 >
                     <div className="space-y-1 pb-3 pt-2">
-                        <ResponsiveNavLink
-                            href={route('dashboard')}
-                            active={route().current('dashboard')}
-                        >
-                            Dashboard
-                        </ResponsiveNavLink>
+                        {isAdmin && (
+                            <ResponsiveNavLink
+                                href={route('dashboard')}
+                                active={route().current('dashboard')}
+                            >
+                                Dashboard
+                            </ResponsiveNavLink>
+                        )}
                         <ResponsiveNavLink
                             href={route('clients.index')}
                             active={route().current('clients.*')}
@@ -183,18 +214,42 @@ export default function Authenticated({
                         >
                             Contratos
                         </ResponsiveNavLink>
+                        {isAdmin && (
+                            <ResponsiveNavLink
+                                href={route('reminders.index')}
+                                active={route().current('reminders.*')}
+                            >
+                                Recordatorios
+                            </ResponsiveNavLink>
+                        )}
                         <ResponsiveNavLink
-                            href={route('reminders.index')}
-                            active={route().current('reminders.*')}
+                            href={route('conciliations.index')}
+                            active={route().current('conciliations.*')}
                         >
-                            Recordatorios
+                            Conciliaciones
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
-                            href={route('accounting.index')}
-                            active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*')}
+                            href={route('chats.index')}
+                            active={route().current('chats.*')}
                         >
-                            Contabilidad
+                            Chats
                         </ResponsiveNavLink>
+                        {isAdmin && (
+                            <ResponsiveNavLink
+                                href={route('accounting.index')}
+                                active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*')}
+                            >
+                                Contabilidad
+                            </ResponsiveNavLink>
+                        )}
+                        {isAdmin && (
+                            <ResponsiveNavLink
+                                href={route('users.index')}
+                                active={route().current('users.*')}
+                            >
+                                Usuarios
+                            </ResponsiveNavLink>
+                        )}
                     </div>
 
                     <div className="border-t border-gray-200 pb-1 pt-4 dark:border-gray-700 dark:bg-gray-800">
@@ -209,14 +264,16 @@ export default function Authenticated({
 
                         <div className="mt-3 space-y-1">
                             <ResponsiveNavLink href={route('profile.edit')}>
-                                Profile
+                                Perfil
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink
-                                href={route('settings.index')}
-                                active={route().current('settings.*')}
-                            >
-                                Configuración
-                            </ResponsiveNavLink>
+                            {isAdmin && (
+                                <ResponsiveNavLink
+                                    href={route('settings.index')}
+                                    active={route().current('settings.*')}
+                                >
+                                    Configuración
+                                </ResponsiveNavLink>
+                            )}
                             <ResponsiveNavLink
                                 method="post"
                                 href={route('logout')}

@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Contract;
 use App\Models\PushDeviceToken;
 use App\Models\Service;
+use App\Models\User;
 use App\Services\PushNotificationService;
 use App\Services\WhatsAppNotificationService;
 use Carbon\Carbon;
@@ -20,6 +22,7 @@ class NotifyPlatformPaymentsCommand extends Command
     {
         $tz = (string) config('app.timezone', 'America/Costa_Rica');
         $today = Carbon::today($tz);
+        $todayDate = $today->toDateString();
 
         $phones = $this->adminPhones();
         if (count($phones) === 0) {
@@ -47,7 +50,7 @@ class NotifyPlatformPaymentsCommand extends Command
                 continue;
             }
 
-            $dueDate = $today->toDateString();
+            $dueDate = $todayDate;
             foreach ($phones as $phone) {
                 $alreadySent = DB::table('service_payment_notifications')
                     ->where('service_id', $service->id)
@@ -123,20 +126,147 @@ class NotifyPlatformPaymentsCommand extends Command
             }
         }
 
-        $this->info("Recordatorios de costos de plataforma enviados: {$sent} (WhatsApp), {$pushSent} (Push app)");
+        $dailyExpectedPushSent = $this->sendDailyExpectedPaymentsSummary($push, $today);
+
+        $this->info("Recordatorios de costos de plataforma enviados: {$sent} (WhatsApp), {$pushSent} (Push app), {$dailyExpectedPushSent} (Resumen diario esperado)");
         return self::SUCCESS;
+    }
+
+    private function sendDailyExpectedPaymentsSummary(PushNotificationService $push, Carbon $today): int
+    {
+        $summaryDate = $today->toDateString();
+
+        $contractsDueToday = Contract::query()
+            ->whereNotNull('next_due_date')
+            ->whereDate('next_due_date', $summaryDate)
+            ->get(['id', 'amount', 'currency', 'next_due_date']);
+
+        $count = 0;
+        $totalsByCurrency = [];
+
+        foreach ($contractsDueToday as $contract) {
+            $dueDate = Carbon::parse((string) $contract->next_due_date);
+            $monthStart = $dueDate->copy()->startOfMonth();
+            $monthEnd = $dueDate->copy()->endOfMonth();
+
+            // Si ya existe un pago registrado en el mes del due, no contamos este cobro como esperado.
+            $hasPaymentForDueMonth = DB::table('payments')
+                ->where('contract_id', $contract->id)
+                ->whereBetween('created_at', [$monthStart, $monthEnd])
+                ->exists();
+
+            if ($hasPaymentForDueMonth) {
+                continue;
+            }
+
+            $currency = strtoupper((string) ($contract->currency ?: 'CRC'));
+            if (! isset($totalsByCurrency[$currency])) {
+                $totalsByCurrency[$currency] = 0.0;
+            }
+
+            $totalsByCurrency[$currency] += (float) ($contract->amount ?? 0);
+            $count++;
+        }
+
+        $title = 'Resumen diario de pagos esperados';
+        $body = $this->buildDailyExpectedSummaryBody($count, $totalsByCurrency);
+
+        $tokens = PushDeviceToken::query()
+            ->with('user:id,push_notification_preferences')
+            ->where('is_active', true)
+            ->get(['user_id', 'token']);
+
+        $sent = 0;
+        foreach ($tokens as $device) {
+            $token = (string) $device->token;
+            if ($token === '') {
+                continue;
+            }
+
+            if (! $this->shouldReceiveDailyExpectedPush($device)) {
+                continue;
+            }
+
+            $alreadySent = DB::table('daily_expected_payment_push_notifications')
+                ->where('summary_date', $summaryDate)
+                ->where('token', $token)
+                ->exists();
+
+            if ($alreadySent) {
+                continue;
+            }
+
+            $ok = $push->sendToToken($token, $title, $body, [
+                'type' => 'daily_expected_payments',
+                'summary_date' => $summaryDate,
+                'count' => (string) $count,
+                'totals' => json_encode(array_map(fn ($value) => round((float) $value, 2), $totalsByCurrency), JSON_UNESCAPED_UNICODE),
+            ]);
+
+            if (! $ok) {
+                continue;
+            }
+
+            DB::table('daily_expected_payment_push_notifications')->insert([
+                'summary_date' => $summaryDate,
+                'token' => $token,
+                'sent_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $sent++;
+        }
+
+        return $sent;
+    }
+
+    private function shouldReceiveDailyExpectedPush(PushDeviceToken $device): bool
+    {
+        $prefs = $device->user?->push_notification_preferences;
+        if (! is_array($prefs)) {
+            return true;
+        }
+
+        return (bool) ($prefs['daily_expected_payments'] ?? true);
+    }
+
+    /**
+     * @param array<string,float> $totalsByCurrency
+     */
+    private function buildDailyExpectedSummaryBody(int $count, array $totalsByCurrency): string
+    {
+        if ($count <= 0) {
+            return 'Hoy no hay pagos esperados.';
+        }
+
+        ksort($totalsByCurrency);
+
+        $parts = [];
+        foreach ($totalsByCurrency as $currency => $amount) {
+            $symbol = $currency === 'USD' ? '$' : ($currency === 'CRC' ? 'CRC ' : $currency . ' ');
+            $parts[] = $currency . ' ' . $symbol . number_format((float) $amount, 2, '.', ',');
+        }
+
+        if (count($parts) === 1) {
+            return sprintf('Hoy: %d pagos esperados por %s.', $count, $parts[0]);
+        }
+
+        return sprintf('Hoy: %d pagos esperados. Totales: %s.', $count, implode(' | ', $parts));
     }
 
     private function adminPhones(): array
     {
-        $raw = (string) env('BOT_ADMIN_PHONES', '50672140974');
-        if (trim($raw) === '') {
-            return [];
-        }
-
         $phones = [];
-        foreach (explode(',', $raw) as $item) {
-            $digits = preg_replace('/\D+/', '', (string) $item);
+
+        // Primero: teléfonos de usuarios con profile_type = 'admin' en la BD
+        $adminUsers = User::whereIn('profile_type', ['admin', null])
+            ->whereNotNull('phone')
+            ->where('phone', '!=', '')
+            ->pluck('phone');
+
+        foreach ($adminUsers as $phone) {
+            $digits = preg_replace('/\D+/', '', (string) $phone);
             if (! $digits) {
                 continue;
             }
@@ -147,6 +277,24 @@ class NotifyPlatformPaymentsCommand extends Command
                 continue;
             }
             $phones[] = $digits;
+        }
+
+        // Fallback: variable de entorno BOT_ADMIN_PHONES si no hay admins con teléfono
+        if (empty($phones)) {
+            $raw = (string) env('BOT_ADMIN_PHONES', '');
+            foreach (explode(',', $raw) as $item) {
+                $digits = preg_replace('/\D+/', '', (string) $item);
+                if (! $digits) {
+                    continue;
+                }
+                if (strlen($digits) === 8) {
+                    $digits = '506' . $digits;
+                }
+                if (strlen($digits) < 8 || strlen($digits) > 15) {
+                    continue;
+                }
+                $phones[] = $digits;
+            }
         }
 
         return array_values(array_unique($phones));

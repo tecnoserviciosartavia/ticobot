@@ -424,6 +424,19 @@ async function main(): Promise<void> {
     const chatId = normalizeStateChatId(message.from);
     const fromUser = chatIdToPhoneDigits(chatId);
     const fromNorm = normalizeCR(fromUser);
+
+    // Registrar mensaje entrante en el historial de chats de la plataforma (best-effort)
+    if (fromNorm && !isAdminChatId(chatId)) {
+      const msgId = (message as any)?.id?._serialized || null;
+      const tsRaw = Number((message as any)?.timestamp);
+      const sentAt = Number.isFinite(tsRaw) && tsRaw > 0 ? new Date(tsRaw * 1000).toISOString() : null;
+      apiClient.logChatInbound({
+        phone: fromNorm,
+        body: body || null,
+        whatsapp_message_id: msgId,
+        sent_at: sentAt,
+      }).catch(() => { /* best-effort */ });
+    }
     const slowMs = Number(process.env.BOT_SLOW_MESSAGE_MS || 2500);
     const send = async (text: string) => {
       const tSend0 = Date.now();
@@ -728,9 +741,13 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Mantener timeout por chat y detectar admin
+    // Mantener timeout por chat y detectar admin.
+    // Importante: cuando el chat está en modo agente, NO reiniciamos el timer
+    // con mensajes entrantes del cliente para que la pausa expire realmente.
     try {
-      touchTimer(chatId);
+      if (!agentMode.get(chatId)) {
+        touchTimer(chatId);
+      }
     } catch (e) {
       logger.debug({ e }, 'touchTimer fallo');
     }
@@ -3577,11 +3594,32 @@ async function main(): Promise<void> {
   await runBatch();
   const interval = setInterval(runBatch, config.pollIntervalMs);
 
+  // Despachar mensajes salientes encolados desde la plataforma (cada 5 segundos)
+  const OUTBOUND_POLL_MS = Number(process.env.BOT_OUTBOUND_POLL_MS || 5000);
+  const outboundInterval = setInterval(async () => {
+    try {
+      const queued = await apiClient.getChatOutboundQueue();
+      for (const msg of queued) {
+        try {
+          const result = await whatsappClient.sendText(msg.phone, msg.body);
+          await apiClient.updateChatMessageStatus(msg.id, 'sent', null);
+          logger.info({ phone: msg.phone, msgId: msg.id }, 'Mensaje de plataforma enviado');
+        } catch (err: any) {
+          logger.warn({ err, phone: msg.phone, msgId: msg.id }, 'Error enviando mensaje de plataforma');
+          await apiClient.updateChatMessageStatus(msg.id, 'failed', null);
+        }
+      }
+    } catch (err: any) {
+      logger.debug({ err }, 'Error consultando cola de mensajes salientes');
+    }
+  }, OUTBOUND_POLL_MS);
+
   logger.info({ intervalMs: config.pollIntervalMs }, 'Servicio de recordatorios iniciado');
 
   const gracefulShutdown = async (signal: string) => {
     logger.info({ signal }, 'Recibida señal de apagado, cerrando bot.');
     clearInterval(interval);
+    clearInterval(outboundInterval);
 
     try {
       await whatsappClient.shutdown();

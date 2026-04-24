@@ -96,4 +96,32 @@ class ProfileTest extends TestCase
 
         $this->assertNotNull($user->fresh());
     }
+
+    public function test_push_notification_preferences_can_be_updated(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->patch('/profile/push-notifications', [
+                'daily_expected_payments' => true,
+                'overdue_payments' => false,
+                'platform_cost_due' => true,
+                'conciliation_pending' => false,
+                'whatsapp_manual_pause_events' => true,
+            ]);
+
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/profile');
+
+        $prefs = $user->refresh()->push_notification_preferences;
+
+        $this->assertIsArray($prefs);
+        $this->assertTrue((bool) ($prefs['daily_expected_payments'] ?? false));
+        $this->assertFalse((bool) ($prefs['overdue_payments'] ?? true));
+        $this->assertTrue((bool) ($prefs['platform_cost_due'] ?? false));
+        $this->assertFalse((bool) ($prefs['conciliation_pending'] ?? true));
+        $this->assertTrue((bool) ($prefs['whatsapp_manual_pause_events'] ?? false));
+    }
 }

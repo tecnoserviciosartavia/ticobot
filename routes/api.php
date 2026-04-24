@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\ContractTypeController;
 use App\Http\Controllers\Api\BotMenuController;
 use App\Http\Controllers\Api\PushDeviceTokenController;
 use App\Http\Controllers\api\PaymentStatusController;
+use App\Http\Controllers\Api\ChatMessageController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -72,4 +73,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('clients/pending-payments', [PaymentStatusController::class, 'clientsWithPendingPayments']);
     // Send reminder for a client (creates a Reminder pending to be picked by bot)
     Route::post('clients/{client}/send-reminder', [PaymentStatusController::class, 'sendReminder']);
+
+    // Chat messages (WhatsApp conversations)
+    Route::post('chats/inbound', [ChatMessageController::class, 'inbound']);
+    Route::get('chats/outbound-queue', [ChatMessageController::class, 'outboundQueue']);
+    Route::patch('chats/messages/{id}/status', [ChatMessageController::class, 'updateStatus']);
 });
