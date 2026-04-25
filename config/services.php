@@ -36,7 +36,8 @@ return [
     ],
 
     'fcm' => [
-        'server_key' => env('FCM_SERVER_KEY'),
+        'server_key' => env('FCM_SERVER_KEY'), // legacy (ya no usado)
+        'service_account_path' => env('FCM_SERVICE_ACCOUNT_PATH', storage_path('app/firebase-service-account.json')),
     ],
 
 ];

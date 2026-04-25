@@ -14,6 +14,9 @@ use App\Http\Controllers\Web\UserManagementController as WebUserManagementContro
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
+// DEBUG: Endpoint de test para push notifications (sin CSRF)
+Route::post('/debug/push/register', [\App\Http\Controllers\Api\DebugPushController::class, 'testRegister']);
+
 Route::get('/', function () {
     if (! auth()->check()) {
         return redirect()->route('login');
