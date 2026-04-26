@@ -63,21 +63,12 @@ class Reminder extends Model
         }
 
         $existing = $query
+            ->whereDate('scheduled_for', $scheduledFor->toDateString())
             ->latest('id')
-            ->get()
-            ->first(function (self $candidate) use ($scheduledFor) {
-                if (! $candidate->scheduled_for) {
-                    return false;
-                }
-
-                return $candidate->scheduled_for
-                    ->copy()
-                    ->setTimezone(config('app.timezone'))
-                    ->equalTo($scheduledFor);
-            });
+            ->first();
 
         if ($existing) {
-            $existing->mergeMissingPayload($attributes['payload'] ?? null);
+            $existing->mergePayload($attributes['payload'] ?? null);
 
             return $existing;
         }
@@ -89,14 +80,22 @@ class Reminder extends Model
 
     private static function normalizeScheduledForValue(mixed $value): Carbon
     {
+        $timezone = config('app.timezone');
+
         if ($value instanceof \DateTimeInterface) {
-            return Carbon::instance($value)->setTimezone(config('app.timezone'));
+            return Carbon::instance($value)
+                ->setTimezone($timezone)
+                ->setSeconds(0)
+                ->setMicroseconds(0);
         }
 
-        return Carbon::parse((string) $value, config('app.timezone'));
+        return Carbon::parse((string) $value, $timezone)
+            ->setTimezone($timezone)
+            ->setSeconds(0)
+            ->setMicroseconds(0);
     }
 
-    private function mergeMissingPayload(?array $incomingPayload): void
+    private function mergePayload(?array $incomingPayload): void
     {
         if (! is_array($incomingPayload) || $incomingPayload === []) {
             return;
@@ -110,7 +109,7 @@ class Reminder extends Model
                 continue;
             }
 
-            if (! array_key_exists($key, $payload) || $payload[$key] === null || $payload[$key] === '') {
+            if (! array_key_exists($key, $payload) || $payload[$key] !== $value) {
                 $payload[$key] = $value;
                 $changed = true;
             }

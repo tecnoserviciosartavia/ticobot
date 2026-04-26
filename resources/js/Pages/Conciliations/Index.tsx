@@ -1,3 +1,4 @@
+import AccountingTabs from '@/Components/AccountingTabs';
 import Pagination from '@/Components/Pagination';
 import StatusBadge from '@/Components/StatusBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -126,6 +127,7 @@ export default function ConciliationsIndex({ conciliations, filters, statuses }:
 
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
+                    <AccountingTabs active="conciliations" />
                     <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
                         <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
                             <form onSubmit={submit} className="flex flex-col gap-4 md:flex-row md:items-end">

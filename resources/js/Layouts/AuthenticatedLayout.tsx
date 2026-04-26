@@ -63,12 +63,6 @@ export default function Authenticated({
                                     </NavLink>
                                 )}
                                 <NavLink
-                                    href={route('conciliations.index')}
-                                    active={route().current('conciliations.*')}
-                                >
-                                    Conciliaciones
-                                </NavLink>
-                                <NavLink
                                     href={route('chats.index')}
                                     active={route().current('chats.*')}
                                 >
@@ -77,7 +71,7 @@ export default function Authenticated({
                                 {isAdmin && (
                                     <NavLink
                                         href={route('accounting.index')}
-                                        active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*')}
+                                        active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*') || route().current('conciliations.*') || route().current('sinpe-emails.*')}
                                     >
                                         Contabilidad
                                     </NavLink>
@@ -223,12 +217,6 @@ export default function Authenticated({
                             </ResponsiveNavLink>
                         )}
                         <ResponsiveNavLink
-                            href={route('conciliations.index')}
-                            active={route().current('conciliations.*')}
-                        >
-                            Conciliaciones
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
                             href={route('chats.index')}
                             active={route().current('chats.*')}
                         >
@@ -237,7 +225,7 @@ export default function Authenticated({
                         {isAdmin && (
                             <ResponsiveNavLink
                                 href={route('accounting.index')}
-                                active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*')}
+                                active={route().current('accounting.*') || route().current('payments.*') || route().current('collections.*') || route().current('conciliations.*') || route().current('sinpe-emails.*')}
                             >
                                 Contabilidad
                             </ResponsiveNavLink>

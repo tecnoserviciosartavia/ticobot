@@ -292,18 +292,17 @@ class PaymentController extends Controller
             // Detener envíos/reenvíos: liquidar recordatorios relacionados
             $this->settleRemindersForVerifiedPayment($payment);
 
+            // Generar key único para evitar duplicados entre canales
+            $billingMonth = $validated['billing_month'] ?? $payment->paid_at->format('Y-m');
+            $uniqueKey = \App\Services\ConciliationKeyService::generateKey($payment, $billingMonth);
+
             $conciliation = \App\Models\Conciliation::create([
                 'payment_id' => $payment->id,
-                'contract_id' => $validated['contract_id'] ?? null,
-                'amount' => $validated['amount'],
-                'currency' => $validated['currency'],
-                'status' => 'verified',
-                'conciliated_at' => now(),
+                'unique_conciliation_key' => $uniqueKey,
+                'channel' => 'manual_payment',
+                'status' => 'approved',
+                'reviewed_by' => auth()->id(),
                 'notes' => 'Conciliación automática - Pago manual verificado',
-                'metadata' => [
-                    'auto_conciliated' => true,
-                    'conciliated_by' => auth()->id(),
-                ],
             ]);
 
             // Generate and send PDF receipt via WhatsApp

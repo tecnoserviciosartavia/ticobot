@@ -274,6 +274,19 @@ class SinpeBcrEmailConciliationService
 
         $this->ensureConciliationInReview($payment);
 
+        try {
+            if (! empty($client->phone)) {
+                $message = 'Nuestros agentes están verificando tu pago. Te contactaremos cuando esté listo.';
+                app(WhatsAppNotificationService::class)->sendTextMessage($client->phone, $message);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('sinpe_email.auto_conciliation.notify_failed', [
+                'payment_id' => $payment->id,
+                'client_id' => $client->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'in_review', (int) $client->id, (int) $contract->id, (int) $payment->id, 'Detectado por correo y enviado a revisión manual');
 
         return true;
@@ -286,6 +299,7 @@ class SinpeBcrEmailConciliationService
     {
         $originPhone = $this->digits((string) ($parsed['origin_phone'] ?? ''));
         $motive = $this->normalizeText((string) ($parsed['motive'] ?? ''));
+        $originName = $this->normalizeText((string) ($parsed['origin_name'] ?? ''));
 
         $clients = Client::query()->select('id', 'name', 'phone')->whereNull('deleted_at')->get();
         $best = null;
@@ -298,6 +312,7 @@ class SinpeBcrEmailConciliationService
             $candidateName = $this->normalizeText((string) $candidate->name);
             $phoneMatches = false;
             $motiveMatches = false;
+            $nameMatches = false;
 
             if ($originPhone !== '' && $candidatePhone !== '' && str_ends_with($candidatePhone, substr($originPhone, -8))) {
                 $score += 100;
@@ -309,8 +324,19 @@ class SinpeBcrEmailConciliationService
                 $motiveMatches = true;
             }
 
-            // Regla solicitada: validar solo por numero o por motivo (al menos uno).
-            if (! $phoneMatches && ! $motiveMatches) {
+            // Nuevo: Comparar origin_name directamente con nombre del cliente
+            if ($originName !== '' && $candidateName !== '') {
+                if ($originName === $candidateName) {
+                    $score += 120;
+                    $nameMatches = true;
+                } elseif (str_contains($originName, $candidateName) || str_contains($candidateName, $originName)) {
+                    $score += 60;
+                    $nameMatches = true;
+                }
+            }
+
+            // Regla solicitada: validar por numero, motivo o nombre (al menos uno).
+            if (! $phoneMatches && ! $motiveMatches && ! $nameMatches) {
                 continue;
             }
 
@@ -496,8 +522,8 @@ class SinpeBcrEmailConciliationService
                 $to = $when->copy()->addDays(7);
 
                 $query->where(function ($q) use ($from, $to) {
-                    $q->whereBetween('created_at', [$from, $to])
-                        ->orWhereBetween('paid_at', [$from->toDateString(), $to->toDateString()]);
+                    $q->whereBetween('created_at', [$from->toDateTimeString(), $to->toDateTimeString()])
+                        ->orWhereBetween('paid_at', [$from->toDateTimeString(), $to->toDateTimeString()]);
                 });
             } catch (\Throwable) {
                 // Si falla parseo de fecha, seguir con match por criterios base.
@@ -513,12 +539,19 @@ class SinpeBcrEmailConciliationService
 
     private function ensureConciliationInReview(Payment $payment): void
     {
+        $billingMonth = $payment->paid_at
+            ? Carbon::parse($payment->paid_at)->format('Y-m')
+            : now()->format('Y-m');
+        $uniqueKey = ConciliationKeyService::generateKey($payment, $billingMonth);
+
         Conciliation::query()->firstOrCreate(
             ['payment_id' => $payment->id],
             [
                 'status' => 'in_review',
                 'notes' => 'Detectado por correo SINPE BCR. Pendiente de revisión manual.',
                 'verified_at' => null,
+                'unique_conciliation_key' => $uniqueKey,
+                'channel' => 'sinpe_email',
             ]
         );
     }

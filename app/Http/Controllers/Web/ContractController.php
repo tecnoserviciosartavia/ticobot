@@ -673,6 +673,7 @@ class ContractController extends Controller
     {
         $data = $request->validate([
             'client_id' => ['required', Rule::exists('clients', 'id')],
+            'name' => ['nullable', 'string', 'max:255'],
             // amount se calcula a partir de service_ids
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
@@ -693,6 +694,7 @@ class ContractController extends Controller
 
         return [
             'client_id' => $data['client_id'],
+            'name' => $data['name'] ?? null,
             'notes' => $data['notes'] ?? null,
             'amount' => 0,
             'discount_amount' => max(0, $discount),

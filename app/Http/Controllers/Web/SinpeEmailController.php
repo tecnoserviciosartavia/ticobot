@@ -9,8 +9,10 @@ use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\SinpeEmailTransaction;
 use App\Models\Setting;
+use App\Services\ConciliationPdfService;
 use App\Services\SinpeBcrEmailParser;
 use App\Services\SinpeBcrEmailConciliationService;
+use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -111,7 +113,7 @@ class SinpeEmailController extends Controller
         }
 
         $contracts = Contract::query()
-            ->select('id', 'name', 'amount', 'currency')
+            ->select('id', 'name', 'amount', 'currency', 'billing_cycle')
             ->where('client_id', $clientId)
             ->whereNull('deleted_at')
             ->orderBy('name')
@@ -146,17 +148,57 @@ class SinpeEmailController extends Controller
         return redirect()->back();
     }
 
+    public function breakConciliation(int $id): RedirectResponse
+    {
+        $transaction = SinpeEmailTransaction::query()
+            ->with(['payment'])
+            ->findOrFail($id);
+
+        DB::transaction(function () use ($transaction) {
+            $payment = $transaction->payment;
+
+            if ($payment) {
+                $payment->forceFill([
+                    'status' => 'in_review',
+                ])->save();
+
+                Conciliation::query()->updateOrCreate(
+                    ['payment_id' => $payment->id],
+                    [
+                        'status' => 'in_review',
+                        'notes' => 'Conciliación rota desde la interfaz de correos. Pendiente de verificar.',
+                        'verified_at' => null,
+                    ]
+                );
+            }
+
+            $transaction->forceFill([
+                'status' => 'in_review',
+                'notes' => 'Conciliación rota, pendiente de verificar.',
+            ])->save();
+
+            Log::info('sinpe_email.break_conciliation', [
+                'transaction_id' => $transaction->id,
+                'payment_id' => $payment?->id,
+            ]);
+        });
+
+        return redirect()->back()->with('success', 'La conciliación se rompió y quedó pendiente de verificación.');
+    }
+
     public function conciliate(Request $request, int $id): RedirectResponse
     {
         $validated = $request->validate([
             'client_id'   => ['required', 'integer', 'exists:clients,id'],
             'contract_id' => ['required', 'integer', 'exists:contracts,id'],
+            'update_client_name' => ['nullable', 'boolean'],
+            'billing_month' => ['nullable', 'date_format:Y-m'],
         ]);
 
         $transaction = SinpeEmailTransaction::query()->findOrFail($id);
 
-        if (in_array($transaction->status, ['in_review', 'conciliated'], true)) {
-            return redirect()->back()->with('error', 'Esta transacción ya fue conciliada o está en revisión.');
+        if (in_array($transaction->status, ['approved', 'conciliated'], true)) {
+            return redirect()->back()->with('error', 'Esta transacción ya fue conciliada.');
         }
 
         DB::transaction(function () use ($transaction, $validated) {
@@ -165,6 +207,25 @@ class SinpeEmailController extends Controller
             $amount     = (float) $transaction->amount;
             $reference  = $transaction->reference;
             $performedAt = $transaction->performed_at ?? now();
+
+            // Actualizar nombre del cliente solo si el usuario lo marcó
+            if ((bool) ($validated['update_client_name'] ?? false) && ! empty($transaction->origin_name)) {
+                $client = Client::query()->find($clientId);
+                if ($client && trim($transaction->origin_name) !== trim((string) $client->name)) {
+                    $oldName = $client->name;
+                    $client->forceFill([
+                        'name' => trim($transaction->origin_name),
+                    ])->save();
+
+                    Log::info('sinpe_email.client_name_updated', [
+                        'client_id' => $clientId,
+                        'old_name' => $oldName,
+                        'new_name' => $transaction->origin_name,
+                        'transaction_id' => $transaction->id,
+                        'reference' => $reference,
+                    ]);
+                }
+            }
 
             // Buscar pago existente por referencia para evitar duplicados.
             $payment = Payment::query()
@@ -195,9 +256,15 @@ class SinpeEmailController extends Controller
             $metadata['sinpe_email_motive']         = $transaction->motive;
             $metadata['sinpe_email_conciliated_manually'] = true;
 
+            $billingMonth = $validated['billing_month'] ?? null;
+            if (is_string($billingMonth) && preg_match('/^\d{4}-\d{2}$/', $billingMonth) === 1) {
+                $metadata['paid_for_month'] = $billingMonth;
+                $metadata['months'] = max(1, (int) ($metadata['months'] ?? 1));
+            }
+
             if ($payment) {
                 $payment->forceFill([
-                    'status'      => 'in_review',
+                    'status'      => 'verified',
                     'channel'     => 'sinpe',
                     'reference'   => $reference ?: $payment->reference,
                     'paid_at'     => $payment->paid_at ?: $performedAt,
@@ -210,7 +277,7 @@ class SinpeEmailController extends Controller
                     'contract_id' => $contractId,
                     'amount'      => $amount,
                     'currency'    => 'CRC',
-                    'status'      => 'in_review',
+                    'status'      => 'verified',
                     'channel'     => 'sinpe',
                     'reference'   => $reference,
                     'paid_at'     => $performedAt,
@@ -218,17 +285,17 @@ class SinpeEmailController extends Controller
                 ]);
             }
 
-            Conciliation::query()->firstOrCreate(
+            Conciliation::query()->updateOrCreate(
                 ['payment_id' => $payment->id],
                 [
-                    'status'      => 'in_review',
+                    'status'      => 'approved',
                     'notes'       => 'Conciliado manualmente desde correo SINPE BCR.',
-                    'verified_at' => null,
+                    'verified_at' => now(),
                 ]
             );
 
             $transaction->forceFill([
-                'status'              => 'in_review',
+                'status'              => 'approved',
                 'matched_client_id'   => $clientId,
                 'matched_contract_id' => $contractId,
                 'payment_id'          => $payment->id,
@@ -243,7 +310,42 @@ class SinpeEmailController extends Controller
             ]);
         });
 
-        return redirect()->back()->with('success', 'Transacción enviada a revisión correctamente.');
+        try {
+            $paymentForDelivery = Payment::query()
+                ->with(['client', 'contract'])
+                ->find($transaction->payment_id);
+
+            if ($paymentForDelivery) {
+                $pdfService = app(ConciliationPdfService::class);
+                $whatsappService = app(WhatsAppNotificationService::class);
+
+                $months = $pdfService->calculateMonthsFromPayment($paymentForDelivery);
+                $pdfPath = $pdfService->generateConciliationReceipt($paymentForDelivery, $months);
+                $message = $pdfService->generateWhatsAppMessage($months);
+
+                $sent = $whatsappService->sendConciliationReceipt($paymentForDelivery, $pdfPath, $message);
+
+                if (! $sent && $paymentForDelivery->client?->phone) {
+                    $fallbackMessage = 'Tu pago SINPE fue conciliado correctamente. ¡Gracias!';
+                    $whatsappService->sendTextMessage($paymentForDelivery->client->phone, $fallbackMessage);
+                }
+
+                Log::info('sinpe_email.manual_conciliation.delivery', [
+                    'transaction_id' => $transaction->id,
+                    'payment_id' => $paymentForDelivery->id,
+                    'months' => $months,
+                    'pdf_sent' => $sent,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('sinpe_email.manual_conciliation.notify_failed', [
+                'transaction_id' => $transaction->id,
+                'client_id' => $validated['client_id'],
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Transacción conciliada correctamente.');
     }
 
     private function deleteMailboxMessage(SinpeEmailTransaction $transaction): bool

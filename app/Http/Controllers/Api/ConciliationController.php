@@ -74,20 +74,57 @@ class ConciliationController extends Controller
             'verified_at' => ['nullable', 'date'],
         ]);
 
-        $existing = Conciliation::query()->where('payment_id', $data['payment_id'])->first();
+        // Cargar el pago para generar unique_conciliation_key
+        $payment = Payment::find($data['payment_id']);
+        $billingMonth = now()->format('Y-m');
+        if ($payment) {
+            $billingMonth = $payment->paid_at?->format('Y-m') ?? now()->format('Y-m');
+        }
+        $uniqueKey = $payment ? \App\Services\ConciliationKeyService::generateKey($payment, $billingMonth) : null;
 
-        if ($existing) {
-            return response()->json([
-                'message' => 'La conciliación para este pago ya existe.',
-            ], 422);
+        // Buscar primero por payment_id, luego por unique_conciliation_key
+        $existing = Conciliation::query()->where('payment_id', $data['payment_id'])->first();
+        
+        if (!$existing && $uniqueKey) {
+            $existing = Conciliation::query()->where('unique_conciliation_key', $uniqueKey)->first();
         }
 
-        $conciliation = Conciliation::create([
-            ...$data,
-            'status' => $data['status'] ?? 'pending',
-            'reviewed_by' => Auth::id(),
-            'verified_at' => $data['verified_at'] ?? null,
-        ]);
+        if ($existing) {
+            // Permitir actualizar conciliaciones en estado "pending" o "in_review"
+            if (in_array($existing->status, ['pending', 'in_review'], true)) {
+                $existing->update([
+                    'status' => $data['status'] ?? $existing->status,
+                    'notes' => $data['notes'] ?? $existing->notes,
+                    'verified_at' => $data['verified_at'] ?? $existing->verified_at,
+                    'reviewed_by' => Auth::id(),
+                ]);
+
+                $conciliation = $existing;
+
+                Log::info('Conciliation actualizada (API)', [
+                    'conciliation_id' => $conciliation->id,
+                    'payment_id' => $data['payment_id'],
+                    'new_status' => $conciliation->status,
+                    'user_id' => Auth::id(),
+                ]);
+            } else {
+                // No permitir actualizar conciliaciones ya aprobadas o rechazadas
+                return response()->json([
+                    'message' => 'La conciliación para este pago ya existe y no puede ser modificada (estado: ' . $existing->status . ').',
+                    'conciliation_id' => $existing->id,
+                    'current_status' => $existing->status,
+                ], 422);
+            }
+        } else {
+            $conciliation = Conciliation::create([
+                ...$data,
+                'status' => $data['status'] ?? 'pending',
+                'reviewed_by' => Auth::id(),
+                'verified_at' => $data['verified_at'] ?? null,
+                'unique_conciliation_key' => $uniqueKey,
+                'channel' => 'api_bot',
+            ]);
+        }
 
         $paymentStatus = match ($conciliation->status) {
             'approved' => 'verified',

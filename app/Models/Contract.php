@@ -14,6 +14,7 @@ class Contract extends Model
 
     protected $fillable = [
         'client_id',
+        'name',
         'amount',
         'discount_amount',
         'currency',
@@ -36,22 +37,22 @@ class Contract extends Model
     {
         static::creating(function (Contract $contract): void {
             // Temporary placeholder until the database assigns the contract ID.
-            $contract->name = 'TC-PENDING';
+            // Respetar nombre explícito cuando se envía desde la UI/import.
+            if (! filled($contract->name)) {
+                $contract->name = 'TC-PENDING';
+            }
         });
 
         static::created(function (Contract $contract): void {
             $expectedCode = self::buildCodeFromId((int) $contract->id);
 
-            if ($contract->name !== $expectedCode) {
+            // Solo autoasignar código cuando el contrato se creó sin nombre explícito.
+            if ($contract->name === 'TC-PENDING' && $contract->name !== $expectedCode) {
                 $contract->forceFill(['name' => $expectedCode])->saveQuietly();
             }
         });
 
-        static::updating(function (Contract $contract): void {
-            if ($contract->isDirty('name')) {
-                $contract->name = (string) $contract->getOriginal('name');
-            }
-        });
+        // Permitir actualización explícita de name desde la capa de aplicación.
     }
 
     public static function buildCodeFromId(int $id): string

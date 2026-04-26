@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conciliation;
-use App\Services\ConciliationPdfService;
-use App\Services\WhatsAppNotificationService;
+use App\Services\ConciliationKeyService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -103,121 +103,133 @@ class ConciliationController extends Controller
             ]);
         }
 
-        $conciliation = Conciliation::create([
-            ...$data,
-            'status' => $data['status'] ?? 'pending',
-            'reviewed_by' => Auth::id(),
-            'verified_at' => $data['verified_at'] ?? null,
-        ]);
-
-        $paymentStatus = match ($conciliation->status) {
-            'approved' => 'verified',
-            'rejected' => 'rejected',
-            'in_review' => 'in_review',
-            default => 'in_review',
-        };
-
-        $payment = $conciliation->payment;
-        $payment?->update(['status' => $paymentStatus]);
-
-        // Actualizar el metadata del pago con los meses y contrato si se proporcionaron
-        if ($payment && isset($data['months'])) {
-            $metadata = $payment->metadata ?? [];
-            $metadata['months'] = (int) $data['months'];
-            
-            if (isset($data['contract_id'])) {
-                $metadata['conciliation_contract_id'] = $data['contract_id'];
-            }
-            
-            if (isset($data['calculated_amount'])) {
-                $metadata['calculated_amount'] = $data['calculated_amount'];
+        DB::transaction(function () use ($data) {
+            $payment = \App\Models\Payment::find($data['payment_id']);
+            if (!$payment) {
+                throw new \Exception('Pago no encontrado');
             }
 
-            // Guardar el período pagado solo para contratos mensuales.
-            if (isset($data['contract_id'])) {
-                $contract = \App\Models\Contract::query()->find($data['contract_id']);
-                if ($contract && $contract->billing_cycle === 'monthly') {
-                    $metadata['paid_for_month'] = $data['billing_month']
-                        ?? \Carbon\Carbon::parse($payment->paid_at ?? now(), config('app.timezone'))->format('Y-m');
-                }
-            }
-            
-            $payment->metadata = $metadata;
-            $payment->save();
-        }
+            // Generar unique_conciliation_key
+            $billingMonth = $data['billing_month'] ?? null;
+            $uniqueKey = ConciliationKeyService::generateKey($payment, $billingMonth);
 
-        // Si la conciliación fue aprobada, ajustar monto (si falta), generar y enviar el PDF
-        if ($conciliation->status === 'approved' && $payment) {
-            try {
-                // Recargar el pago con todas las relaciones necesarias
-                $payment->load(['client', 'contract']);
+            $conciliation = Conciliation::create([
+                ...$data,
+                'status' => $data['status'] ?? 'pending',
+                'reviewed_by' => Auth::id(),
+                'verified_at' => ($data['status'] ?? 'pending') === 'approved' ? now() : ($data['verified_at'] ?? null),
+                'unique_conciliation_key' => $uniqueKey,
+                'channel' => 'manual',
+            ]);
+
+            $paymentStatus = match ($conciliation->status) {
+                'approved' => 'verified',
+                'rejected' => 'rejected',
+                'in_review' => 'in_review',
+                default => 'in_review',
+            };
+
+            $payment->update(['status' => $paymentStatus]);
+
+            // Actualizar el metadata del pago con los meses y contrato si se proporcionaron
+            if (isset($data['months'])) {
+                $metadata = $payment->metadata ?? [];
+                $metadata['months'] = (int) $data['months'];
                 
-                $pdfService = new ConciliationPdfService();
-                $whatsappService = new WhatsAppNotificationService();
+                if (isset($data['contract_id'])) {
+                    $metadata['conciliation_contract_id'] = $data['contract_id'];
+                }
+                
+                if (isset($data['calculated_amount'])) {
+                    $metadata['calculated_amount'] = $data['calculated_amount'];
+                }
 
-                // Calcular los meses del pago
-                $months = $pdfService->calculateMonthsFromPayment($payment);
-
-                // Si el pago aún está en 0, intentar calcularlo con base en el contrato y los meses
-                if ((float) ($payment->amount ?? 0) <= 0) {
-                    $calculated = null;
-                    if ($payment->contract && (float) $payment->contract->amount > 0) {
-                        $calculated = (float) $payment->contract->amount * max(1, (int) $months);
-                    } elseif (is_array($payment->metadata ?? null) && isset($payment->metadata['calculated_amount'])) {
-                        $calculated = (float) $payment->metadata['calculated_amount'];
+                // Guardar el período pagado solo para contratos mensuales.
+                if (isset($data['contract_id'])) {
+                    $contract = \App\Models\Contract::query()->find($data['contract_id']);
+                    if ($contract && $contract->billing_cycle === 'monthly') {
+                        $metadata['paid_for_month'] = $data['billing_month']
+                            ?? \Carbon\Carbon::parse($payment->paid_at ?? now(), config('app.timezone'))->format('Y-m');
                     }
+                }
+                
+                $payment->metadata = $metadata;
+                $payment->save();
+            }
 
-                    if ($calculated !== null && $calculated > 0) {
-                        $before = $payment->amount;
-                        $payment->forceFill(['amount' => $calculated])->save();
-                        try {
-                            Log::info('Conciliation: monto de pago ajustado automáticamente', [
-                                'payment_id' => $payment->id,
-                                'before' => $before,
-                                'after' => $calculated,
-                                'months' => $months,
-                            ]);
-                        } catch (\Throwable $e) {
-                            // ignore logging failure
+            // Si la conciliación fue aprobada, ajustar monto (si falta), generar y enviar el PDF
+            if ($conciliation->status === 'approved') {
+                try {
+                    // Recargar el pago con todas las relaciones necesarias
+                    $payment->load(['client', 'contract']);
+                    
+                    $pdfService = new ConciliationPdfService();
+                    $whatsappService = new WhatsAppNotificationService();
+
+                    // Calcular los meses del pago
+                    $months = $pdfService->calculateMonthsFromPayment($payment);
+
+                    // Si el pago aún está en 0, intentar calcularlo con base en el contrato y los meses
+                    if ((float) ($payment->amount ?? 0) <= 0) {
+                        $calculated = null;
+                        if ($payment->contract && (float) $payment->contract->amount > 0) {
+                            $calculated = (float) $payment->contract->amount * max(1, (int) $months);
+                        } elseif (is_array($payment->metadata ?? null) && isset($payment->metadata['calculated_amount'])) {
+                            $calculated = (float) $payment->metadata['calculated_amount'];
+                        }
+
+                        if ($calculated !== null && $calculated > 0) {
+                            $before = $payment->amount;
+                            $payment->forceFill(['amount' => $calculated])->save();
+                            try {
+                                Log::info('Conciliation: monto de pago ajustado automáticamente', [
+                                    'payment_id' => $payment->id,
+                                    'before' => $before,
+                                    'after' => $calculated,
+                                    'months' => $months,
+                                ]);
+                            } catch (\Throwable $e) {
+                                // ignore logging failure
+                            }
                         }
                     }
-                }
 
-                // En conciliación manual no se deben correr fechas de contrato ni recordatorios.
+                    // En conciliación manual no se deben correr fechas de contrato ni recordatorios.
 
-                // Generar el PDF
-                $pdfPath = $pdfService->generateConciliationReceipt($payment, $months);
-                
-                Log::info('PDF generado en', ['path' => $pdfPath, 'exists' => file_exists($pdfPath)]);
+                    // Generar el PDF
+                    $pdfPath = $pdfService->generateConciliationReceipt($payment, $months);
+                    
+                    Log::info('PDF generado en', ['path' => $pdfPath, 'exists' => file_exists($pdfPath)]);
 
-                // Generar el mensaje personalizado
-                $message = $pdfService->generateWhatsAppMessage($months);
+                    // Generar el mensaje personalizado
+                    $message = $pdfService->generateWhatsAppMessage($months);
 
-                // Enviar el PDF y el mensaje por WhatsApp
-                $sent = $whatsappService->sendConciliationReceipt($payment, $pdfPath, $message);
+                    // Enviar el PDF y el mensaje por WhatsApp
+                    $sent = $whatsappService->sendConciliationReceipt($payment, $pdfPath, $message);
 
-                if ($sent) {
-                    Log::info('PDF de conciliación enviado exitosamente', [
+                    if ($sent) {
+                        Log::info('PDF de conciliación enviado exitosamente', [
+                            'payment_id' => $payment->id,
+                            'conciliation_id' => $conciliation->id,
+                            'months' => $months,
+                        ]);
+                    } else {
+                        Log::warning('No se pudo enviar el PDF de conciliación', [
+                            'payment_id' => $payment->id,
+                            'conciliation_id' => $conciliation->id,
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error al generar/enviar PDF de conciliación', [
                         'payment_id' => $payment->id,
                         'conciliation_id' => $conciliation->id,
-                        'months' => $months,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
                     ]);
-                } else {
-                    Log::warning('No se pudo enviar el PDF de conciliación', [
-                        'payment_id' => $payment->id,
-                        'conciliation_id' => $conciliation->id,
-                    ]);
+                    // No fallar la conciliación si falla el envío del PDF
                 }
-            } catch (\Exception $e) {
-                Log::error('Error al generar/enviar PDF de conciliación', [
-                    'payment_id' => $payment->id,
-                    'conciliation_id' => $conciliation->id,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
-                // No fallar la conciliación si falla el envío del PDF
             }
-        }
+        });
 
         return redirect()->route('payments.index')->with('success', 'Conciliación creada exitosamente.');
     }

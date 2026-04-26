@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 
-type Tab = 'indicators' | 'accounting' | 'payments' | 'collections' | 'sinpe_emails';
+type Tab = 'indicators' | 'accounting' | 'payments' | 'collections' | 'conciliations' | 'sinpe_emails';
 
 interface Props {
     active: Tab;
@@ -10,8 +10,9 @@ const tabs: { id: Tab; label: string; routeName: string }[] = [
     { id: 'accounting',   label: 'Resumen',       routeName: 'accounting.index' },
     { id: 'indicators',   label: 'Indicadores',   routeName: 'accounting.indicators' },
     { id: 'payments',     label: 'Pagos',         routeName: 'payments.index' },
-    { id: 'collections',  label: 'Cobranzas',     routeName: 'collections.index' },
-    { id: 'sinpe_emails', label: 'Correos',  routeName: 'sinpe-emails.index' },
+    { id: 'collections',   label: 'Cobranzas',     routeName: 'collections.index' },
+    { id: 'conciliations', label: 'Conciliaciones', routeName: 'conciliations.index' },
+    { id: 'sinpe_emails',  label: 'Correos',       routeName: 'sinpe-emails.index' },
 ];
 
 export default function AccountingTabs({ active }: Props) {

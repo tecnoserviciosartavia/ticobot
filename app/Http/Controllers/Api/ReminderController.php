@@ -92,35 +92,8 @@ class ReminderController extends Controller
             $payload['recurrence'] = $recurrence;
         }
 
-        // For monthly we retained smart scheduling based on day/time in current/next month.
-        // For other recurrences, use the provided scheduled datetime as-is.
-        if ($recurrence === 'monthly') {
-            // Extract requested day and time
-            $day = (int) $requested->day;
-            $timeString = $requested->format('H:i:s');
-
-            $now = Carbon::now(config('app.timezone'));
-            $year = $now->year;
-            $month = $now->month;
-
-            $daysInMonth = Carbon::create($year, $month, 1, 0, 0, 0, config('app.timezone'))->daysInMonth;
-            $useDay = min(max(1, $day), $daysInMonth);
-
-            $candidate = Carbon::create($year, $month, $useDay, 0, 0, 0, config('app.timezone'))
-                ->setTimeFromTimeString($timeString);
-
-            if ($candidate->lessThanOrEqualTo($now)) {
-                $nextMonth = $now->copy()->addMonthNoOverflow();
-                $daysInNext = Carbon::create($nextMonth->year, $nextMonth->month, 1, 0, 0, 0, config('app.timezone'))->daysInMonth;
-                $useDayNext = min(max(1, $day), $daysInNext);
-                $candidate = Carbon::create($nextMonth->year, $nextMonth->month, $useDayNext, 0, 0, 0, config('app.timezone'))
-                    ->setTimeFromTimeString($timeString);
-            }
-
-            $scheduled = $candidate;
-        } else {
-            $scheduled = $requested;
-        }
+        // Mantener la fecha/hora solicitada explícitamente por la API.
+        $scheduled = $requested;
 
         // Ensure payload exists (may have been mutated above)
         $payload = $payload ?? ($data['payload'] ?? []);

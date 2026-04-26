@@ -28,6 +28,8 @@ async function main(): Promise<void> {
   const lastMenuItems = new Map<string, Array<any>>();
   // per-chat agent mode: when true the user is interacting with a human agent and the bot should pause
   const agentMode = new Map<string, boolean>();
+  // per-chat selected option 6: if true, user selected option 6 and we expect media for notification
+  const selectedOption6 = new Map<string, boolean>();
   // Chats detectados como lead de anuncio (Click-to-WhatsApp/referral).
   // En estos chats priorizamos atención humana y evitamos mostrar menú automático.
   const adLeadChats = new Map<string, { detectedAt: number; evidence: string }>();
@@ -35,12 +37,6 @@ async function main(): Promise<void> {
   const adminNotifiedAt = new Map<string, number>();
   const AGENT_NOTIFY_THROTTLE_MS = Number(process.env.AGENT_NOTIFY_THROTTLE_MS || 30 * 60 * 1000); // default 30 minutes
   const MANUAL_REPLY_PAUSE_MS = Number(process.env.BOT_MANUAL_REPLY_PAUSE_MS || 10 * 60 * 1000);
-  // awaiting receipt uploads per chat
-  const awaitingReceipt = new Map<string, boolean>();
-  // pending confirmation for an unsolicited media receipt: store downloaded media until user confirms
-  const pendingConfirmReceipt = new Map<string, { data: string; mimetype: string; filename?: string; text?: string }>();
-  // after we save receipt (and optionally create backend payment) we ask how many months are being paid
-  const awaitingMonths = new Map<string, { receiptId: string; backendReceiptId?: number | null; backendPaymentId?: number | null }>();
   const RECEIPTS_DIR = path.join(process.cwd(), 'data', 'receipts');
   const RECEIPTS_INDEX = path.join(RECEIPTS_DIR, 'index.json');
 
@@ -126,9 +122,6 @@ async function main(): Promise<void> {
     menuShown.delete(chatId);
     lastMenuItems.delete(chatId);
     agentMode.delete(chatId);
-    awaitingReceipt.delete(chatId);
-    awaitingMonths.delete(chatId);
-    pendingConfirmReceipt.delete(chatId);
     chatTimeoutMs.delete(chatId);
     if (options?.clearTimer) clearTimer(chatId);
     logger.info({ chatId, reason }, 'Estado transient del chat reiniciado');
@@ -173,9 +166,6 @@ async function main(): Promise<void> {
     chatTimeoutMs.set(chatId, MANUAL_REPLY_PAUSE_MS);
     menuShown.delete(chatId);
     lastMenuItems.delete(chatId);
-    awaitingReceipt.delete(chatId);
-    pendingConfirmReceipt.delete(chatId);
-    awaitingMonths.delete(chatId);
     try { touchTimer(chatId); } catch { /* ignore */ }
     logger.info({ rawTarget, chatId, phoneDigits, pauseMs: MANUAL_REPLY_PAUSE_MS }, 'Chat puesto en pausa temporal automática por respuesta manual del operador');
   });
@@ -641,7 +631,7 @@ async function main(): Promise<void> {
         '',
         '💰 *PAGOS Y CONCILIACIÓN*',
         '9️⃣ Registrar pago manual',
-        '🔟 Conciliar pago',
+        // '🔟 Conciliar pago',
         '1️⃣1️⃣ Listar pagos pendientes',
         '',
         '🗑️ *ELIMINACIÓN*',
@@ -764,7 +754,7 @@ async function main(): Promise<void> {
   // Business hours check: admins and ongoing processes always bypass
   // Regular users can now use the menu and automatic options 24/7, but agent requests notify about off-hours
   try {
-    const isInActiveProcess = awaitingReceipt.get(chatId) || pendingConfirmReceipt.has(chatId) || awaitingMonths.has(chatId) || agentMode.get(chatId) || menuShown.get(chatId);
+    const isInActiveProcess = agentMode.get(chatId) || menuShown.get(chatId);
     const isMediaUpload = !!(message as any).hasMedia;
     logger.warn({ chatId, lc, isAdminUserEarly, isInActiveProcess, isMediaUpload, withinHours: _isWithinBusinessHours() }, 'DEBUG horario: punto de verificación de horario alcanzado');
     // No bloquear mensajes generales por horario: menú y opciones automáticas 24/7.
@@ -820,144 +810,23 @@ async function main(): Promise<void> {
     logger.debug({ e }, 'Error en captura de respuesta a recordatorio');
   }
 
-  // Adjuntos: solo se procesan cuando el usuario está en el flujo de comprobantes (opción 6).
-  // Si llega un archivo fuera de ese flujo, lo ignoramos (y guiamos al usuario).
-  // Caso especial: si el usuario envía "6" junto con el adjunto, activamos el flujo y lo procesamos.
+  // Adjuntos: el envío de comprobantes por WhatsApp para verificación quedó obsoleto.
+  // Los comprobantes deben gestionarse desde la ficha de correos; aquí solo enviamos avisos al cliente.
   try {
     const hasMedia = !!(message as any).hasMedia;
-    if (hasMedia && !isAdminUserEarly && !agentMode.get(chatId) && !awaitingReceipt.get(chatId)) {
-      if (lc === '6') {
-        awaitingReceipt.set(chatId, true);
-        chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
-        try { touchTimer(chatId); } catch { /* ignore */ }
+    if (hasMedia && !isAdminUserEarly && !agentMode.get(chatId)) {
+      if (selectedOption6.get(chatId)) {
+        await message.reply('Nuestros agentes están verificando tu pago. Te contactaremos cuando esté listo.');
+        selectedOption6.delete(chatId);
+        return;
       } else {
-        const looksLikeMenuSelection = Boolean(menuShown.get(chatId)) && /^\d{1,2}$/.test(lc);
-        const looksLikeMenuCommand = (lc === 'menu' || lc === 'inicio' || lc === 'help');
-        const looksLikeAgentCommand = (lc === 'agente' || lc === 'asesor');
-        if (!(looksLikeMenuSelection || looksLikeMenuCommand || looksLikeAgentCommand)) {
-          await message.reply('Para enviar un comprobante, escribe "menu" y elige la opción 6. Luego adjunta la foto o PDF.');
-          return;
-        }
+        await message.reply('Los comprobantes por WhatsApp ya no se procesan para conciliación. Usa la ficha de correos o escribe "agente" para hablar con un asesor.');
+        return;
       }
     }
   } catch (e: any) {
     logger.debug({ e }, 'Error aplicando política de adjuntos');
   }
-
-  // If we're awaiting a receipt from this chat, handle media uploads first
-    if (awaitingReceipt.get(chatId)) {
-      try {
-        if (lc === 'salir' || lc === 'exit' || lc === 'c') {
-          awaitingReceipt.delete(chatId);
-          pendingConfirmReceipt.delete(chatId);
-          awaitingMonths.delete(chatId);
-          chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
-          try { touchTimer(chatId); } catch { /* ignore */ }
-          await message.reply('Cancelado. Saliste del envío de comprobante. Escribe "menu" para volver al menú principal.');
-          return;
-        }
-
-        if ((message as any).hasMedia) {
-          const media = await (message as any).downloadMedia();
-          const fname = (media.filename && media.filename.trim()) ? media.filename : `receipt-${chatId.replace(/[^0-9]/g,'')}-${Date.now()}`;
-          // save locally and notify admin
-          const saved = await saveReceipt(chatId, fname, media.data, media.mimetype, body);
-          // Create a backend Payment placeholder (in CRC) so it appears in UI even before months are applied.
-          // We'll attach the PDF if it's already a PDF; otherwise admin will receive the media via WhatsApp.
-          let backendPaymentId: number | null = null;
-          try {
-            // Importante: NO autocrear clientes. Solo asociar el pago si el cliente ya existe.
-            let client: any = null;
-            try { client = await apiClient.findCustomerByPhone(fromNorm); } catch { /* ignore */ }
-
-            const paymentPayload: any = {
-              client_id: client && client.id ? client.id : undefined,
-              amount: 0,
-              currency: 'CRC',
-              channel: 'whatsapp',
-              status: 'unverified',
-              reference: `bot:${saved.id}`,
-              metadata: { local_receipt_id: saved.id }
-            };
-
-            const pRes = await apiClient.createPayment(paymentPayload);
-            if (pRes && (pRes.id || pRes.payment_id)) {
-              backendPaymentId = pRes.id ?? pRes.payment_id;
-              await updateReceiptEntry(saved.id, { backend_payment_id: backendPaymentId, status: 'created' });
-            } else {
-              await updateReceiptEntry(saved.id, { status: 'created' });
-            }
-
-            // If we have a backend payment, try to attach the file. If it's an image, convert to PDF first.
-            if (backendPaymentId) {
-              try {
-                let attachBuf: Buffer | null = null;
-                let attachName = fname;
-                if (media.mimetype === 'application/pdf') {
-                  attachBuf = Buffer.from(media.data, 'base64');
-                } else if (/^image\//.test(media.mimetype)) {
-                  try {
-                    const imgBuf = Buffer.from(media.data, 'base64');
-                    const pdfBuf = await imageBufferToPdfBuffer(imgBuf, fname + '.pdf');
-                    attachBuf = pdfBuf;
-                    attachName = (fname.endsWith('.pdf') ? fname : (fname + '.pdf'));
-                  } catch (e: any) {
-                    logger.debug({ e }, 'No se pudo convertir imagen a PDF para adjuntar, se omite attach');
-                    attachBuf = null;
-                  }
-                }
-                if (attachBuf) {
-                  const fdMod = await import('form-data');
-                  const FormDataCtor: any = fdMod && (fdMod as any).default ? (fdMod as any).default : fdMod;
-                  const form = new FormDataCtor();
-                  form.append('file', attachBuf, { filename: attachName, contentType: 'application/pdf' });
-                  form.append('received_at', new Date().toISOString());
-                  form.append('metadata', JSON.stringify([]));
-                  const headers = Object.assign({ Authorization: `Bearer ${config.apiToken}`, Accept: 'application/json' }, form.getHeaders());
-                  await axios.post(`${config.apiBaseUrl.replace(/\/$/, '')}/payments/${backendPaymentId}/receipts`, form, { headers });
-                }
-              } catch (e: any) {
-                logger.debug({ e, backendPaymentId, saved }, 'No se pudo adjuntar PDF al payment (se continuará de todas formas)');
-              }
-            }
-          } catch (e: any) {
-            logger.warn({ e, chatId }, 'No se pudo crear payment placeholder en backend');
-          }
-
-          // After saving receipt and creating backend payment placeholder, ask client cuántos meses son
-          awaitingMonths.set(chatId, { receiptId: saved.id, backendPaymentId });
-          await message.reply('Gracias. ¿Cuántos meses estás pagando con este comprobante? Responde con un número, por ejemplo: 1');
-
-          // notify admin and forward media (include backend payment id if available)
-          try {
-            const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-            const adminChatId = normalizeToChatId(adminPhone);
-            if (adminChatId) {
-              const notifyText = backendPaymentId
-                ? `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id} | backend payment: ${backendPaymentId}`
-                : `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id}`;
-              await whatsappClient.sendText(adminChatId, notifyText);
-              await whatsappClient.sendMedia(adminChatId, media.data, media.mimetype, fname);
-              logger.info({ adminChatId, chatId, file: saved.filepath, backendPaymentId }, 'Enviado comprobante al admin');
-            }
-          } catch (e: any) {
-            logger.warn({ e }, 'Fallo notificando admin sobre comprobante recibido');
-          }
-
-          awaitingReceipt.delete(chatId);
-          await message.reply('✅ Recibimos tu comprobante. Un asesor lo revisará y te contactará si es necesario.');
-          return;
-        } else {
-          await message.reply('Por favor adjunta una foto o PDF del comprobante. Si no deseas continuar escribe "salir".');
-          return;
-        }
-      } catch (e: any) {
-        logger.error({ e }, 'Error procesando comprobante');
-        awaitingReceipt.delete(chatId);
-        await message.reply('❌ Ocurrió un error procesando el comprobante. Intenta de nuevo o escribe "salir" para cancelar.');
-        return;
-      }
-    }
 
   const isAdminUser = isAdminChatId(chatId) || fromNorm === '50672140974';
 
@@ -1598,77 +1467,6 @@ async function main(): Promise<void> {
           }
         }
 
-        // conciliate_payment
-        if (flow.type === 'conciliate_payment') {
-          if (flow.step === 1) {
-            const paymentId = parseInt(body);
-            if (isNaN(paymentId)) { await message.reply('❌ ID inválido. Ingresa solo números.'); return; }
-            try {
-              const payment = await apiClient.getPayment(paymentId);
-              if (!payment) {
-                await message.reply(`❌ No encontré el pago con ID ${paymentId}.\n\nEscribe *adminmenu* para volver`);
-                adminFlows.delete(chatId);
-                return;
-              }
-              flow.data.payment = payment;
-              flow.step = 2;
-              const lines = [
-                '💰 *Pago a Conciliar*',
-                '',
-                `ID: ${payment.id}`,
-                `Cliente: ${payment.client?.name || payment.client_id}`,
-                `Monto: ₡${Number(payment.amount || 0).toLocaleString('es-CR')} ${payment.currency || 'CRC'}`,
-                `Estado actual: ${payment.status}`,
-                `Referencia: ${payment.reference || 'Sin referencia'}`,
-                '',
-                'Estado nuevo (verified, rejected, o Enter para verified):'
-              ].join('\n');
-              await message.reply(lines);
-              return;
-            } catch (e: any) {
-              await message.reply(`❌ Error obteniendo pago: ${String(e && e.message ? e.message : e)}`);
-              adminFlows.delete(chatId);
-              return;
-            }
-          }
-          if (flow.step === 2) {
-            const newStatus = body.trim() || 'verified';
-            if (!['verified', 'rejected', 'pending', 'unverified'].includes(newStatus)) {
-              await message.reply('❌ Estado inválido. Usa: verified, rejected, pending o unverified');
-              return;
-            }
-            flow.data.newStatus = newStatus;
-            flow.step = 3;
-            await message.reply('Notas de conciliación (opcional, Enter para omitir):');
-            return;
-          }
-          if (flow.step === 3) {
-            const notes = body.trim() || null;
-            try {
-              const d = flow.data;
-              // Update payment status
-              await apiClient.updatePayment(d.payment.id, { status: d.newStatus });
-              
-              // Create conciliation record
-              const conciliationPayload = {
-                payment_id: d.payment.id,
-                status: d.newStatus,
-                notes: notes,
-                conciliated_by: fromNorm,
-                conciliated_at: new Date().toISOString()
-              };
-              await apiClient.createConciliation(conciliationPayload);
-              
-              await message.reply(`✅ Pago conciliado correctamente.\n\nID: ${d.payment.id}\nNuevo estado: ${d.newStatus}\n\nEscribe *adminmenu* para volver`);
-            } catch (e: any) {
-              logger.error({ e, paymentId: flow.data.payment?.id }, 'Error conciliando pago');
-              await message.reply(`❌ Error conciliando pago: ${String(e && e.message ? e.message : e)}`);
-            }
-            adminFlows.delete(chatId);
-            return;
-          }
-        }
-
         // delete_contracts_by_phone
         if (flow.type === 'delete_contracts_by_phone') {
           if (flow.step === 1) {
@@ -1738,251 +1536,8 @@ async function main(): Promise<void> {
       }
     }
 
-    // If user confirms an unsolicited media (pendingConfirmReceipt) with 'si', process it as a receipt
-    if (lc === 'si' && pendingConfirmReceipt.has(chatId)) {
-      const pending = pendingConfirmReceipt.get(chatId)!;
-      try {
-        const saved = await saveReceipt(chatId, pending.filename || `receipt-${Date.now()}.bin`, pending.data, pending.mimetype, pending.text);
-        let backendPaymentId: number | null = null;
-        try {
-          // Ensure client exists
-          let client: any = null;
-          try { client = await apiClient.findCustomerByPhone(fromNorm); } catch { /* ignore */ }
-          if (!client) {
-              // No autocrear clientes
-          }
-
-          const paymentPayload: any = {
-            client_id: client && client.id ? client.id : undefined,
-            amount: 0,
-            currency: 'CRC',
-            channel: 'whatsapp',
-            status: 'unverified',
-            reference: `bot:${saved.id}`,
-            metadata: { local_receipt_id: saved.id }
-          };
-
-          const pRes = await apiClient.createPayment(paymentPayload);
-          if (pRes && (pRes.id || pRes.payment_id)) {
-            backendPaymentId = pRes.id ?? pRes.payment_id;
-            await updateReceiptEntry(saved.id, { backend_payment_id: backendPaymentId, status: 'created' });
-          } else {
-            await updateReceiptEntry(saved.id, { status: 'created' });
-          }
-
-          if (backendPaymentId && pending.mimetype === 'application/pdf') {
-            try {
-              const fileBuf = Buffer.from(pending.data, 'base64');
-              const fdMod2 = await import('form-data');
-              const FormDataCtor2: any = fdMod2 && (fdMod2 as any).default ? (fdMod2 as any).default : fdMod2;
-              const form2 = new FormDataCtor2();
-              form2.append('file', fileBuf, { filename: pending.filename, contentType: pending.mimetype });
-              form2.append('received_at', new Date().toISOString());
-              form2.append('metadata', JSON.stringify([]));
-              const headers2 = Object.assign({ Authorization: `Bearer ${config.apiToken}`, Accept: 'application/json' }, form2.getHeaders());
-              await axios.post(`${config.apiBaseUrl.replace(/\/$/, '')}/payments/${backendPaymentId}/receipts`, form2, { headers: headers2 });
-            } catch (e: any) {
-              logger.debug({ e, backendPaymentId, saved }, 'No se pudo adjuntar PDF al payment (confirmación)');
-            }
-          }
-        } catch (e: any) {
-          logger.warn({ e, chatId }, 'No se pudo crear payment placeholder en backend (confirmación)');
-        }
-        // After saving receipt and creating backend payment placeholder, ask client cuántos meses pagó
-        awaitingMonths.set(chatId, { receiptId: saved.id, backendPaymentId });
-        await message.reply('Gracias. ¿Cuántos meses estás pagando con este comprobante? Responde con un número, por ejemplo: 1');
-
-        // notify admin
-        try {
-          const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-          const adminChatId = normalizeToChatId(adminPhone);
-          if (adminChatId) {
-            const notifyText = backendPaymentId
-              ? `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id} | backend payment: ${backendPaymentId}`
-              : `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id}`;
-            await whatsappClient.sendText(adminChatId, notifyText);
-            await whatsappClient.sendMedia(adminChatId, pending.data, pending.mimetype, pending.filename);
-            logger.info({ adminChatId, chatId, file: saved.filepath, backendPaymentId }, 'Enviado comprobante al admin (confirmación)');
-          }
-        } catch (e: any) {
-          logger.warn({ e }, 'Fallo notificando admin sobre comprobante recibido (confirmación)');
-        }
-
-        pendingConfirmReceipt.delete(chatId);
-        return;
-      } catch (e: any) {
-        pendingConfirmReceipt.delete(chatId);
-        logger.error({ e }, 'Error procesando comprobante confirmado');
-        await message.reply('❌ Ocurrió un error procesando el comprobante. Intenta de nuevo o escribe "salir" para cancelar.');
-        return;
-      }
-    }
-
-    // If user cancels an unsolicited media
-    if (lc === 'no' && pendingConfirmReceipt.has(chatId)) {
-      pendingConfirmReceipt.delete(chatId);
-      await message.reply('He cancelado el registro del archivo. Si necesitas enviar el comprobante usa la opción 6 del menú.');
-      return;
-    }
-
-    // If we're awaiting number of months for a previously uploaded receipt
-  if (awaitingMonths.has(chatId)) {
-  const payload = awaitingMonths.get(chatId)!;
-  const asNum = Number(body.replace(/[^0-9]/g, ''));
-      if (!Number.isNaN(asNum) && asNum > 0) {
-        // try to inform backend about months / create payments for those months
-        let monthlyAmount: number | null = null;
-        try {
-          // Try to fetch subscription info to compute total amount
-          try {
-            // Try to find client and contract to infer monthly amount
-            let clientForAmount: any = null;
-            try { clientForAmount = await apiClient.findCustomerByPhone(fromNorm); } catch { /* ignore */ }
-            // No autocrear clientes
-            if (clientForAmount && clientForAmount.id) {
-              const contracts = await apiClient.listContracts({ client_id: clientForAmount.id });
-              if (Array.isArray(contracts) && contracts.length) {
-                const c = contracts[0];
-                if (c && (c.amount || c.monto)) {
-                  monthlyAmount = Number(c.amount || c.monto) || null;
-                }
-              }
-            }
-          } catch (e: any) {
-            logger.debug({ e, chatId }, 'No se pudo obtener contrato para calcular monto mensual');
-          }
-
-              // Resolver cliente en backend (sin autocrear)
-          let client: any = null;
-          try {
-            client = await apiClient.findCustomerByPhone(fromNorm);
-          } catch (e: any) {
-            logger.debug({ e, fromNorm }, 'findCustomerByPhone fallo');
-          }
-          // Si no existe cliente, continuamos sin asociarlo (no autocrear)
-
-          // Compute amount
-          const amount = monthlyAmount ? monthlyAmount * asNum : 0;
-
-          // If we previously created a backend payment placeholder, update it instead of creating a new payment
-          let appliedResult: any = null;
-          if (payload.backendPaymentId) {
-            try {
-              const updatePayload: any = {
-                amount: amount,
-                currency: 'CRC',
-                metadata: Object.assign({}, { months: asNum, backend_receipt_id: payload.backendPaymentId, local_receipt_id: payload.receiptId })
-              };
-              appliedResult = await apiClient.updatePayment(payload.backendPaymentId, updatePayload);
-              await updateReceiptEntry(payload.receiptId, { months: asNum, status: 'applied', backend_apply_result: appliedResult, backend_payment_id: appliedResult && (appliedResult.id || appliedResult.payment_id) ? (appliedResult.id ?? appliedResult.payment_id) : payload.backendPaymentId, monthly_amount: monthlyAmount, total_amount: amount });
-            } catch (e: any) {
-              throw e;
-            }
-          } else {
-            const paymentPayload: any = {
-              client_id: client && client.id ? client.id : undefined,
-              amount: amount,
-              currency: 'CRC',
-              channel: 'whatsapp',
-              status: 'unverified',
-              reference: payload.backendReceiptId ? `receipt:${payload.backendReceiptId}` : `bot:${payload.receiptId}`,
-              metadata: { months: asNum, backend_receipt_id: payload.backendReceiptId }
-            };
-            const res = await apiClient.createPayment(paymentPayload);
-            appliedResult = res;
-            await updateReceiptEntry(payload.receiptId, { months: asNum, status: 'applied', backend_apply_result: res, backend_payment_id: res && (res.id || res.payment_id) ? (res.id ?? res.payment_id) : null, monthly_amount: monthlyAmount, total_amount: amount });
-          }
-
-          // notify admin with details
-          try {
-            const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-            const adminChatId = normalizeToChatId(adminPhone);
-            if (adminChatId) {
-              const txt = `El cliente ${fromUser} (${chatId}) indicó que paga ${asNum} mes(es) para el comprobante ${payload.receiptId}` + (payload.backendReceiptId ? ` (backend receipt ${payload.backendReceiptId})` : '');
-              await whatsappClient.sendText(adminChatId, txt);
-              logger.info({ adminChatId, chatId, months: asNum, receiptId: payload.receiptId }, 'Admin notificado: meses aplicados al comprobante');
-            }
-          } catch (e: any) {
-            logger.warn({ e }, 'No se pudo notificar al admin sobre meses aplicados');
-          }
-
-          awaitingMonths.delete(chatId);
-          await message.reply(`✅ Gracias. He registrado que pagas ${asNum} mes(es). Un asesor validará y conciliará el pago.`);
-          return;
-        } catch (e: any) {
-          // Log detailed error info (include axios response payload when available)
-          const errInfo: any = { message: String(e && e.message ? e.message : e) };
-          try {
-            if (e && e.response) {
-              errInfo.status = e.response.status;
-              errInfo.data = e.response.data;
-            }
-            if (e && e.code) errInfo.code = e.code;
-          } catch {
-            // ignore
-          }
-          logger.warn({ errInfo, chatId, payload: { phone: fromNorm, months: asNum, backendReceiptId: payload.backendReceiptId } }, 'Error informando al backend sobre meses');
-
-          // Persist error details in the receipt index so admins can inspect later
-          try {
-            await updateReceiptEntry(payload.receiptId, { status: 'apply_failed', apply_error: errInfo, attempted_months: asNum });
-          } catch (ee: any) {
-            logger.debug({ ee }, 'No se pudo actualizar índice con error de aplicación de meses');
-          }
-
-          // Inform the user with a friendlier message and inform that we'll retry once automatically
-          await message.reply('❌ No pude registrar el número de meses en este momento. Intentaré de nuevo automáticamente en unos minutos y, si sigue fallando, un asesor te ayudará. Mientras tanto puedes escribir "salir" para cancelar.');
-
-          // schedule a single retry in the background (non-blocking)
-          try {
-            const retryDelayMs = 60 * 1000; // 1 minute
-            setTimeout(async () => {
-              try {
-                // Retry creating payment in backend
-                let clientRetry: any = null;
-                try { clientRetry = await apiClient.findCustomerByPhone(fromNorm); } catch { /* ignore */ }
-                if (!clientRetry) {
-                  // No autocrear clientes
-                }
-                const amountRetry = monthlyAmount ? monthlyAmount * asNum : 0;
-                const paymentPayloadRetry: any = {
-                  client_id: clientRetry && clientRetry.id ? clientRetry.id : undefined,
-                  amount: amountRetry,
-                  currency: 'CRC',
-                  channel: 'whatsapp',
-                  status: 'unverified',
-                  reference: payload.backendReceiptId ? `receipt:${payload.backendReceiptId}` : `bot:${payload.receiptId}`,
-                  metadata: { months: asNum, backend_receipt_id: payload.backendReceiptId }
-                };
-                const retryRes = await apiClient.createPayment(paymentPayloadRetry);
-                await updateReceiptEntry(payload.receiptId, { status: 'applied', backend_apply_result: retryRes, backend_payment_id: retryRes && (retryRes.id || retryRes.payment_id) ? (retryRes.id ?? retryRes.payment_id) : null, monthly_amount: monthlyAmount, total_amount: amountRetry });
-                // notify admin about successful retry
-                try {
-                  const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-                  const adminChatId = normalizeToChatId(adminPhone);
-                  if (adminChatId) {
-                    const txt = `Reintento exitoso: aplicados ${asNum} mes(es) para el comprobante ${payload.receiptId} del cliente ${fromUser} (${chatId}).`;
-                    await whatsappClient.sendText(adminChatId, txt);
-                  }
-                } catch (e2: any) {
-                  logger.debug({ e2 }, 'No se pudo notificar al admin tras reintento exitoso');
-                }
-              } catch (e2: any) {
-                logger.warn({ e2, chatId }, 'Reintento fallido aplicando meses');
-                try { await updateReceiptEntry(payload.receiptId, { status: 'apply_failed', apply_error_retry: String(e2 && e2.message ? e2.message : e2) }); } catch { /* ignore */ }
-              }
-            }, retryDelayMs);
-          } catch (ee) {
-            logger.debug({ ee }, 'No se pudo programar reintento');
-          }
-
-          return;
-        }
-      } else {
-        await message.reply('Por favor responde con un número entero de meses (ej: 1). Escribe "salir" para cancelar.');
-        return;
-      }
-    }
+    await message.reply('El envío de comprobantes y la verificación por WhatsApp ya no están disponibles. Usa la ficha de correos para conciliar pagos o escribe "agente" para hablar con un asesor.');
+    return;
 
     // Nota: el comando `adminmenu` para admins se maneja arriba con un atajo temprano
     // (para evitar waits de backend en modo polling fallback). No duplicar aquí.
@@ -2213,15 +1768,6 @@ async function main(): Promise<void> {
         lastMenuItems.delete(chatId);
         await message.reply('📝 *Registrar Pago Manual*\n\nIngresa el teléfono del cliente (8 dígitos):');
         adminFlows.set(chatId, { type: 'create_payment', step: 1, data: {} });
-        return;
-      }
-      
-      if (selection === '10') {
-        // Conciliar pago
-        menuShown.delete(chatId);
-        lastMenuItems.delete(chatId);
-        await message.reply('🔄 *Conciliar Pago*\n\nIngresa el ID del pago a conciliar:');
-        adminFlows.set(chatId, { type: 'conciliate_payment', step: 1, data: {} });
         return;
       }
       
@@ -2887,7 +2433,7 @@ async function main(): Promise<void> {
               lines.push('━━━━━━━━━━━━━━━━━');
               lines.push('');
               lines.push('💡 *Opciones:*');
-              lines.push('• Escribe *6* para enviar comprobante de pago');
+              lines.push('• Usa la ficha de correos para conciliar pagos.');
               lines.push('• Escribe *menu* para volver al menú principal');
               lines.push('• Escribe *agente* para hablar con un asesor');
 
@@ -2902,21 +2448,21 @@ async function main(): Promise<void> {
             }
           }
 
-          await message.reply(replyText);
-          const lower = String(replyText || '').toLowerCase();
+          // Special case: option 6 - Send receipt (now just notify verification)
+          const isOptionSix = (typeof asNum === 'number' && asNum === 6)
+            || (matched.keyword && String(matched.keyword).trim() === '6')
+            || (matched.key && String(matched.key).trim() === '6');
 
-          // Si esta opción es la 6, entramos en modo de recepción de comprobante.
-          const isAwaitingReceipt = (typeof asNum === 'number' && asNum === 6)
-            || (matched.keyword && String(matched.keyword).trim().toLowerCase() === '6')
-            || (matched.key && String(matched.key).trim().toLowerCase() === '6');
-          if (isAwaitingReceipt) {
-            awaitingReceipt.set(chatId, true);
-            // keep short timeout for receipt upload
-            chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
-            try { touchTimer(chatId); } catch { /* ignore */ }
-            await message.reply('Por favor adjunta una foto o PDF del comprobante ahora. Si deseas cancelar escribe "salir".');
+          if (isOptionSix) {
+            selectedOption6.set(chatId, true);
+            await message.reply(replyText);
+            menuShown.delete(chatId);
+            lastMenuItems.delete(chatId);
             return;
           }
+
+          await message.reply(replyText);
+          const lower = String(replyText || '').toLowerCase();
 
           // Heurística para detectar transferencia a agente (si el reply contiene palabras clave)
           const isAgentTransfer = /transfer|asesor|agente|asesores|te vamos a transferir|transferir|transferencia/i.test(lower);

@@ -90,6 +90,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/sinpe-emails/client-contracts', [WebSinpeEmailController::class, 'clientContracts'])->name('sinpe-emails.client-contracts');
         Route::patch('/sinpe-emails/{id}/read', [WebSinpeEmailController::class, 'markRead'])->name('sinpe-emails.mark-read');
         Route::post('/sinpe-emails/{id}/conciliate', [WebSinpeEmailController::class, 'conciliate'])->name('sinpe-emails.conciliate');
+        Route::post('/sinpe-emails/{id}/break-conciliation', [WebSinpeEmailController::class, 'breakConciliation'])->name('sinpe-emails.break-conciliation');
         Route::delete('/sinpe-emails/{id}', [WebSinpeEmailController::class, 'destroy'])->name('sinpe-emails.destroy');
 
         Route::get('/accounting', \App\Http\Controllers\Web\AccountingController::class . '@index')->name('accounting.index');

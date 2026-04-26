@@ -16,6 +16,8 @@ class Conciliation extends Model
         'status',
         'notes',
         'verified_at',
+        'unique_conciliation_key',
+        'channel',
     ];
 
     protected $casts = [

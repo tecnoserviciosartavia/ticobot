@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "225585952185",
+    "project_id": "ticobot-1ce1f",
+    "storage_bucket": "ticobot-1ce1f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225585952185:android:ed04e134f06197ee9f7268",
+        "android_client_info": {
+          "package_name": "com.ticocast.ticobot"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7RN4unEy3_Z4Tm8EQSGcZSJyIlq5wpRo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

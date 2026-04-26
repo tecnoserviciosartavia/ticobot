@@ -36,6 +36,7 @@ interface ContractOption {
     name: string;
     amount: number;
     currency: string;
+    billing_cycle?: string | null;
 }
 
 interface Paginated<T> {
@@ -69,21 +70,32 @@ const formatAmount = (amount: string | number) =>
         typeof amount === 'string' ? parseFloat(amount) : amount,
     );
 
+const currentBillingMonth = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+};
+
 const labelForEmailStatus = (status: string) => {
     switch (status) {
-        case 'skipped':   return 'Sin conciliar';
-        case 'in_review': return 'En revisión';
-        case 'error':     return 'Error';
-        default:          return labelForStatus(status);
+        case 'skipped':     return 'Sin conciliar';
+        case 'in_review':   return 'En revisión';
+        case 'approved':
+        case 'conciliated': return 'Conciliado';
+        case 'error':       return 'Error';
+        default:            return labelForStatus(status);
     }
 };
 
 const classForEmailStatus = (status: string) => {
     switch (status) {
-        case 'skipped':   return 'bg-amber-100 text-amber-800 ring-amber-500/40';
-        case 'in_review': return 'bg-blue-100 text-blue-800 ring-blue-500/40';
-        case 'error':     return 'bg-rose-100 text-rose-800 ring-rose-500/40';
-        default:          return 'bg-slate-100 text-slate-800 ring-slate-500/40';
+        case 'skipped':     return 'bg-amber-100 text-amber-800 ring-amber-500/40';
+        case 'in_review':   return 'bg-blue-100 text-blue-800 ring-blue-500/40';
+        case 'approved':
+        case 'conciliated': return 'bg-emerald-100 text-emerald-800 ring-emerald-500/40';
+        case 'error':       return 'bg-rose-100 text-rose-800 ring-rose-500/40';
+        default:            return 'bg-slate-100 text-slate-800 ring-slate-500/40';
     }
 };
 
@@ -106,6 +118,8 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
     const [loadingContracts, setLoadingContracts] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+    const [updateClientName, setUpdateClientName] = useState(false);
+    const [billingMonth, setBillingMonth] = useState(currentBillingMonth());
 
     // Delete confirm
     const [deleteTarget, setDeleteTarget] = useState<SinpeEmailTransaction | null>(null);
@@ -133,6 +147,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
         setContractId('');
         setContracts([]);
         setFormError(null);
+        setBillingMonth(currentBillingMonth());
         setModalOpen(true);
     };
 
@@ -140,6 +155,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
         setClientId(newClientId);
         setContractId('');
         setContracts([]);
+        setBillingMonth(currentBillingMonth());
         if (!newClientId) return;
         setLoadingContracts(true);
         try {
@@ -155,11 +171,21 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
             setFormError('Debes seleccionar cliente y contrato.');
             return;
         }
+
+        if (!billingMonth) {
+            setFormError('Debes seleccionar el mes a conciliar.');
+            return;
+        }
         setSubmitting(true);
         setFormError(null);
         router.post(
             route('sinpe-emails.conciliate', { id: selected.id }),
-            { client_id: clientId, contract_id: contractId },
+            { 
+                client_id: clientId, 
+                contract_id: contractId,
+                update_client_name: updateClientName,
+                billing_month: billingMonth || null,
+            },
             {
                 onSuccess: () => { setModalOpen(false); setSubmitting(false); },
                 onError: (errors) => {
@@ -179,6 +205,14 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
         setDeleteTarget(null);
 
         router.delete(route('sinpe-emails.destroy', { id: deleteId }), {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    const handleBreakConciliation = (tx: SinpeEmailTransaction) => {
+        router.post(route('sinpe-emails.break-conciliation', { id: tx.id }), {}, {
             preserveScroll: true,
             preserveState: true,
             replace: true,
@@ -340,7 +374,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                                     </div>
 
                                     <div className="mt-4 flex flex-wrap gap-2">
-                                        {tx.status === 'skipped' && (
+                                        {['skipped', 'in_review'].includes(tx.status) && (
                                             <button
                                                 type="button"
                                                 onClick={(e) => {
@@ -352,8 +386,21 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                                                 Conciliar
                                             </button>
                                         )}
+                                        {['approved', 'conciliated'].includes(tx.status) && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleBreakConciliation(tx);
+                                                }}
+                                                className="rounded-md border border-amber-300 dark:border-amber-700 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                            >
+                                                Romper conciliación
+                                            </button>
+                                        )}
                                         <button
                                             type="button"
+                                            onMouseDown={(e) => e.stopPropagation()}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setDeleteTarget(tx);
@@ -467,7 +514,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                                                 )}
                                             </td>
                                             <td className="px-4 py-3">
-                                                {tx.status === 'skipped' && (
+                                                {['skipped', 'in_review'].includes(tx.status) && (
                                                     <button
                                                         type="button"
                                                         onClick={(e) => {
@@ -479,13 +526,26 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                                                         Conciliar
                                                     </button>
                                                 )}
-                                                {tx.status === 'in_review' && (
-                                                    <span className="text-xs text-blue-600 dark:text-blue-400">En revisión</span>
+                                                {['approved', 'conciliated'].includes(tx.status) && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-emerald-600 dark:text-emerald-400">Conciliado</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleBreakConciliation(tx);
+                                                            }}
+                                                            className="rounded-md border border-amber-300 dark:border-amber-700 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                                        >
+                                                            Romper conciliación
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <button
                                                     type="button"
+                                                    onMouseDown={(e) => e.stopPropagation()}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setDeleteTarget(tx);
@@ -579,13 +639,35 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                                         </select>
                                     </div>
 
+                                    {clientId && selected?.origin_name && (
+                                        <div className="flex items-start gap-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 p-3">
+                                            <input
+                                                type="checkbox"
+                                                id="update_client_name"
+                                                checked={updateClientName}
+                                                onChange={(e) => setUpdateClientName(e.target.checked)}
+                                                className="mt-1 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-indigo-500"
+                                            />
+                                            <label htmlFor="update_client_name" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                                <span className="font-medium">Actualizar nombre del cliente</span>
+                                                <br />
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                    Cambiar de "{clients.find(c => c.id === Number(clientId))?.name}" a <strong>{selected.origin_name}</strong>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    )}
+
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             Contrato
                                         </label>
                                         <select
                                             value={contractId}
-                                            onChange={(e) => setContractId(e.target.value)}
+                                            onChange={(e) => {
+                                                setContractId(e.target.value);
+                                                setBillingMonth(currentBillingMonth());
+                                            }}
                                             disabled={!clientId || loadingContracts}
                                             className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
                                         >
@@ -598,6 +680,18 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                                                 </option>
                                             ))}
                                         </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Mes a conciliar
+                                        </label>
+                                        <input
+                                            type="month"
+                                            value={billingMonth}
+                                            onChange={(e) => setBillingMonth(e.target.value)}
+                                            className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        />
                                     </div>
 
                                     {formError && (
@@ -631,7 +725,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
             </Transition>
             {/* Modal eliminar */}
             <Transition show={deleteTarget !== null} as={Fragment}>
-                <Dialog onClose={() => setDeleteTarget(null)} className="relative z-50">
+                <Dialog onClose={() => deleteTarget && setDeleteTarget(null)} className="relative z-50">
                     <Transition.Child
                         as={Fragment}
                         enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100"

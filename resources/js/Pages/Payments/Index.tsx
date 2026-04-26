@@ -140,7 +140,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
             header={
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">
                             Pagos
                         </h2>
                     </div>
@@ -161,7 +161,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     <AccountingTabs active="payments" />
-                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
+                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
                         <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-4 py-4 sm:px-6">
                             <div className="mb-3 flex items-center justify-between gap-3 md:hidden">
                                 <div>
@@ -192,7 +192,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         name="status"
                                         value={data.status}
                                         onChange={(event) => setData('status', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
                                     >
                                         <option value="">Todos</option>
                                         {statuses.map((statusOption) => (
@@ -215,7 +215,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         name="channel"
                                         value={data.channel}
                                         onChange={(event) => setData('channel', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
                                     >
                                         <option value="">Todos</option>
                                         {channels.map((channelOption) => (
@@ -239,7 +239,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         type="date"
                                         value={data.paid_from}
                                         onChange={(event) => setData('paid_from', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:[color-scheme:dark] shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:[color-scheme:dark] shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     />
                                 </div>
 
@@ -256,7 +256,7 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                         type="date"
                                         value={data.paid_to}
                                         onChange={(event) => setData('paid_to', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:[color-scheme:dark] shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
+                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:[color-scheme:dark] shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
                                     />
                                 </div>
 
@@ -574,7 +574,7 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                                         id="contract"
                                                         value={selectedContractId || ''}
                                                         onChange={(e) => setSelectedContractId(Number(e.target.value))}
-                                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
+                                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
                                                         disabled={loading}
                                                     >
                                                         <option value="">Selecciona un contrato</option>
@@ -596,7 +596,7 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                                         min="1"
                                                         value={months}
                                                         onChange={(e) => setMonths(Math.max(1, parseInt(e.target.value) || 1))}
-                                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
+                                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
                                                         disabled={loading}
                                                     />
                                                 </div>
@@ -611,7 +611,7 @@ function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paym
                                                             id="billing_month"
                                                             value={billingMonth}
                                                             onChange={(e) => setBillingMonth(e.target.value)}
-                                                            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
+                                                            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
                                                             disabled={loading}
                                                         />
                                                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
