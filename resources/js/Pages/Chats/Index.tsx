@@ -1,5 +1,9 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import { Badge } from '@/Components/badge';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, Link } from '@inertiajs/react';
+import { MessageSquare, ArrowLeft, User, Clock, Send } from '@/Components/icons';
 
 interface Conversation {
     phone: string;
@@ -11,17 +15,39 @@ interface Conversation {
     unread_count: number;
 }
 
-export default function ChatsIndex({ conversations }: { conversations: Conversation[] }) {
+export default function ChatsIndex({ conversations = [] }: { conversations?: Conversation[] }) {
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Chats WhatsApp</h2>}>
+        <ResponsiveLayout title="Chats WhatsApp">
             <Head title="Chats" />
 
-            <div className="py-8">
-                <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-                    {conversations.length === 0 ? (
-                        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-gray-500 dark:text-gray-400">
-                            No hay conversaciones aún.
+            <div className="py-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Chats WhatsApp</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Gestiona las conversaciones con los clientes a través de WhatsApp.
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <Button variant="outline">
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Volver
+                                </Button>
+                            </div>
                         </div>
+                    </div>
+
+                    {conversations.length === 0 ? (
+                        <Card className="p-8 text-center">
+                            <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">No hay conversaciones aún</h3>
+                            <p className="text-gray-500">
+                                Cuando los clientes envíen mensajes, aparecerán aquí.
+                            </p>
+                        </Card>
                     ) : (
                         <div className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
                             {conversations.map((conv) => (
@@ -70,6 +96,6 @@ export default function ChatsIndex({ conversations }: { conversations: Conversat
                     )}
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

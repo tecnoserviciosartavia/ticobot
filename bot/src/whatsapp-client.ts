@@ -6,6 +6,8 @@ import { logger } from './logger.js';
 import { ReminderMessagePayload, ReminderRecord } from './types.js';
 import { chatIdToPhoneDigits, formatWhatsAppId, normalizeWhatsAppUserChatId } from './utils/phone.js';
 import { apiClient } from './api-client.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { execFile as _execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -346,6 +348,54 @@ export class WhatsAppClient {
       }
     } catch (error) {
       logger.debug({ err: error, chatId }, 'No se pudo marcar chat como leído (markChatUnread=false)');
+    }
+  }
+
+  private async cleanupStaleWhatsAppSession(): Promise<void> {
+    const sessionPath = config.sessionPath;
+    if (!sessionPath) return;
+
+    const normalizedPath = path.resolve(sessionPath);
+    logger.info({ sessionPath: normalizedPath }, 'Intentando cleanup de sesión WhatsApp existente');
+
+    try {
+      const pgrep = await execFile('pgrep', ['-f', normalizedPath]);
+      const pids = String(pgrep.stdout || '')
+        .split(/\s+/)
+        .map((val) => Number(val.trim()))
+        .filter((pid) => Number.isInteger(pid) && pid > 0 && pid !== process.pid && pid !== process.ppid);
+
+      for (const pid of pids) {
+        try {
+          process.kill(pid, 'SIGTERM');
+          logger.info({ pid }, 'Terminando proceso de Chromium antiguo que bloquea la sesión');
+        } catch (error: any) {
+          logger.debug({ err: error, pid }, 'No se pudo terminar proceso de Chromium candidato');
+        }
+      }
+    } catch (error: any) {
+      if (Number(error?.code) !== 1) {
+        logger.warn({ err: error, sessionPath: normalizedPath }, 'cleanupStaleWhatsAppSession: pgrep falló inesperadamente');
+      }
+    }
+
+    const staleLockPaths = [
+      path.join(normalizedPath, 'SingletonLock'),
+      path.join(normalizedPath, 'SingletonSocket'),
+      path.join(normalizedPath, 'SingletonLock.old'),
+      path.join(normalizedPath, 'Local State.lock'),
+      path.join(normalizedPath, 'Local State-journal'),
+      path.join(normalizedPath, 'Default', 'SingletonLock'),
+      path.join(normalizedPath, 'Default', 'SingletonSocket')
+    ];
+
+    for (const lockPath of staleLockPaths) {
+      try {
+        await fs.rm(lockPath, { force: true });
+        logger.info({ lockPath }, 'Lock de Chromium eliminado durante cleanup de sesión');
+      } catch (error: any) {
+        logger.debug({ err: error, lockPath }, 'No se pudo eliminar lock de Chromium durante cleanup de sesión');
+      }
     }
   }
 
@@ -1111,6 +1161,14 @@ export class WhatsAppClient {
           } catch (error) {
             logger.error({ err: error }, 'No se pudo enviar el QR al backend');
           }
+          // Also save as local PNG for easy access
+          try {
+            const qrPath = path.join(process.cwd(), 'public', 'whatsapp-qr.png');
+            await QRCode.toFile(qrPath, qr, { width: 400, margin: 2 });
+            logger.info(`QR guardado localmente en: ${qrPath}`);
+          } catch (err) {
+            logger.debug({ err }, 'No se pudo guardar QR localmente');
+          }
         })
         .catch((error: unknown) => {
           logger.error({ err: error }, 'No se pudo generar el QR en formato de imagen');
@@ -1315,11 +1373,23 @@ export class WhatsAppClient {
 
     this.client.on('message_create', async (message: pkg.Message) => {
       try {
-        if (Boolean((message as any).fromMe) && this.outboundFromMeHandler && !this.wasSentByBot(message)) {
+        const isFromMe = Boolean((message as any).fromMe);
+        if (isFromMe && this.outboundFromMeHandler && !this.wasSentByBot(message)) {
           await this.outboundFromMeHandler(message);
         }
+
+        if (!isFromMe && this.inboundHandler) {
+          const id = String((message as any)?.id?._serialized || '');
+          const from = String((message as any).from || '');
+          const isBroadcast = from.endsWith('@broadcast');
+          if (!isBroadcast && (!id || !this.processedMessageIds.has(id))) {
+            if (id) this.markProcessedMessage(id);
+            await this.inboundHandler(message);
+            await this.markChatIdAsReadBestEffort(message);
+          }
+        }
       } catch (error) {
-        logger.error({ err: error }, 'Error manejando mensaje saliente fromMe');
+        logger.error({ err: error }, 'Error manejando mensaje_create');
       }
 
       if (!this.debugMessages) {
@@ -1350,45 +1420,62 @@ export class WhatsAppClient {
       }
     });
 
-    this.client.on('message', async (message: pkg.Message) => {
+    // Eliminado listener "message" para evitar duplicación de eventos
+// this.client.on('message', async (message: pkg.Message) => {
+//       try {
+//         const id = (message as any)?.id?._serialized;
+//         if (id) this.markProcessedMessage(id);
+//         if (this.debugMessages) {
+//           const body = String((message as any).body ?? '');
+//           const bodyPreview = body.length > 200 ? body.slice(0, 200) + '…' : body;
+//           logger.info(
+//             {
+//               id: (message as any).id?._serialized,
+//               from: (message as any).from,
+//               to: (message as any).to,
+//               fromMe: Boolean((message as any).fromMe),
+//               hasMedia: Boolean((message as any).hasMedia),
+//               type: (message as any).type,
+//               bodyPreview
+//             },
+//             'WhatsApp message (debug)'
+//           );
+//         }
+//         if (this.inboundHandler) {
+//           await this.inboundHandler(message);
+//         }
+
+//         await this.markChatAsSeenBestEffort(message);
+
+//         // Si la sesión está "media rota" y dependemos de polling, acelerar el siguiente tick.
+//         this.kickMessagePollingSoon();
+//       } catch (error) {
+//         logger.error({ err: error }, 'Error manejando mensaje entrante');
+//       }
+//     });
+
+    let lastError: unknown = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
       try {
-        const id = (message as any)?.id?._serialized;
-        if (id) this.markProcessedMessage(id);
-        if (this.debugMessages) {
-          const body = String((message as any).body ?? '');
-          const bodyPreview = body.length > 200 ? body.slice(0, 200) + '…' : body;
-          logger.info(
-            {
-              id: (message as any).id?._serialized,
-              from: (message as any).from,
-              to: (message as any).to,
-              fromMe: Boolean((message as any).fromMe),
-              hasMedia: Boolean((message as any).hasMedia),
-              type: (message as any).type,
-              bodyPreview
-            },
-            'WhatsApp message (debug)'
-          );
-        }
-        if (this.inboundHandler) {
-          await this.inboundHandler(message);
+        await this.client.initialize();
+        lastError = null;
+        break;
+      } catch (error: any) {
+        lastError = error;
+        const message = String(error?.message ?? error).toLowerCase();
+        if (attempt === 2 || !message.includes('already running for')) {
+          logger.fatal({ err: error }, 'Error inicializando cliente de WhatsApp');
+          throw error;
         }
 
-        await this.markChatAsSeenBestEffort(message);
-
-        // Si la sesión está "media rota" y dependemos de polling, acelerar el siguiente tick.
-        this.kickMessagePollingSoon();
-      } catch (error) {
-        logger.error({ err: error }, 'Error manejando mensaje entrante');
+        logger.warn({ err: error }, 'WhatsAppClient.initialize detectó sesión de Chromium activa; intentando cleanup y reintentar');
+        await this.cleanupStaleWhatsAppSession();
       }
-    });
+    }
 
-    try {
-      await this.client.initialize();
-    } catch (error) {
-      // log the full error stack to help debugging puppeteer/protocol issues
-      logger.fatal({ err: error }, 'Error inicializando cliente de WhatsApp');
-      throw error;
+    if (lastError) {
+      logger.fatal({ err: lastError }, 'Error inicializando cliente de WhatsApp después de reintentar');
+      throw lastError;
     }
   }
 
@@ -1714,7 +1801,9 @@ export class WhatsAppClient {
     // Evitamos `pkill -f` directo porque puede terminar el propio shell/proceso lanzador
     // y generar rechazos por señal (SIGTERM) aunque el cleanup haya funcionado.
     try {
-      const userDataDir = (this.client as any)?.options?.puppeteer?.userDataDir;
+      const userDataDir =
+        (this.client as any)?.options?.puppeteer?.userDataDir ||
+        (config.sessionPath && path.resolve(config.sessionPath));
       if (userDataDir && typeof userDataDir === 'string' && userDataDir.trim().length > 0) {
         let stdout = '';
         try {

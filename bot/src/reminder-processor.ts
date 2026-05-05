@@ -116,10 +116,20 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
 
   const servicesLine = resolveServicesLine();
 
-  // Plantilla global (desde UI/settings) = ÚNICA fuente del mensaje principal.
-  const template = String((config as any).reminderTemplate ?? '').trim();
-  if (!template) {
-    throw new Error('No hay reminder_template configurada en Settings. Configure la plantilla global de recordatorio desde la UI.');
+  const configuredTemplate = String((config as any).reminderTemplate ?? '').trim();
+  const payloadMessage = String(payload.message ?? '').trim();
+  const fallbackTemplate = payloadMessage || [
+    'Hola {client_name}, te recordamos el pago pendiente de {contract_name}.',
+    'Monto: {amount}',
+    'Fecha de pago: {due_date}',
+    '{bank_accounts}',
+    'Puede enviar el comprobante por este WhatsApp.'
+  ].join('\n');
+  const template = configuredTemplate || fallbackTemplate;
+  const payloadMessageConsumed = !configuredTemplate && Boolean(payloadMessage);
+
+  if (!configuredTemplate) {
+    logger.warn({ reminderId: reminder.id }, 'No hay reminder_template configurada; usando mensaje fallback para enviar recordatorio');
   }
 
   const rendered = renderTemplate(template, {
@@ -136,8 +146,9 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   });
   lines.push(rendered);
 
-  // If backend provided a custom message template, append it rendered
-  if (payload.message) {
+  // If backend provided a custom message template, append it rendered.
+  // When there is no global template, payload.message is used as the main template above.
+  if (payload.message && !payloadMessageConsumed) {
     lines.push('');
     lines.push(renderTemplate(String(payload.message), {
       company_name: String(companyName),
@@ -225,8 +236,7 @@ export class ReminderProcessor {
 
       // Intentar devolver el recordatorio a estado 'pending' para que pueda ser reintentado
       try {
-        const attempts = typeof reminder.attempts === 'number' ? reminder.attempts : undefined;
-        await apiClient.revertToPending(reminder.id, attempts);
+        await apiClient.revertToPending(reminder.id);
         logger.info({ reminderId: reminder.id }, 'Recordatorio revertido a pending para reintento futuro');
       } catch (err) {
         logger.error({ err, reminderId: reminder.id }, 'Error revirtiendo recordatorio a pending');

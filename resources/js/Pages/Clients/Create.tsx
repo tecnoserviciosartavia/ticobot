@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import ClientForm from '@/Pages/Clients/Partials/ClientForm';
 import Modal from '@/Components/Modal';
 import ContractForm from '@/Pages/Contracts/Partials/ContractForm';
@@ -77,18 +77,7 @@ export default function CreateClient({ statuses, defaultStatus, services }: Crea
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
-                        Nuevo cliente
-                    </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Registra un cliente para programar recordatorios y controlar sus pagos.
-                    </p>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Nuevo cliente">
             <Head title="Crear cliente" />
 
             <div className="py-12">
@@ -141,6 +130,6 @@ export default function CreateClient({ statuses, defaultStatus, services }: Crea
                     />
                 </div>
             </Modal>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

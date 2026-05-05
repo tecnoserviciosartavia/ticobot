@@ -1,5 +1,5 @@
 import StatusBadge from '@/Components/StatusBadge';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import PrimaryButton from '@/Components/PrimaryButton';
 import type { PageProps } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -128,32 +128,7 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
-                            {client.name}
-                        </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Seguimiento detallado del cliente y sus operaciones de cobranza.
-                        </p>
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                        <StatusBadge status={client.status} />
-                        <Link href={route('clients.contracts.create', client.id)}>
-                            <PrimaryButton>+ Contrato</PrimaryButton>
-                        </Link>
-                        <Link
-                            href={route('clients.edit', client.id)}
-                            className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700"
-                        >
-                            Editar
-                        </Link>
-                    </div>
-                </div>
-            }
-        >
+        <ResponsiveLayout title={client.name}>
             <Head title={`Cliente ${client.name}`} />
 
             <div className="py-12">
@@ -374,6 +349,6 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                     </section>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

@@ -1,6 +1,9 @@
-import AccountingTabs from '@/Components/AccountingTabs';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import { Badge } from '@/Components/badge';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, router } from '@inertiajs/react';
+import { DollarSign, TrendingUp, TrendingDown, Calendar, ArrowLeft, BarChart3, PieChart, Activity } from '@/Components/icons';
 
 interface StatusCurrencyRow {
   currency: string;
@@ -40,7 +43,17 @@ interface Props {
   clients_unpaid_total?: Record<string, number>;
 }
 
-export default function AccountingIndex({ by_status_currency, totals, active_contracts_total, total_months, daily, conciliation_rate, monthly_pending, clients_unpaid_after_reminder, clients_unpaid_total }: Props) {
+export default function AccountingIndex({ 
+  by_status_currency = {}, 
+  totals = {}, 
+  active_contracts_total = 0, 
+  total_months = 0, 
+  daily = [], 
+  conciliation_rate = 0, 
+  monthly_pending = [], 
+  clients_unpaid_after_reminder = [], 
+  clients_unpaid_total = {} 
+}: Props) {
   const formatMoney = (v: number) => v.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const conciliatedAmount = totals.verified?.amount || 0;
   const pendingFromContracts = Math.max(0, active_contracts_total - conciliatedAmount);
@@ -53,12 +66,30 @@ export default function AccountingIndex({ by_status_currency, totals, active_con
   };
 
   return (
-    <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">Contabilidad</h2>}>
+    <ResponsiveLayout title="Contabilidad" contentWidth="full">
       <Head title="Contabilidad" />
-      <div>
-        <div className="py-6">
-        <div className="w-full px-4 sm:px-6 lg:px-8 space-y-8">
-          <AccountingTabs active="accounting" />
+
+      <div className="py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Contabilidad</h1>
+                <p className="mt-2 text-gray-600">
+                  Análisis financiero y conciliación de pagos del sistema.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button variant="outline">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Volver
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-8">
           {/* Tarjetas resumen - Mes actual */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <SummaryCard title="Monto conciliado" value={`CRC ${formatMoney(conciliatedAmount)}`} subtitle={`${totals.verified?.count || 0} pagos conciliados (mes actual)`} color="bg-green-50 dark:bg-green-900/20" />
@@ -337,11 +368,10 @@ export default function AccountingIndex({ by_status_currency, totals, active_con
             </div>
           </div>
 
-          
-        </div>
+          </div>
         </div>
       </div>
-    </AuthenticatedLayout>
+    </ResponsiveLayout>
   );
 }
 

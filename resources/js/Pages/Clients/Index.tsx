@@ -1,11 +1,11 @@
-import Pagination from '@/Components/Pagination';
-import StatusBadge from '@/Components/StatusBadge';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { usePage } from '@inertiajs/react';
 import type { PageProps } from '@/types';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { labelForStatus } from '@/lib/labels';
-import { FormEvent, useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { Users, Plus, Search, Filter, Edit, Trash2, Eye, Mail, Phone, Calendar, TrendingUp, Clock, CheckCircle, DollarSign } from '@/Components/icons';
 
 interface Client {
     id: number;
@@ -16,364 +16,342 @@ interface Client {
     contracts_count: number;
     reminders_count: number;
     payments_count: number;
+    created_at: string | null;
     updated_at: string | null;
+    total_revenue: number;
+    last_payment_date: string | null;
 }
 
-interface Service {
-    id: number;
-    name: string;
-}
-
-interface Paginated<T> {
-    data: T[];
-    links: Array<{ url: string | null; label: string; active: boolean }>;
-    meta: {
-        from: number | null;
-        to: number | null;
-        total: number;
+interface ClientsPageProps extends PageProps {
+    clients: {
+        data: Client[];
+        links: any[];
+        meta: any;
     };
-}
-
-type ClientsPageProps = PageProps<{
-    clients: Paginated<Client>;
     filters: {
-        search?: string | null;
-        status?: string | null;
-        service_id?: number | null;
+        search?: string;
+        status?: string;
     };
-    statuses: string[];
-    services: Service[];
-}>;
+    stats?: {
+        total_clients: number;
+        active_clients: number;
+        total_contracts: number;
+        total_revenue: number;
+        total_payments: number;
+        verified_payments: number;
+        pending_payments: number;
+        all_pending_payments: number;
+        total_reminders: number;
+        conversion_rate: number;
+    };
+}
 
-export default function ClientsIndex({ clients, filters, statuses, services }: ClientsPageProps) {
-    const { data, setData } = useForm<{ search: string; status: string; service_id: string }>({
-        search: filters.search ?? '',
-        status: filters.status ?? '',
-        service_id: filters.service_id ? String(filters.service_id) : '',
-    });
+export default function ClientsIndex() {
+    const { props } = usePage<ClientsPageProps>();
+    const { clients, filters, stats } = props;
+    const [search, setSearch] = useState(filters.search || '');
+    const [status, setStatus] = useState(filters.status || '');
 
-    const page = usePage();
-    const flashSuccess = (page.props as any)?.flash?.success as string | undefined;
-    const flashError = (page.props as any)?.flash?.error as string | undefined;
-
-    const [deletingId, setDeletingId] = useState<number | null>(null);
-    const [showMobileFilters, setShowMobileFilters] = useState(false);
-
-    const clientRows = clients?.data ?? [];
-    const paginationLinks = clients?.links ?? [];
-    const paginationMeta = clients?.meta ?? { from: 0, to: 0, total: 0 };
-
-    const submit = (event: FormEvent) => {
-        event.preventDefault();
-        router.get(route('clients.index'), { ...data }, {
-            preserveScroll: true,
+    const applyFilters = () => {
+        router.get(route('clients.index'), {
+            search: search || undefined,
+            status: status || undefined,
+        }, {
             preserveState: true,
-            replace: true,
-        });
-    };
-
-    const resetFilters = () => {
-        setData('search', '');
-        setData('status', '');
-        setData('service_id', '');
-        router.get(route('clients.index'), {}, {
             preserveScroll: true,
             replace: true,
         });
-    };
-
-    const handleDelete = (clientId: number, clientName: string) => {
-        if (confirm(`⚠️ ¿Estás seguro de que deseas eliminar al cliente "${clientName}"?\n\nEsto eliminará PERMANENTEMENTE:\n• El cliente\n• Todos sus contratos\n• Todos sus pagos\n• Todas sus conciliaciones\n• Todos sus recordatorios\n• Todos los recibos asociados\n\nEsta acción NO se puede deshacer.`)) {
-            setDeletingId(clientId);
-            router.delete(route('clients.destroy', clientId), {
-                preserveScroll: true,
-                onFinish: () => setDeletingId(null),
-            });
-        }
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
-                            Clientes
-                        </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Gestiona los clientes, contratos asociados y su historial de recordatorios.
-                        </p>
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                        <Link
-                            href={route('clients.import')}
-                            className="inline-flex items-center justify-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-indigo-600 ring-1 ring-inset ring-indigo-200 shadow-sm transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-gray-800 dark:bg-indigo-900/30"
-                        >
-                            Importar
-                        </Link>
-                        <Link
-                            href={route('clients.create')}
-                            className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                        >
-                            Nuevo cliente
-                        </Link>
-                    </div>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Clientes" contentWidth="full">
             <Head title="Clientes" />
 
-            <div className="py-12">
-                <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
-                    {flashSuccess && (
-                        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-900/50 dark:border-emerald-700 dark:text-emerald-200">
-                            {flashSuccess}
-                        </div>
-                    )}
-                    {flashError && (
-                        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:bg-red-900/50 dark:border-red-700 dark:text-red-200">
-                            {flashError}
-                        </div>
-                    )}
-                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
-                        <div className="border-b border-gray-200 bg-gray-50 px-4 py-4 dark:border-gray-700 dark:bg-gray-700/50 sm:px-6">
-                            <div className="mb-3 flex items-center justify-between gap-3 md:hidden">
-                                <div>
-                                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros</div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">{paginationMeta.total} cliente(s)</div>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowMobileFilters((value) => !value)}
-                                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm dark:border-gray-600 dark:text-gray-300"
-                                >
-                                    {showMobileFilters ? 'Ocultar' : 'Mostrar'}
-                                </button>
+            <div className="py-6">
+                <div className="w-full max-w-none">
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Gestiona los clientes, contratos asociados y su historial de recordatorios
+                                </p>
                             </div>
-                            <form
-                                onSubmit={submit}
-                                className={`${showMobileFilters ? 'flex' : 'hidden'} flex-col gap-4 md:flex md:flex-row md:items-end`}
-                            >
-                                <div className="w-full md:w-96">
-                                    <label
-                                        htmlFor="search"
-                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                    >
-                                        Búsqueda
-                                    </label>
+                            <div className="flex gap-3">
+                                <Link href="/clients/create">
+                                    <Button>
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Nuevo Cliente
+                                    </Button>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Card className="mb-8 p-6">
+                        <div className="grid gap-4 md:grid-cols-[minmax(220px,1fr)_180px_auto_auto] md:items-end">
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-gray-600">Buscar</label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
                                     <input
-                                        id="search"
-                                        name="search"
-                                        type="search"
-                                        value={data.search}
-                                        onChange={(event) => setData('search', event.target.value)}
-                                        placeholder="Nombre, email o teléfono"
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
+                                        type="text"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') applyFilters();
+                                        }}
+                                        placeholder="Nombre, teléfono o correo"
+                                        className="block w-full rounded-lg border-gray-300 pl-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                     />
                                 </div>
-                                <div className="w-full md:w-56">
-                                    <label
-                                        htmlFor="status"
-                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                    >
-                                        Estado
-                                    </label>
-                                    <select
-                                        id="status"
-                                        name="status"
-                                        value={data.status}
-                                        onChange={(event) => setData('status', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
-                                    >
-                                        <option value="">Todos</option>
-                                        {statuses.map((status) => (
-                                                <option key={status} value={status}>
-                                                    {labelForStatus(status)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="w-full md:w-56">
-                                    <label
-                                        htmlFor="service_id"
-                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                    >
-                                        Plataforma
-                                    </label>
-                                    <select
-                                        id="service_id"
-                                        name="service_id"
-                                        value={data.service_id}
-                                        onChange={(event) => setData('service_id', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                                    >
-                                        <option value="">Todas</option>
-                                        {services.map((service) => (
-                                            <option key={service.id} value={String(service.id)}>
-                                                {service.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="flex flex-col gap-2 sm:flex-row">
-                                    <button
-                                        type="submit"
-                                        className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                                    >
-                                        Filtrar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={resetFilters}
-                                        className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                                    >
-                                        Limpiar
-                                    </button>
-                                </div>
-                            </form>
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-gray-600">Estado</label>
+                                <select
+                                    value={status}
+                                    onChange={(e) => setStatus(e.target.value)}
+                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                    <option value="">Todos</option>
+                                    <option value="active">Activos</option>
+                                    <option value="inactive">Inactivos</option>
+                                </select>
+                            </div>
+                            <Button variant="outline" onClick={applyFilters}>
+                                <Filter className="mr-2 h-4 w-4" />
+                                Aplicar
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                onClick={() => {
+                                    setSearch('');
+                                    setStatus('');
+                                    router.get(route('clients.index'), {}, { preserveScroll: true, replace: true });
+                                }}
+                            >
+                                Limpiar
+                            </Button>
                         </div>
+                    </Card>
 
-                        <div className="space-y-3 p-4 md:hidden">
-                            {clientRows.map((client) => (
-                                <div key={client.id} className="rounded-lg border border-gray-200 p-4 shadow-sm dark:border-gray-700">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <Link href={route('clients.show', client.id)} className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                                                {client.name}
-                                            </Link>
-                                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{client.email ?? '—'}</div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">{client.phone ?? '—'}</div>
-                                        </div>
-                                        <StatusBadge status={client.status} />
-                                    </div>
-
-                                    <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                                        <div className="rounded-md bg-gray-50 px-2 py-2 dark:bg-gray-700/50">
-                                            <div className="text-gray-500 dark:text-gray-400">Contratos</div>
-                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{client.contracts_count}</div>
-                                        </div>
-                                        <div className="rounded-md bg-gray-50 px-2 py-2 dark:bg-gray-700/50">
-                                            <div className="text-gray-500 dark:text-gray-400">Recordatorios</div>
-                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{client.reminders_count}</div>
-                                        </div>
-                                        <div className="rounded-md bg-gray-50 px-2 py-2 dark:bg-gray-700/50">
-                                            <div className="text-gray-500 dark:text-gray-400">Pagos</div>
-                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{client.payments_count}</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                                        Actualizado: {client.updated_at
-                                            ? new Date(client.updated_at).toLocaleDateString('es-CR', {
-                                                  day: '2-digit',
-                                                  month: 'short',
-                                                  year: 'numeric',
-                                              })
-                                            : '—'}
-                                    </div>
-
-                                    <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                                        <Link
-                                            href={route('clients.edit', client.id)}
-                                            className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
-                                        >
-                                            Editar
-                                        </Link>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDelete(client.id, client.name)}
-                                            disabled={deletingId === client.id}
-                                            className="text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            {deletingId === client.id ? 'Eliminando...' : 'Eliminar'}
-                                        </button>
-                                    </div>
+                    {/* System Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <Card className="p-6 border-l-4 border-l-blue-500">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <Users className="h-8 w-8 text-blue-600" />
                                 </div>
-                            ))}
-                        </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Total Clientes</p>
+                                    <p className="text-2xl font-bold text-gray-900">{stats?.total_clients || clients?.data?.length || 0}</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {stats?.active_clients || clients?.data?.filter(c => c.status === 'active').length || 0} activos
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6 border-l-4 border-l-green-500">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <TrendingUp className="h-8 w-8 text-green-600" />
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Total Contratos</p>
+                                    <p className="text-2xl font-bold text-gray-900">{stats?.total_contracts || 0}</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        En todo el sistema
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6 border-l-4 border-l-purple-500">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <DollarSign className="h-8 w-8 text-purple-600" />
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Ingresos del Mes</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {new Intl.NumberFormat('es-CR', {
+                                            style: 'currency',
+                                            currency: 'CRC',
+                                        }).format(stats?.total_revenue || 0)}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Pagos verificados este mes
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6 border-l-4 border-l-yellow-500">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <CheckCircle className="h-8 w-8 text-yellow-600" />
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Tasa Conversión Mes</p>
+                                    <p className="text-2xl font-bold text-gray-900">{stats?.conversion_rate || 0}%</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {stats?.verified_payments || 0} de {stats?.total_payments || 0} pagos
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
 
-                        <div className="hidden overflow-x-auto md:block">
+                    {/* Additional Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <Card className="p-6 bg-gradient-to-r from-blue-50 to-blue-100">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-blue-600">Recordatorios del Mes</p>
+                                    <p className="text-2xl font-bold text-blue-900">{stats?.total_reminders || 0}</p>
+                                </div>
+                                <Clock className="h-8 w-8 text-blue-500" />
+                            </div>
+                        </Card>
+                        <Card className="p-6 bg-gradient-to-r from-green-50 to-green-100">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-green-600">Pagos Verificados Mes</p>
+                                    <p className="text-2xl font-bold text-green-900">{stats?.verified_payments || 0}</p>
+                                </div>
+                                <CheckCircle className="h-8 w-8 text-green-500" />
+                            </div>
+                        </Card>
+                        <Card className="p-6 bg-gradient-to-r from-purple-50 to-purple-100">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-purple-600">Pagos Pendientes Mes</p>
+                                    <p className="text-2xl font-bold text-purple-900">{stats?.pending_payments || 0}</p>
+                                </div>
+                                <Clock className="h-8 w-8 text-purple-500" />
+                            </div>
+                        </Card>
+                    </div>
+
+                    {/* Clients Table */}
+                    <Card className="overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-medium text-gray-900">Lista de Clientes</h3>
+                        </div>
+                        <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                                <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Cliente
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Contacto
                                         </th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                            Contratos
-                                        </th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                            Recordatorios
-                                        </th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                            Pagos
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Estado
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                            Actualizado
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Estadísticas
                                         </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Ingresos
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Actualización
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Acciones
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white dark:bg-gray-800">
-                                    {clientRows.map((client) => (
-                                        <tr key={client.id} className="hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700">
-                                            <td className="whitespace-nowrap px-6 py-4">
-                                                <div className="text-sm font-medium text-indigo-600">
-                                                    <Link href={route('clients.show', client.id)} className="hover:text-indigo-500">
-                                                        {client.name}
-                                                    </Link>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {clients?.data?.map((client) => (
+                                        <tr key={client.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="flex-shrink-0 h-10 w-10">
+                                                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                                            <span className="text-blue-600 font-medium">
+                                                                {client.name.charAt(0).toUpperCase()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="ml-4">
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {client.name}
+                                                        </div>
+                                                        <div className="text-sm text-gray-500">
+                                                            ID: #{client.id}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                <div>{client.email ?? '—'}</div>
-                                                <div>{client.phone ?? '—'}</div>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm text-gray-900 space-y-1">
+                                                    {client.email && (
+                                                        <div className="flex items-center">
+                                                            <Mail className="h-4 w-4 text-gray-400 mr-2" />
+                                                            {client.email}
+                                                        </div>
+                                                    )}
+                                                    {client.phone && (
+                                                        <div className="flex items-center">
+                                                            <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                                                            {client.phone}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
-                                                {client.contracts_count}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                    client.status === 'active' 
+                                                        ? 'bg-green-100 text-green-800' 
+                                                        : 'bg-gray-100 text-gray-800'
+                                                }`}>
+                                                    {client.status === 'active' ? 'Activo' : 'Inactivo'}
+                                                </span>
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
-                                                {client.reminders_count}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm text-gray-900 space-y-1">
+                                                    <div className="flex items-center">
+                                                        <span className="font-medium">{client.contracts_count}</span>
+                                                        <span className="ml-1 text-gray-500">contratos</span>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span className="font-medium">{client.payments_count}</span>
+                                                        <span className="ml-1 text-gray-500">pagos</span>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span className="font-medium">{client.reminders_count}</span>
+                                                        <span className="ml-1 text-gray-500">recordatorios</span>
+                                                    </div>
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
-                                                {client.payments_count}
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm font-medium text-gray-900">
+                                                    {new Intl.NumberFormat('es-CR', {
+                                                        style: 'currency',
+                                                        currency: 'CRC',
+                                                    }).format(client.total_revenue || 0)}
+                                                </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4">
-                                                <StatusBadge status={client.status} />
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <div className="space-y-1">
+                                                    <div>Creado: {client.created_at ? new Date(client.created_at).toLocaleDateString('es-CR') : '—'}</div>
+                                                    <div>Actualizado: {client.updated_at ? new Date(client.updated_at).toLocaleDateString('es-CR') : '—'}</div>
+                                                </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                                {client.updated_at
-                                                    ? new Date(client.updated_at).toLocaleDateString('es-CR', {
-                                                          day: '2-digit',
-                                                          month: 'short',
-                                                          year: 'numeric',
-                                                      })
-                                                    : '—'}
-                                            </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <Link
-                                                        href={route('clients.edit', client.id)}
-                                                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                                                    >
-                                                        Editar
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <div className="flex items-center justify-end space-x-2">
+                                                    <Link href={`/clients/${client.id}`}>
+                                                        <Button variant="outline" size="sm">
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
                                                     </Link>
-                                                    <span className="text-gray-300 dark:text-gray-600">|</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDelete(client.id, client.name)}
-                                                        disabled={deletingId === client.id}
-                                                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        {deletingId === client.id ? 'Eliminando...' : 'Eliminar'}
-                                                    </button>
+                                                    <Link href={`/clients/${client.id}/edit`}>
+                                                        <Button variant="outline" size="sm">
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                    </Link>
                                                 </div>
                                             </td>
                                         </tr>
@@ -381,16 +359,56 @@ export default function ClientsIndex({ clients, filters, statuses, services }: C
                                 </tbody>
                             </table>
                         </div>
+                    </Card>
 
-                        <div className="px-4 pb-6 sm:px-6">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                                Mostrando {paginationMeta.from ?? 0} - {paginationMeta.to ?? 0} de {paginationMeta.total} clientes
+                    {/* Pagination */}
+                    {clients?.links && clients.links.length > 3 && (
+                        <div className="mt-6">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm text-gray-700">
+                                    Mostrando {clients.meta?.from || 0} a {clients.meta?.to || 0} de {clients.meta?.total || 0} resultados
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                    {clients.links.map((link, index) => (
+                                        <Link
+                                            key={index}
+                                            href={link.url || '#'}
+                                            className={`px-3 py-2 text-sm font-medium rounded-md ${
+                                                link.active
+                                                    ? 'bg-blue-600 text-white'
+                                                    : link.url
+                                                    ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            }`}
+                                            dangerouslySetInnerHTML={{ __html: link.label }}
+                                            preserveScroll={true}
+                                        />
+                                    ))}
+                                </div>
                             </div>
-                            <Pagination links={paginationLinks} />
                         </div>
-                    </div>
+                    )}
+
+                    {/* Empty State */}
+                    {(!clients?.data || clients.data.length === 0) && (
+                        <Card className="text-center py-12">
+                            <Users className="mx-auto h-12 w-12 text-gray-400" />
+                            <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron clientes</h3>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Comienza creando un nuevo cliente.
+                            </p>
+                            <div className="mt-6">
+                                <Link href="/clients/create">
+                                    <Button>
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Nuevo Cliente
+                                    </Button>
+                                </Link>
+                            </div>
+                        </Card>
+                    )}
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

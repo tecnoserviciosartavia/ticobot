@@ -1,14 +1,22 @@
-import AccountingTabs from '@/Components/AccountingTabs';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import { Badge } from '@/Components/badge';
 import Pagination from '@/Components/Pagination';
-import StatusBadge from '@/Components/StatusBadge';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import type { PageProps } from '@/types';
-import { Head, router, useForm } from '@inertiajs/react';
-import { labelForChannel, labelForStatus } from '@/lib/labels';
-import { useState, useEffect, Fragment } from 'react';
-import { FormEvent } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
-import axios from 'axios';
+import { Head, Link, usePage, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { 
+  CreditCard, 
+  Plus, 
+  Trash2, 
+  DollarSign,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Users,
+  FileText
+} from '@/Components/icons';
 
 interface Payment {
     id: number;
@@ -22,386 +30,314 @@ interface Payment {
     client: { id: number; name: string } | null;
     contract: { id: number; name: string; amount: number; currency: string } | null;
     reminder: { id: number; status: string } | null;
+    has_conciliation: boolean;
     created_at: string | null;
-    has_conciliation?: boolean;
-}
-
-interface Contract {
-    id: number;
-    name: string;
-    amount: number;
-    currency: string;
-    billing_cycle?: string | null;
+    updated_at: string | null;
 }
 
 interface Paginated<T> {
     data: T[];
     links: Array<{ url: string | null; label: string; active: boolean }>;
-    meta: {
-        from: number | null;
-        to: number | null;
-        total: number;
-    };
+    meta?: { from: number | null; to: number | null; total: number };
 }
 
-type PaymentsPageProps = PageProps<{
+interface PaymentsPageProps extends PageProps {
     payments: Paginated<Payment>;
     filters: {
-        status?: string | null;
-        channel?: string | null;
-        paid_from?: string | null;
-        paid_to?: string | null;
+        status?: string;
+        channel?: string;
+        client_query?: string;
     };
-    statuses: string[];
-    channels: string[];
-}>;
+    flashSuccess?: string;
+    flashError?: string;
+}
 
-const formatDate = (value: string | null) => {
-    if (!value) {
-        return '—';
-    }
+export default function PaymentsIndex() {
+    const { props } = usePage<PaymentsPageProps>();
+    const { payments, filters = {}, flashSuccess, flashError } = props;
+    
+    const [search, setSearch] = useState(filters.client_query || '');
+    const [statusFilter, setStatusFilter] = useState(filters.status || '');
+    const [channelFilter, setChannelFilter] = useState(filters.channel || '');
+    const [deletingId, setDeletingId] = useState<number | null>(null);
 
-    return new Date(value).toLocaleDateString('es-CR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
+    const filteredPayments = (payments?.data || []).filter(payment => {
+        const matchesSearch = !search || 
+            (payment.reference && payment.reference.toLowerCase().includes(search.toLowerCase())) ||
+            (payment.client?.name && payment.client.name.toLowerCase().includes(search.toLowerCase()));
+        
+        const matchesStatus = !statusFilter || payment.status === statusFilter;
+        const matchesChannel = !channelFilter || payment.channel === channelFilter;
+        
+        return matchesSearch && matchesStatus && matchesChannel;
     });
-};
 
-const resolveCurrency = (value: string | null | undefined) => {
-    if (value && value.trim().length === 3) {
-        return value.trim().toUpperCase();
-    }
-
-    return 'CRC';
-};
-
-const formatAmount = (amount: string | number, currency: string | null | undefined) =>
-    new Intl.NumberFormat('es-CR', {
-        style: 'currency',
-        currency: resolveCurrency(currency),
-        minimumFractionDigits: 2,
-    }).format(typeof amount === 'string' ? Number.parseFloat(amount) : amount);
-
-export default function PaymentsIndex({ payments, filters, statuses, channels }: PaymentsPageProps) {
-    const { data, setData } = useForm<{
-        status: string;
-        channel: string;
-        paid_from: string;
-        paid_to: string;
-    }>({
-        status: filters.status ?? '',
-        channel: filters.channel ?? '',
-        paid_from: filters.paid_from ?? '',
-        paid_to: filters.paid_to ?? '',
-    });
-    const [showMobileFilters, setShowMobileFilters] = useState(false);
-
-    // estado local para controlar cargas por fila
-    const [loadingIds, setLoadingIds] = useState<number[]>([]);
-
-    function setLoading(id: number, value: boolean) {
-        setLoadingIds((prev) => {
-            if (value) return Array.from(new Set([...prev, id]));
-            return prev.filter((x) => x !== id);
-        });
-    }
-
-    function isLoading(id: number) {
-        return loadingIds.includes(id);
-    }
-
-    const paymentRows = payments?.data ?? [];
-    const paginationLinks = payments?.links ?? [];
-    const paginationMeta = payments?.meta ?? { from: 0, to: 0, total: 0 };
-
-    const submit = (event: FormEvent) => {
-        event.preventDefault();
-        router.get(route('payments.index'), { ...data }, {
-            preserveScroll: true,
-            preserveState: true,
-            replace: true,
-        });
+    const formatCurrency = (amount: string | number, currency: string | null) => {
+        const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+        return new Intl.NumberFormat('es-CR', {
+            style: 'currency',
+            currency: currency === 'USD' ? 'USD' : 'CRC',
+        }).format(num);
     };
 
-    const resetFilters = () => {
-        setData('status', '');
-        setData('channel', '');
-        setData('paid_from', '');
-        setData('paid_to', '');
-        router.get(route('payments.index'), {}, {
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'verified':
+                return <CheckCircle className="h-4 w-4 text-green-500" />;
+            case 'failed':
+                return <XCircle className="h-4 w-4 text-red-500" />;
+            default:
+                return <Clock className="h-4 w-4 text-yellow-500" />;
+        }
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'verified':
+                return 'bg-green-100 text-green-800';
+            case 'failed':
+                return 'bg-red-100 text-red-800';
+            default:
+                return 'bg-yellow-100 text-yellow-800';
+        }
+    };
+
+    const handleDelete = (payment: Payment) => {
+        if (!confirm(`¿Eliminar el pago #${payment.id}${payment.client?.name ? ` de ${payment.client.name}` : ''}?`)) {
+            return;
+        }
+
+        setDeletingId(payment.id);
+        router.delete(route('payments.destroy', payment.id), {
             preserveScroll: true,
-            replace: true,
+            onFinish: () => setDeletingId(null),
         });
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
-                            Pagos
-                        </h2>
-                    </div>
-                    <a
-                        href={route('payments.create')}
-                        className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto dark:bg-indigo-500 dark:hover:bg-indigo-400"
-                    >
-                        <svg className="-ml-0.5 mr-1.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Crear Pago Manual
-                    </a>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Pagos" contentWidth="full">
             <Head title="Pagos" />
 
-            <div className="py-12">
-                <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
-                    <AccountingTabs active="payments" />
-                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
-                        <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-4 py-4 sm:px-6">
-                            <div className="mb-3 flex items-center justify-between gap-3 md:hidden">
-                                <div>
-                                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros</div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">{paginationMeta.total} pago(s)</div>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowMobileFilters((value) => !value)}
-                                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm dark:border-gray-600 dark:text-gray-300"
-                                >
-                                    {showMobileFilters ? 'Ocultar' : 'Mostrar'}
-                                </button>
+            <div className="py-6">
+                <div className="w-full max-w-none min-w-0">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Pagos</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Gestiona los pagos recibidos, verificación y conciliación bancaria
+                                </p>
                             </div>
-                            <form
-                                onSubmit={submit}
-                                className={`${showMobileFilters ? 'grid' : 'hidden'} grid-cols-1 gap-4 md:grid md:grid-cols-5 md:items-end`}
-                            >
-                                <div>
-                                    <label
-                                        htmlFor="status"
-                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                    >
-                                        Estado
-                                    </label>
-                                    <select
-                                        id="status"
-                                        name="status"
-                                        value={data.status}
-                                        onChange={(event) => setData('status', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
-                                    >
-                                        <option value="">Todos</option>
-                                        {statuses.map((statusOption) => (
-                                            <option key={statusOption} value={statusOption}>
-                                                {labelForStatus(statusOption)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label
-                                        htmlFor="channel"
-                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                    >
-                                        Canal
-                                    </label>
-                                    <select
-                                        id="channel"
-                                        name="channel"
-                                        value={data.channel}
-                                        onChange={(event) => setData('channel', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
-                                    >
-                                        <option value="">Todos</option>
-                                        {channels.map((channelOption) => (
-                                            <option key={channelOption} value={channelOption}>
-                                                {labelForChannel(channelOption)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label
-                                        htmlFor="paid_from"
-                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                    >
-                                        Pagado desde
-                                    </label>
-                                    <input
-                                        id="paid_from"
-                                        name="paid_from"
-                                        type="date"
-                                        value={data.paid_from}
-                                        onChange={(event) => setData('paid_from', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:[color-scheme:dark] shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label
-                                        htmlFor="paid_to"
-                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                    >
-                                        Pagado hasta
-                                    </label>
-                                    <input
-                                        id="paid_to"
-                                        name="paid_to"
-                                        type="date"
-                                        value={data.paid_to}
-                                        onChange={(event) => setData('paid_to', event.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:[color-scheme:dark] shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 dark:bg-gray-700 dark:text-gray-100"
-                                    />
-                                </div>
-
-                                <div className="flex flex-col gap-2 sm:flex-row">
-                                    <button
-                                        type="submit"
-                                        className="inline-flex w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                                    >
-                                        Filtrar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={resetFilters}
-                                        className="inline-flex w-full items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                                    >
-                                        Limpiar
-                                    </button>
-                                </div>
-                            </form>
+                            <div className="flex flex-wrap gap-3">
+                                <Link href="/payments/create">
+                                    <Button>
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Nuevo Pago
+                                    </Button>
+                                </Link>
+                            </div>
                         </div>
+                    </div>
 
-                        <div className="space-y-3 p-4 md:hidden">
-                            {paymentRows.map((payment) => (
-                                <div key={payment.id} className="rounded-lg border border-gray-200 p-4 shadow-sm dark:border-gray-700">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <div className="font-medium text-gray-900 dark:text-gray-100">
-                                                {formatAmount(payment.amount, payment.currency)}
-                                            </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">Ref: {payment.reference ?? '—'}</div>
-                                        </div>
-                                        <StatusBadge status={payment.status} />
-                                    </div>
-                                    <div className="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                                        <div>Cliente: {payment.client?.name ?? 'Cliente eliminado'}</div>
-                                        <div>Contrato: {payment.contract?.name ?? '—'}</div>
-                                        <div>Canal: {labelForChannel(payment.channel)}</div>
-                                        <div>Comprobantes: {payment.receipts_count}</div>
-                                        <div>Pagado: {formatDate(payment.paid_at)}</div>
-                                    </div>
-                                    {payment.reminder && (
-                                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                            Recordatorio #{payment.reminder.id}
-                                        </div>
-                                    )}
-                                    <div className="mt-4 flex flex-wrap gap-2">
-                                        {payment.status !== 'verified' && (
-                                            <ApplyAndConciliateButton
-                                                paymentId={payment.id}
-                                                receiptsCount={payment.receipts_count}
-                                                clientId={payment.client?.id || null}
-                                            />
-                                        )}
-                                        {!payment.has_conciliation && (
-                                            <DeletePaymentButton paymentId={payment.id} />
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                    {/* Filters */}
+                    <Card className="mb-8 p-4 sm:p-6">
+                        <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end">
+                            <div className="min-w-0 w-full md:flex-1 md:min-w-[min(100%,220px)]">
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por referencia o cliente..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                />
+                            </div>
+                            <div className="w-full md:w-auto md:min-w-[11rem] md:max-w-[14rem]">
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                    <option value="">Todos los estados</option>
+                                    <option value="verified">Verificados</option>
+                                    <option value="unverified">No verificados</option>
+                                    <option value="failed">Fallidos</option>
+                                </select>
+                            </div>
+                            <div className="w-full md:w-auto md:min-w-[11rem] md:max-w-[14rem]">
+                                <select
+                                    value={channelFilter}
+                                    onChange={(e) => setChannelFilter(e.target.value)}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                    <option value="">Todos los canales</option>
+                                    <option value="sinpe_móvil">Sinpe Móvil</option>
+                                    <option value="sinpe_email">Sinpe Email</option>
+                                    <option value="transfer">Transferencia</option>
+                                    <option value="cash">Efectivo</option>
+                                </select>
+                            </div>
                         </div>
+                    </Card>
 
-                        <div className="hidden overflow-x-auto md:block">
-                            <table className="min-w-full table-fixed divide-y divide-gray-200">
-                                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <Card className="p-6">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <CreditCard className="h-8 w-8 text-blue-600" />
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Total Pagos</p>
+                                    <p className="text-2xl font-bold text-gray-900">{(payments?.data || []).length}</p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <CheckCircle className="h-8 w-8 text-green-600" />
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Verificados</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {(payments?.data || []).filter((p: Payment) => p.status === 'verified').length}
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <DollarSign className="h-8 w-8 text-green-600" />
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Monto Total</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {formatCurrency(
+                                            (payments?.data || []).reduce((sum: number, p: Payment) => sum + Number(p.amount), 0),
+                                            'CRC'
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <Clock className="h-8 w-8 text-yellow-600" />
+                                </div>
+                                <div className="ml-4">
+                                    <p className="text-sm font-medium text-gray-600">Pendientes</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {(payments?.data || []).filter((p: Payment) => p.status !== 'verified').length}
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+
+                    {/* Payments Table */}
+                    <Card className="min-w-0 overflow-hidden">
+                        <div className="overflow-x-auto overscroll-x-contain -mx-px">
+                            <table className="w-full min-w-[720px] divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="w-40 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                            Pago
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                            Referencia
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
                                             Cliente
                                         </th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                            Contrato
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                            Monto
                                         </th>
-                                        <th className="w-28 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
                                             Canal
                                         </th>
-                                        <th className="w-32 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
                                             Estado
                                         </th>
-                                        <th className="w-24 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                            Comprobantes
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                            Fecha
                                         </th>
-                                        <th className="w-40 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                            Fechas
-                                        </th>
-                                        <th className="w-52 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                        <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
                                             Acciones
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white dark:bg-gray-800">
-                                    {paymentRows.map((payment) => (
-                                        <tr key={payment.id} className="hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700">
-                                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                <div className="font-medium text-gray-900 dark:text-gray-100">
-                                                    {formatAmount(payment.amount, payment.currency)}
-                                                </div>
-                                                <div className="truncate text-xs text-gray-500 dark:text-gray-400">
-                                                    Ref: {payment.reference ?? '—'}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                <div className="truncate">
-                                                    {payment.client?.name ?? 'Cliente eliminado'}
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredPayments.map((payment) => (
+                                        <tr key={payment.id} className="hover:bg-gray-50">
+                                            <td className="px-3 py-4 sm:px-6">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <FileText className="h-4 w-4 shrink-0 text-gray-400" />
+                                                    <span className="truncate text-sm font-medium text-gray-900">
+                                                        {payment.reference || 'N/A'}
+                                                    </span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                <div className="truncate">
-                                                    {payment.contract?.name ?? '—'}
+                                            <td className="px-3 py-4 sm:px-6">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <Users className="h-4 w-4 shrink-0 text-gray-400" />
+                                                    <span className="truncate text-sm text-gray-900">
+                                                        {payment.client?.name || 'N/A'}
+                                                    </span>
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                {labelForChannel(payment.channel)}
+                                            <td className="whitespace-nowrap px-3 py-4 sm:px-6">
+                                                <div className="flex items-center">
+                                                    <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
+                                                    <span className="text-sm font-medium text-gray-900">
+                                                        {formatCurrency(payment.amount, payment.currency)}
+                                                    </span>
+                                                </div>
                                             </td>
-                                            <td className="px-4 py-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <StatusBadge status={payment.status} />
-                                                    {payment.reminder && (
-                                                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                            Recordatorio #{payment.reminder.id}
-                                                        </span>
+                                            <td className="whitespace-nowrap px-3 py-4 sm:px-6">
+                                                <Badge variant="outline">
+                                                    {payment.channel.replace('_', ' ').toUpperCase()}
+                                                </Badge>
+                                            </td>
+                                            <td className="whitespace-nowrap px-3 py-4 sm:px-6">
+                                                <div className="flex items-center">
+                                                    {getStatusIcon(payment.status)}
+                                                    <Badge className={`ml-2 ${getStatusColor(payment.status)}`}>
+                                                        {payment.status === 'verified' ? 'Verificado' : 
+                                                         payment.status === 'failed' ? 'Fallido' : 'Pendiente'}
+                                                    </Badge>
+                                                </div>
+                                            </td>
+                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 sm:px-6">
+                                                {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('es-CR') : 'N/A'}
+                                            </td>
+                                            <td className="px-3 py-4 text-right text-sm font-medium sm:px-6">
+                                                <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                                                    {payment.status !== 'verified' && !payment.has_conciliation && (
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                router.post(route('conciliations.store'), {
+                                                                    payment_id: payment.id,
+                                                                    status: 'pending'
+                                                                });
+                                                            }}
+                                                        >
+                                                            <CheckCircle className="w-4 h-4 mr-1" />
+                                                            Conciliar
+                                                        </Button>
                                                     )}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
-                                                {payment.receipts_count}
-                                            </td>
-                                            <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                                <div>Pagado: {formatDate(payment.paid_at)}</div>
-                                                <div>Registrado: {formatDate(payment.created_at)}</div>
-                                            </td>
-                                            <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                                                <div className="flex flex-wrap gap-2">
-                                                    {/* Mostrar botón de conciliar solo cuando no esté verificado */}
-                                                    {payment.status !== 'verified' && (
-                                                        <ApplyAndConciliateButton 
-                                                            paymentId={payment.id} 
-                                                            receiptsCount={payment.receipts_count}
-                                                            clientId={payment.client?.id || null}
-                                                        />
-                                                    )}
-                                                    {/* Mostrar botón de eliminar solo si no tiene conciliación */}
                                                     {!payment.has_conciliation && (
-                                                        <DeletePaymentButton paymentId={payment.id} />
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleDelete(payment)}
+                                                            disabled={deletingId === payment.id}
+                                                            className="text-red-600 hover:text-red-700"
+                                                        >
+                                                            <Trash2 className="w-4 h-4 mr-1" />
+                                                            Eliminar
+                                                        </Button>
                                                     )}
                                                 </div>
                                             </td>
@@ -410,303 +346,35 @@ export default function PaymentsIndex({ payments, filters, statuses, channels }:
                                 </tbody>
                             </table>
                         </div>
+                    </Card>
 
-                        {/* Componente botón definido abajo en el archivo */}
-
-                        <div className="px-4 pb-6 sm:px-6">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                                Mostrando {paginationMeta.from ?? 0} - {paginationMeta.to ?? 0} de {paginationMeta.total} pagos
-                            </div>
-                            <Pagination links={paginationLinks} />
+                    <div className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                        <div className="text-sm text-gray-600">
+                            Mostrando {payments?.meta?.from ?? 0} a {payments?.meta?.to ?? 0} de {payments?.meta?.total ?? filteredPayments.length} pagos
                         </div>
+                        <Pagination links={payments?.links ?? []} />
                     </div>
+
+                    {/* Empty State */}
+                    {filteredPayments.length === 0 && (
+                        <Card className="text-center py-12">
+                            <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
+                            <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron pagos</h3>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Comienza registrando un nuevo pago o ajusta los filtros de búsqueda.
+                            </p>
+                            <div className="mt-6">
+                                <Link href="/payments/create">
+                                    <Button>
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Nuevo Pago
+                                    </Button>
+                                </Link>
+                            </div>
+                        </Card>
+                    )}
                 </div>
             </div>
-        </AuthenticatedLayout>
-    );
-}
-
-// Botón para aplicar y conciliar — componente con modal para seleccionar contrato y meses
-function ApplyAndConciliateButton({ paymentId, receiptsCount, clientId }: { paymentId: number; receiptsCount: number; clientId: number | null }) {
-    const [loading, setLoading] = useState(false);
-    const [isOpen, setIsOpen] = useState(false);
-    const [contracts, setContracts] = useState<Contract[]>([]);
-    const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
-    const [months, setMonths] = useState(1);
-    const [billingMonth, setBillingMonth] = useState(() => {
-        const now = new Date();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        return `${now.getFullYear()}-${month}`;
-    });
-    const [loadingContracts, setLoadingContracts] = useState(false);
-
-    const selectedContract = contracts.find(c => c.id === selectedContractId);
-    const isMonthlyContract = selectedContract?.billing_cycle === 'monthly';
-    const calculatedAmount = selectedContract ? selectedContract.amount * months : 0;
-
-    useEffect(() => {
-        if (isOpen && clientId && contracts.length === 0) {
-            loadContracts();
-        }
-    }, [isOpen, clientId]);
-
-    const loadContracts = async () => {
-        if (!clientId) return;
-        
-        setLoadingContracts(true);
-        try {
-            const response = await axios.get(`/payments/client-contracts?client_id=${clientId}`);
-            const clientContracts = response.data || [];
-            setContracts(clientContracts);
-            
-            // Auto-seleccionar el primer contrato si solo hay uno
-            if (clientContracts.length === 1) {
-                setSelectedContractId(clientContracts[0].id);
-            }
-        } catch (error) {
-            console.error('Error cargando contratos:', error);
-            alert('Error al cargar los contratos del cliente');
-        } finally {
-            setLoadingContracts(false);
-        }
-    };
-
-    const handleOpenModal = () => {
-        if (!receiptsCount || receiptsCount <= 0) {
-            if (!confirm('Este pago no tiene comprobantes adjuntos. ¿Deseas continuar y crear la conciliación de todas formas?')) {
-                return;
-            }
-        }
-        setIsOpen(true);
-    };
-
-    const handleConfirm = () => {
-        if (!selectedContractId) {
-            alert('Por favor selecciona un contrato');
-            return;
-        }
-
-        if (months < 1) {
-            alert('Los meses deben ser al menos 1');
-            return;
-        }
-
-        setLoading(true);
-
-        router.post(route('conciliations.store'), {
-            payment_id: paymentId,
-            status: 'approved',
-            contract_id: selectedContractId,
-            months: months,
-            calculated_amount: calculatedAmount,
-            billing_month: isMonthlyContract ? billingMonth : null,
-        }, {
-            preserveState: false,
-            onSuccess: () => {
-                setIsOpen(false);
-                router.get(route('payments.index'));
-            },
-            onError: (errors: any) => {
-                alert('Error al conciliar: ' + JSON.stringify(errors));
-                setLoading(false);
-            },
-            onFinish: () => setLoading(false),
-        });
-    };
-
-    return (
-        <>
-            <button
-                type="button"
-                onClick={handleOpenModal}
-                disabled={loading}
-                className="inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold text-white shadow-sm bg-green-600 hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-green-300"
-            >
-                Aplicar y conciliar
-            </button>
-
-            <Transition appear show={isOpen} as={Fragment}>
-                <Dialog as="div" className="relative z-50" onClose={() => !loading && setIsOpen(false)}>
-                    <Transition.Child
-                        as={Fragment}
-                        enter="ease-out duration-300"
-                        enterFrom="opacity-0"
-                        enterTo="opacity-100"
-                        leave="ease-in duration-200"
-                        leaveFrom="opacity-100"
-                        leaveTo="opacity-0"
-                    >
-                        <div className="fixed inset-0 bg-black bg-opacity-25" />
-                    </Transition.Child>
-
-                    <div className="fixed inset-0 overflow-y-auto">
-                        <div className="flex min-h-full items-center justify-center p-4 text-center">
-                            <Transition.Child
-                                as={Fragment}
-                                enter="ease-out duration-300"
-                                enterFrom="opacity-0 scale-95"
-                                enterTo="opacity-100 scale-100"
-                                leave="ease-in duration-200"
-                                leaveFrom="opacity-100 scale-100"
-                                leaveTo="opacity-0 scale-95"
-                            >
-                                <Dialog.Panel className="w-full max-w-md max-h-[92vh] transform overflow-y-auto rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all dark:bg-gray-800">
-                                    <Dialog.Title
-                                        as="h3"
-                                        className="text-lg font-medium leading-6 text-gray-900 dark:text-gray-100 mb-4"
-                                    >
-                                        Aplicar y conciliar pago
-                                    </Dialog.Title>
-
-                                    <div className="mt-4 space-y-4">
-                                        {loadingContracts ? (
-                                            <div className="text-center py-4">
-                                                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
-                                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Cargando contratos...</p>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div>
-                                                    <label htmlFor="contract" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                        Contrato
-                                                    </label>
-                                                    <select
-                                                        id="contract"
-                                                        value={selectedContractId || ''}
-                                                        onChange={(e) => setSelectedContractId(Number(e.target.value))}
-                                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
-                                                        disabled={loading}
-                                                    >
-                                                        <option value="">Selecciona un contrato</option>
-                                                        {contracts.map((contract) => (
-                                                            <option key={contract.id} value={contract.id}>
-                                                                {contract.name} - {contract.currency} {contract.amount.toLocaleString('es-CR')}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div>
-                                                    <label htmlFor="months" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                        Meses a pagar
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        id="months"
-                                                        min="1"
-                                                        value={months}
-                                                        onChange={(e) => setMonths(Math.max(1, parseInt(e.target.value) || 1))}
-                                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
-                                                        disabled={loading}
-                                                    />
-                                                </div>
-
-                                                {isMonthlyContract && (
-                                                    <div>
-                                                        <label htmlFor="billing_month" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                            Mes que está pagando
-                                                        </label>
-                                                        <input
-                                                            type="month"
-                                                            id="billing_month"
-                                                            value={billingMonth}
-                                                            onChange={(e) => setBillingMonth(e.target.value)}
-                                                            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm dark:bg-gray-700 dark:text-gray-100"
-                                                            disabled={loading}
-                                                        />
-                                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                                            Se guardará en la conciliación para indicar el período pagado.
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                                {selectedContract && (
-                                                    <div className="rounded-md bg-indigo-50 dark:bg-indigo-900/30 p-4">
-                                                        <div className="flex">
-                                                            <div className="flex-1">
-                                                                <h4 className="text-sm font-medium text-indigo-800">Monto calculado</h4>
-                                                                <div className="mt-1 text-2xl font-bold text-indigo-900">
-                                                                    {selectedContract.currency} {calculatedAmount.toLocaleString('es-CR', { minimumFractionDigits: 2 })}
-                                                                </div>
-                                                                <p className="mt-1 text-xs text-indigo-600">
-                                                                    {selectedContract.currency} {selectedContract.amount.toLocaleString('es-CR')} × {months} {months === 1 ? 'mes' : 'meses'}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {contracts.length === 0 && !loadingContracts && (
-                                                    <div className="rounded-md bg-yellow-50 p-4">
-                                                        <p className="text-sm text-yellow-800">
-                                                            Este cliente no tiene contratos activos.
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
-
-                                    <div className="mt-6 flex gap-3">
-                                        <button
-                                            type="button"
-                                            className="flex-1 inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-                                            onClick={() => setIsOpen(false)}
-                                            disabled={loading}
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="flex-1 inline-flex justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-green-300"
-                                            onClick={handleConfirm}
-                                            disabled={loading || !selectedContractId || contracts.length === 0}
-                                        >
-                                            {loading ? 'Aplicando...' : 'Confirmar y enviar'}
-                                        </button>
-                                    </div>
-                                </Dialog.Panel>
-                            </Transition.Child>
-                        </div>
-                    </div>
-                </Dialog>
-            </Transition>
-        </>
-    );
-}
-
-// Botón para eliminar pago (solo si no tiene conciliación)
-function DeletePaymentButton({ paymentId }: { paymentId: number }) {
-    const [isDeleting, setIsDeleting] = useState(false);
-
-    const handleDelete = () => {
-        if (!confirm('¿Estás seguro de que deseas eliminar este pago? Esta acción no se puede deshacer.')) {
-            return;
-        }
-
-        setIsDeleting(true);
-
-        router.delete(route('payments.destroy', paymentId), {
-            preserveState: false,
-            onSuccess: () => {
-                router.get(route('payments.index'));
-            },
-            onError: (errors: any) => {
-                alert('Error al eliminar: ' + (errors.message || JSON.stringify(errors)));
-                setIsDeleting(false);
-            },
-            onFinish: () => setIsDeleting(false),
-        });
-    };
-
-    return (
-        <button
-            type="button"
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="inline-flex items-center rounded-md px-3 py-1.5 text-sm font-semibold text-white shadow-sm bg-red-600 hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-red-300"
-        >
-            {isDeleting ? 'Eliminando...' : 'Eliminar'}
-        </button>
+        </ResponsiveLayout>
     );
 }

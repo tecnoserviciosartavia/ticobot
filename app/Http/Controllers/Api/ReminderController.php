@@ -271,13 +271,20 @@ class ReminderController extends Controller
     public function pending(Request $request): JsonResponse
     {
         $lookAheadMinutes = max(1, $request->integer('look_ahead', 30));
+        $retryCooldownMinutes = max(1, $request->integer('retry_cooldown', 15));
         $limit = min(100, max(1, $request->integer('limit', 25)));
 
-        $deadline = Carbon::now()->addMinutes($lookAheadMinutes);
+        $deadline = Carbon::now(config('app.timezone'))->addMinutes($lookAheadMinutes);
+        $retryAfter = Carbon::now(config('app.timezone'))->subMinutes($retryCooldownMinutes);
+        $dateFormat = (new Reminder())->getDateFormat();
 
         $reminders = Reminder::query()
             ->where('status', 'pending')
-            ->where('scheduled_for', '<=', $deadline)
+            ->where('scheduled_for', '<=', $deadline->format($dateFormat))
+            ->where(function ($query) use ($retryAfter, $dateFormat) {
+                $query->whereNull('last_attempt_at')
+                    ->orWhere('last_attempt_at', '<=', $retryAfter->format($dateFormat));
+            })
             ->orderBy('scheduled_for')
             ->limit($limit)
             ->with(['client', 'contract'])

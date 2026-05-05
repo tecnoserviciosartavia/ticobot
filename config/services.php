@@ -40,4 +40,10 @@ return [
         'service_account_path' => env('FCM_SERVICE_ACCOUNT_PATH', storage_path('app/firebase-service-account.json')),
     ],
 
+    'whatsapp' => [
+        'token' => env('WHATSAPP_TOKEN'),
+        'phone_id' => env('WHATSAPP_PHONE_ID'),
+        'version' => env('WHATSAPP_VERSION', 'v18.0'),
+    ],
+
 ];

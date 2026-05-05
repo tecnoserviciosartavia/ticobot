@@ -1,9 +1,13 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import { Badge } from '@/Components/badge';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import type { PageProps } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { labelForChannel } from '@/lib/labels';
 import { FormEventHandler, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
+import { DollarSign, Plus, ArrowLeft, Calendar, User, CreditCard, AlertCircle } from '@/Components/icons';
 
 interface Client {
     id: number;
@@ -226,27 +230,33 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">
-                        Crear Pago Manual
-                    </h2>
-                    <Link
-                        href={route('payments.index')}
-                        className="text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                    >
-                        ← Volver a Pagos
-                    </Link>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Crear Pago Manual" contentWidth="full">
             <Head title="Crear Pago Manual" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-lg">
-                        <form onSubmit={submit} className="space-y-6 p-6">
+            <div className="py-6">
+                <div className="w-full max-w-none min-w-0">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Crear Pago Manual</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Registra un pago manual para un cliente y contrato específico.
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap gap-3">
+                                <Link href={route('payments.index')}>
+                                    <Button variant="outline">
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Volver a Pagos
+                                    </Button>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Card className="p-6">
+                        <form onSubmit={submit} className="space-y-6">
                             {/* Client Selection */}
                             <div ref={clientBoxRef}>
                                 <label
@@ -617,9 +627,9 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
                                 </button>
                             </div>
                         </form>
-                    </div>
+                    </Card>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

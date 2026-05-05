@@ -43,55 +43,57 @@ export default function UpdateProfileInformation({
             </header>
 
             <form onSubmit={submit} className="mt-6 space-y-6">
-                <div>
-                    <InputLabel htmlFor="name" value="Name" />
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div>
+                        <InputLabel htmlFor="name" value="Name" />
 
-                    <TextInput
-                        id="name"
-                        className="mt-1 block w-full"
-                        value={data.name}
-                        onChange={(e) => setData('name', e.target.value)}
-                        required
-                        isFocused
-                        autoComplete="name"
-                    />
+                        <TextInput
+                            id="name"
+                            className="mt-1 block w-full"
+                            value={data.name}
+                            onChange={(e) => setData('name', e.target.value)}
+                            required
+                            isFocused
+                            autoComplete="name"
+                        />
 
-                    <InputError className="mt-2" message={errors.name} />
-                </div>
+                        <InputError className="mt-2" message={errors.name} />
+                    </div>
 
-                <div>
-                    <InputLabel htmlFor="email" value="Email" />
+                    <div>
+                        <InputLabel htmlFor="email" value="Email" />
 
-                    <TextInput
-                        id="email"
-                        type="email"
-                        className="mt-1 block w-full"
-                        value={data.email}
-                        onChange={(e) => setData('email', e.target.value)}
-                        required
-                        autoComplete="username"
-                    />
+                        <TextInput
+                            id="email"
+                            type="email"
+                            className="mt-1 block w-full"
+                            value={data.email}
+                            onChange={(e) => setData('email', e.target.value)}
+                            required
+                            autoComplete="username"
+                        />
 
-                    <InputError className="mt-2" message={errors.email} />
-                </div>
+                        <InputError className="mt-2" message={errors.email} />
+                    </div>
 
-                <div>
-                    <InputLabel htmlFor="phone" value="Teléfono (WhatsApp)" />
+                    <div className="md:col-span-2">
+                        <InputLabel htmlFor="phone" value="Teléfono (WhatsApp)" />
 
-                    <TextInput
-                        id="phone"
-                        type="tel"
-                        className="mt-1 block w-full"
-                        value={data.phone}
-                        onChange={(e) => setData('phone', e.target.value)}
-                        autoComplete="tel"
-                        placeholder="50688887777"
-                    />
+                        <TextInput
+                            id="phone"
+                            type="tel"
+                            className="mt-1 block w-full"
+                            value={data.phone}
+                            onChange={(e) => setData('phone', e.target.value)}
+                            autoComplete="tel"
+                            placeholder="50688887777"
+                        />
 
-                    <InputError className="mt-2" message={errors.phone} />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Número con código de país (ej: 50688887777). Los admins recibirán notificaciones en este número.
-                    </p>
+                        <InputError className="mt-2" message={errors.phone} />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Número con código de país (ej: 50688887777). Los admins recibirán notificaciones en este número.
+                        </p>
+                    </div>
                 </div>
 
                 {mustVerifyEmail && user.email_verified_at === null && (
@@ -117,20 +119,30 @@ export default function UpdateProfileInformation({
                     </div>
                 )}
 
-                <div className="flex items-center gap-4">
-                    <PrimaryButton disabled={processing}>Save</PrimaryButton>
-
-                    <Transition
-                        show={recentlySuccessful}
-                        enter="transition ease-in-out"
-                        enterFrom="opacity-0"
-                        leave="transition ease-in-out"
-                        leaveTo="opacity-0"
+                <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <Link
+                        href={route('profile.show')}
+                        className="text-sm font-medium text-gray-600 dark:text-gray-400 transition hover:text-gray-800 dark:text-gray-100"
+                        preserveState
+                        preserveScroll
                     >
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Saved.
-                        </p>
-                    </Transition>
+                        Cancelar
+                    </Link>
+                    <div className="flex items-center gap-4">
+                        <PrimaryButton disabled={processing}>Save</PrimaryButton>
+
+                        <Transition
+                            show={recentlySuccessful}
+                            enter="transition ease-in-out"
+                            enterFrom="opacity-0"
+                            leave="transition ease-in-out"
+                            leaveTo="opacity-0"
+                        >
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Saved.
+                            </p>
+                        </Transition>
+                    </div>
                 </div>
             </form>
         </section>

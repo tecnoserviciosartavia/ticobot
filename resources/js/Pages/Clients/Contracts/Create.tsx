@@ -1,7 +1,11 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import { Badge } from '@/Components/badge';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import ContractForm from '@/Pages/Contracts/Partials/ContractForm';
 import type { PageProps } from '@/types';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, Link } from '@inertiajs/react';
+import { ArrowLeft, Save, FileText, User, DollarSign } from '@/Components/icons';
 
 interface CreateClientContractProps extends PageProps {
     client: { id: number; name: string; phone?: string | null };
@@ -34,25 +38,60 @@ export default function CreateClientContract({ client, services, defaultCurrency
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">
-                            Nuevo contrato
-                        </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Cliente: <span className="font-medium text-gray-800 dark:text-gray-100">{client.name}</span>
-                        </p>
-                    </div>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Crear Contrato">
             <Head title="Crear contrato" />
 
-            <div className="py-8">
-                <div className="mx-auto max-w-5xl sm:px-6 lg:px-8">
-                    <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-gray-800 dark:shadow-gray-900/50">
+            <div className="py-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Nuevo Contrato</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Crear contrato para: <span className="font-medium text-gray-900">{client.name}</span>
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <Link href={returnTo}>
+                                    <Button variant="outline">
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Volver
+                                    </Button>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Client Info Card */}
+                    <Card className="p-6 mb-8">
+                        <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                                <User className="h-8 w-8 text-blue-600" />
+                            </div>
+                            <div className="ml-4">
+                                <h3 className="text-lg font-medium text-gray-900">Información del Cliente</h3>
+                                <div className="mt-1 space-y-1">
+                                    <p className="text-sm text-gray-600">
+                                        <span className="font-medium">Nombre:</span> {client.name}
+                                    </p>
+                                    {client.phone && (
+                                        <p className="text-sm text-gray-600">
+                                            <span className="font-medium">Teléfono:</span> {client.phone}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* Contract Form */}
+                    <Card className="p-6">
+                        <div className="flex items-center mb-6">
+                            <FileText className="h-6 w-6 text-gray-600 mr-2" />
+                            <h3 className="text-lg font-medium text-gray-900">Detalles del Contrato</h3>
+                        </div>
+                        
                         <ContractForm
                             data={form.data}
                             errors={form.errors}
@@ -64,9 +103,9 @@ export default function CreateClientContract({ client, services, defaultCurrency
                             onChange={form.setData as any}
                             cancelHref={returnTo}
                         />
-                    </div>
+                    </Card>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

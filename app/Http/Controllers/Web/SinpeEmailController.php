@@ -111,7 +111,7 @@ class SinpeEmailController extends Controller
         }
 
         $contracts = Contract::query()
-            ->select('id', 'name', 'amount', 'currency')
+            ->select('id', 'name', 'amount', 'currency', 'billing_cycle')
             ->where('client_id', $clientId)
             ->whereNull('deleted_at')
             ->orderBy('name')
@@ -149,8 +149,9 @@ class SinpeEmailController extends Controller
     public function conciliate(Request $request, int $id): RedirectResponse
     {
         $validated = $request->validate([
-            'client_id'   => ['required', 'integer', 'exists:clients,id'],
-            'contract_id' => ['required', 'integer', 'exists:contracts,id'],
+            'client_id'    => ['required', 'integer', 'exists:clients,id'],
+            'contract_id'  => ['required', 'integer', 'exists:contracts,id'],
+            'billing_month' => ['nullable', 'date_format:Y-m'],
         ]);
 
         $transaction = SinpeEmailTransaction::query()->findOrFail($id);
@@ -160,10 +161,12 @@ class SinpeEmailController extends Controller
         }
 
         DB::transaction(function () use ($transaction, $validated) {
-            $clientId   = (int) $validated['client_id'];
-            $contractId = (int) $validated['contract_id'];
-            $amount     = (float) $transaction->amount;
-            $reference  = $transaction->reference;
+            $clientId    = (int) $validated['client_id'];
+            $contractId  = (int) $validated['contract_id'];
+            $billingMonth = $validated['billing_month'] ?? null;
+            $contract = Contract::query()->findOrFail($contractId);
+            $amount      = (float) $transaction->amount;
+            $reference   = $transaction->reference;
             $performedAt = $transaction->performed_at ?? now();
 
             // Buscar pago existente por referencia para evitar duplicados.
@@ -194,6 +197,11 @@ class SinpeEmailController extends Controller
             $metadata['sinpe_email_origin_phone']   = $transaction->origin_phone;
             $metadata['sinpe_email_motive']         = $transaction->motive;
             $metadata['sinpe_email_conciliated_manually'] = true;
+
+            if ($billingMonth && $contract->billing_cycle === 'monthly') {
+                $metadata['sinpe_email_billing_month'] = $billingMonth;
+                $metadata['paid_for_month'] = $billingMonth;
+            }
 
             if ($payment) {
                 $payment->forceFill([

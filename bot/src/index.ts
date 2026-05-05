@@ -13,6 +13,14 @@ import { chatIdToPhoneDigits, normalizeChatIdForState, normalizeWhatsAppUserChat
 const whatsappClient = new WhatsAppClient();
 const processor = new ReminderProcessor(whatsappClient);
 
+const parseEnvBool = (value: string | undefined, fallback: boolean): boolean => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return fallback;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  return ['1', 'true', 'yes', 'on'].includes(normalized);
+};
+
 const runBatch = async () => {
   try {
     await processor.runBatch();
@@ -35,6 +43,8 @@ async function main(): Promise<void> {
   const adminNotifiedAt = new Map<string, number>();
   const AGENT_NOTIFY_THROTTLE_MS = Number(process.env.AGENT_NOTIFY_THROTTLE_MS || 30 * 60 * 1000); // default 30 minutes
   const MANUAL_REPLY_PAUSE_MS = Number(process.env.BOT_MANUAL_REPLY_PAUSE_MS || 10 * 60 * 1000);
+  const FROM_ME_SUPPRESS_AFTER_INBOUND_MS = Number(process.env.BOT_FROM_ME_SUPPRESS_AFTER_INBOUND_MS || 90 * 1000); // 90s window after inbound
+  const suppressFromMePauseUntil = new Map<string, number>();
   // awaiting receipt uploads per chat
   const awaitingReceipt = new Map<string, boolean>();
   // pending confirmation for an unsolicited media receipt: store downloaded media until user confirms
@@ -130,6 +140,7 @@ async function main(): Promise<void> {
     awaitingMonths.delete(chatId);
     pendingConfirmReceipt.delete(chatId);
     chatTimeoutMs.delete(chatId);
+    suppressFromMePauseUntil.delete(chatId);
     if (options?.clearTimer) clearTimer(chatId);
     logger.info({ chatId, reason }, 'Estado transient del chat reiniciado');
   }
@@ -169,6 +180,22 @@ async function main(): Promise<void> {
       return;
     }
 
+    const now = Date.now();
+    const suppressUntil = suppressFromMePauseUntil.get(chatId) || 0;
+    if (suppressUntil > now) {
+      logger.debug(
+        {
+          rawTarget,
+          chatId,
+          phoneDigits,
+          suppressForMs: suppressUntil - now,
+          windowMs: FROM_ME_SUPPRESS_AFTER_INBOUND_MS,
+        },
+        'Se omite pausa automática por fromMe: posible mensaje emitido por flujo interno del bot'
+      );
+      return;
+    }
+
     agentMode.set(chatId, true);
     chatTimeoutMs.set(chatId, MANUAL_REPLY_PAUSE_MS);
     menuShown.delete(chatId);
@@ -194,6 +221,10 @@ async function main(): Promise<void> {
 
   // Bot paused state
   let botPaused = false;
+  let reminderSchedulerInterval: ReturnType<typeof setInterval> | null = null;
+  let reminderSchedulerRunning = false;
+  const reminderSchedulerEnabled = parseEnvBool(process.env.BOT_REMINDER_SCHEDULER_ENABLED, true);
+  const reminderPollIntervalMs = Number(process.env.BOT_POLL_INTERVAL_MS || config.pollIntervalMs);
 
   // Allow override from environment variable BOT_BUSINESS_HOURS (JSON string)
   try {
@@ -368,7 +399,27 @@ async function main(): Promise<void> {
   }
 
 
-  whatsappClient.registerInboundHandler(async (message) => {
+  const processedMessageSet = new Set<string>();
+
+whatsappClient.registerInboundHandler(async (message) => {
+  const messageId = (message as any)?.id?._serialized;
+  if (!messageId) {
+    logger.warn('Mensaje sin ID, posible duplicado no detectado');
+  } else if (processedMessageSet.has(messageId)) {
+    logger.info({ messageId }, 'Mensaje ya procesado, ignorando para evitar duplicado');
+    return;
+  } else {
+    logger.info({ messageId }, 'Procesando mensaje entrante');
+    processedMessageSet.add(messageId);
+    // Limpiar Set cada 1000 mensajes para evitar crecimiento sin control
+    if (processedMessageSet.size > 1000) {
+      const arr = Array.from(processedMessageSet);
+      processedMessageSet.clear();
+      // Retener últimos 500 mensajes para evitar procesar repetidos a corto plazo
+      arr.slice(-500).forEach(id => processedMessageSet.add(id));
+    }
+  }
+
   const t0 = Date.now();
   const timings: Record<string, number> = {};
   const mark = (k: string) => {
@@ -396,9 +447,15 @@ async function main(): Promise<void> {
   const body = String(message.body ?? '').trim();
   // Ignorar mensajes viejos (backlog al reconectar) para evitar respuestas tardías/duplicadas.
   // whatsapp-web.js entrega timestamp en segundos epoch; usamos una ventana configurable.
+  // EXCEPCIÓN: nunca ignorar mensajes del admin (para que adminmenu funcione siempre)
+  const chatId = normalizeStateChatId(message.from);
+  const fromUser = chatIdToPhoneDigits(chatId);
+  const fromNorm = normalizeCR(fromUser);
+  const isAdminUserEarly = isAdminChatId(chatId) || fromNorm === '50672140974';
+
   try {
     const tsRaw = Number((message as any)?.timestamp);
-    if (Number.isFinite(tsRaw) && tsRaw > 0) {
+    if (Number.isFinite(tsRaw) && tsRaw > 0 && !isAdminUserEarly) {
       const msgTsMs = tsRaw * 1000;
       const ageMs = Date.now() - msgTsMs;
       const maxAgeMs = Number(process.env.BOT_MAX_INBOUND_AGE_MS || 2 * 60 * 1000);
@@ -421,9 +478,61 @@ async function main(): Promise<void> {
   const lc = body.toLowerCase();
   const lcNorm = lc.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   mark('parsed');
-    const chatId = normalizeStateChatId(message.from);
-    const fromUser = chatIdToPhoneDigits(chatId);
-    const fromNorm = normalizeCR(fromUser);
+
+    // Establecer ventana de supresión de pausa automática: cuando recibimos un mensaje,
+    // marcamos que los próximos fromMe no deben pausar el chat (son respuestas del bot)
+    if (chatId && !isAdminUserEarly) {
+      suppressFromMePauseUntil.set(chatId, Date.now() + FROM_ME_SUPPRESS_AFTER_INBOUND_MS);
+    }
+
+    // Protección throttle para opción 5 solicitud asesor
+    if ((lc === '5' || lc === 'agente' || lc === 'asesor') && !agentMode.get(chatId)) {
+      const THROTTLE_MS = 5 * 60 * 1000; // 5 minutos
+      const lastSent = adminNotifiedAt.get(chatId) || 0;
+      if (Date.now() - lastSent < THROTTLE_MS) {
+        logger.info({ chatId }, 'Omitida repetición solicitud asesor por throttle');
+        return;
+      }
+      adminNotifiedAt.set(chatId, Date.now());
+
+      const isOutsideHours = !_isWithinBusinessHours();
+
+      let agentMsg = '';
+      if (isOutsideHours) {
+        agentMsg = `⏰ Actualmente estamos fuera del horario de atención.\n\nNuestro horario: ${formatBusinessHours()}\n\n✅ He registrado tu solicitud y un asesor te contactará cuando inicie el horario de atención.`;
+      } else {
+        agentMsg = 'Para hablar con un asesor, por favor comunícate con nuestro equipo de soporte o escribe "agente" para que te transferamos. Un asesor te contactará a la brevedad.';
+      }
+      await message.reply(agentMsg);
+
+      agentMode.set(chatId, true);
+      chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
+
+      try { touchTimer(chatId); } catch { /* ignore */ }
+
+      menuShown.delete(chatId);
+      lastMenuItems.delete(chatId);
+
+      try {
+        const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
+        const adminChatId = normalizeToChatId(adminPhone);
+
+        const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
+        const offHoursSuffix = isOutsideHours
+          ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.`
+          : '';
+
+        const notifyText = `${offHoursPrefix}Cliente ${fromUser} (${chatId}) solicita atención de un asesor (opción 5). Mensaje: "${String(body).slice(0, 200)}"${offHoursSuffix}`;
+
+        logger.info({ chatId, notifyText }, 'Enviando notificación al admin');
+
+        await whatsappClient.sendText(adminChatId, notifyText);
+      } catch (e) {
+        logger.warn({ e }, 'Falló notificación al admin sobre solicitud de asesor');
+      }
+
+      return;
+    }
 
     // Registrar mensaje entrante en el historial de chats de la plataforma (best-effort)
     if (fromNorm && !isAdminChatId(chatId)) {
@@ -554,9 +663,6 @@ async function main(): Promise<void> {
       return true;
     };
 
-    // Admin definido temprano para poder aplicar reglas de silencio.
-    const isAdminUserEarly = isAdminChatId(chatId) || fromNorm === '50672140974';
-
     const detectAdLead = (msg: any, plainBody: string): { isAdLead: boolean; evidence?: string } => {
       try {
         const raw = (msg as any)?._data ?? {};
@@ -666,7 +772,8 @@ async function main(): Promise<void> {
     }
 
     // Regla de anuncio: enrutar directo a asesor (misma lógica de opción 5) y no mostrar menú.
-    if (!isAdminUserEarly) {
+    // Deshabilitado temporalmente porque está siendo demasiado agresivo con mensajes normales
+    if (false && !isAdminUserEarly) {
       const adSignal = detectAdLead(message as any, body);
       if (adSignal.isAdLead) {
         adLeadChats.set(chatId, { detectedAt: Date.now(), evidence: String(adSignal.evidence || 'unknown') });

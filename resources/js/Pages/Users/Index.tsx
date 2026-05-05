@@ -2,7 +2,7 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { FormEvent } from 'react';
 
@@ -129,7 +129,7 @@ function UserRow({ user }: { user: ManagedUser }) {
     );
 }
 
-export default function UsersIndex({ users }: { users: ManagedUser[] }) {
+export default function UsersIndex({ users = [] }: { users?: ManagedUser[] }) {
     const page = usePage().props as {
         flash?: { success?: string; error?: string };
     };
@@ -154,7 +154,7 @@ export default function UsersIndex({ users }: { users: ManagedUser[] }) {
     };
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">Usuarios</h2>}>
+        <ResponsiveLayout title="Usuarios">
             <Head title="Usuarios" />
 
             <div className="py-8">
@@ -228,6 +228,6 @@ export default function UsersIndex({ users }: { users: ManagedUser[] }) {
                     </section>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

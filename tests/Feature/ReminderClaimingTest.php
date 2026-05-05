@@ -105,4 +105,45 @@ class ReminderClaimingTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    public function test_pending_endpoint_skips_recently_attempted_reminders_until_retry_cooldown_passes(): void
+    {
+        config()->set('app.timezone', 'America/Costa_Rica');
+        config()->set('reminders.send_time', '09:00');
+
+        Carbon::setTestNow(Carbon::parse('2026-03-19 10:00:00', 'America/Costa_Rica'));
+
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+
+        $client = Client::factory()->create();
+        $contract = Contract::factory()->create([
+            'client_id' => $client->id,
+            'next_due_date' => '2026-03-19',
+            'billing_cycle' => 'monthly',
+        ]);
+
+        $reminder = Reminder::query()->where('contract_id', $contract->id)->firstOrFail();
+        $reminder->forceFill([
+            'status' => 'pending',
+            'last_attempt_at' => Carbon::now('America/Costa_Rica')->subMinutes(5),
+        ])->save();
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/reminders/pending?look_ahead=60&retry_cooldown=15')
+            ->assertOk()
+            ->assertJsonCount(0);
+
+        $reminder->forceFill([
+            'last_attempt_at' => Carbon::now('America/Costa_Rica')->subMinutes(16),
+        ])->save();
+
+        $this->withHeader('Authorization', 'Bearer ' . $token)
+            ->getJson('/api/reminders/pending?look_ahead=60&retry_cooldown=15')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $reminder->id);
+
+        Carbon::setTestNow();
+    }
 }

@@ -11,6 +11,7 @@ use App\Http\Controllers\Web\LogsController;
 use App\Http\Controllers\Web\PaymentController as WebPaymentController;
 use App\Http\Controllers\Web\ReminderController as WebReminderController;
 use App\Http\Controllers\Web\UserManagementController as WebUserManagementController;
+use App\Http\Controllers\Web\SearchController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -28,6 +29,13 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
+    // Búsqueda global
+    Route::get('/search', [SearchController::class, 'global'])->name('search.global');
+    // Debug route para verificar permisos
+    Route::get('/debug/permissions', function () {
+        return Inertia::render('Debug/Permissions');
+    })->name('debug.permissions');
+    
     // Sección disponible para todos los roles autenticados
     Route::get('/chats', [WebChatController::class, 'index'])->name('chats.index');
     Route::get('/chats/{phone}', [WebChatController::class, 'show'])->name('chats.show');
@@ -49,14 +57,15 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::delete('contracts/{contract}', [WebContractController::class, 'destroy'])->name('contracts.destroy');
     Route::post('contracts/{contract}/resend-access', [WebContractController::class, 'resendAccess'])->name('contracts.resend-access');
 
-    Route::get('/conciliations', [WebConciliationController::class, 'index'])->name('conciliations.index');
-    Route::post('/conciliations', [WebConciliationController::class, 'store'])->name('conciliations.store');
-
     // Rutas exclusivas para administradores
     Route::middleware('admin')->group(function (): void {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
         Route::get('/logs', [LogsController::class, 'index'])->name('logs.index');
         Route::get('/logs/fetch', [LogsController::class, 'fetch'])->name('logs.fetch');
+        
+        Route::get('/conciliations', [WebConciliationController::class, 'index'])->name('conciliations.index');
+        Route::post('/conciliations', [WebConciliationController::class, 'store'])->name('conciliations.store');
+        Route::patch('/conciliations/{conciliation}', [WebConciliationController::class, 'update'])->name('conciliations.update');
 
         Route::get('/collections', function () {
             return Inertia::render('Collections/Index');
@@ -74,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::resource('users', WebUserManagementController::class)->except(['show', 'create', 'edit']);
 
         Route::resource('reminders', WebReminderController::class)->except(['destroy']);
+        Route::post('/reminders/{reminder}/retry', [WebReminderController::class, 'retry'])->name('reminders.retry');
         Route::get('/payments', [WebPaymentController::class, 'index'])->name('payments.index');
         Route::get('/payments/create', [WebPaymentController::class, 'create'])->name('payments.create');
         Route::post('/payments', [WebPaymentController::class, 'store'])->name('payments.store');

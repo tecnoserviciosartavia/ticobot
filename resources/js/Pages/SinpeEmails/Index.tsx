@@ -1,13 +1,14 @@
-import AccountingTabs from '@/Components/AccountingTabs';
 import Pagination from '@/Components/Pagination';
-import StatusBadge from '@/Components/StatusBadge';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import type { PageProps } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
-import { labelForStatus } from '@/lib/labels';
 import { Fragment, FormEvent, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import axios from 'axios';
+import { formatDateTime, formatAmount, labelForEmailStatus, classForEmailStatus } from './utils';
+import FiltersBar from './Partials/FiltersBar';
+import MobileTransactionCard from './Partials/MobileTransactionCard';
+import DesktopTransactionsTable from './Partials/DesktopTransactionsTable';
 
 interface SinpeEmailTransaction {
     id: number;
@@ -36,6 +37,7 @@ interface ContractOption {
     name: string;
     amount: number;
     currency: string;
+    billing_cycle?: string | null;
 }
 
 interface Paginated<T> {
@@ -50,42 +52,6 @@ type PageData = PageProps<{
     statuses: string[];
     clients: ClientOption[];
 }>;
-
-const formatDateTime = (value: string | null) => {
-    if (!value) return '—';
-    const d = new Date(value);
-    return d.toLocaleString('es-CR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'America/Costa_Rica',
-    });
-};
-
-const formatAmount = (amount: string | number) =>
-    new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(
-        typeof amount === 'string' ? parseFloat(amount) : amount,
-    );
-
-const labelForEmailStatus = (status: string) => {
-    switch (status) {
-        case 'skipped':   return 'Sin conciliar';
-        case 'in_review': return 'En revisión';
-        case 'error':     return 'Error';
-        default:          return labelForStatus(status);
-    }
-};
-
-const classForEmailStatus = (status: string) => {
-    switch (status) {
-        case 'skipped':   return 'bg-amber-100 text-amber-800 ring-amber-500/40';
-        case 'in_review': return 'bg-blue-100 text-blue-800 ring-blue-500/40';
-        case 'error':     return 'bg-rose-100 text-rose-800 ring-rose-500/40';
-        default:          return 'bg-slate-100 text-slate-800 ring-slate-500/40';
-    }
-};
 
 export default function SinpeEmailsIndex({ transactions, filters, statuses, clients }: PageData) {
     const { data, setData } = useForm<{ status: string; read: string }>({
@@ -105,6 +71,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
     const [contracts, setContracts] = useState<ContractOption[]>([]);
     const [loadingContracts, setLoadingContracts] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [billingMonth, setBillingMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [formError, setFormError] = useState<string | null>(null);
 
     // Delete confirm
@@ -132,6 +99,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
         setClientId('');
         setContractId('');
         setContracts([]);
+        setBillingMonth(new Date().toISOString().slice(0, 7));
         setFormError(null);
         setModalOpen(true);
     };
@@ -155,11 +123,23 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
             setFormError('Debes seleccionar cliente y contrato.');
             return;
         }
+
+        const selectedContract = contracts.find((c) => String(c.id) === String(contractId));
+        const isMonthlyContract = selectedContract?.billing_cycle === 'monthly';
+        if (isMonthlyContract && !billingMonth) {
+            setFormError('Debes seleccionar el mes que estás pagando.');
+            return;
+        }
+
         setSubmitting(true);
         setFormError(null);
         router.post(
             route('sinpe-emails.conciliate', { id: selected.id }),
-            { client_id: clientId, contract_id: contractId },
+            {
+                client_id: clientId,
+                contract_id: contractId,
+                billing_month: isMonthlyContract ? billingMonth : null,
+            },
             {
                 onSuccess: () => { setModalOpen(false); setSubmitting(false); },
                 onError: (errors) => {
@@ -208,298 +188,49 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">
-                    Correos
-                </h2>
-            }
-        >
+        <ResponsiveLayout title="Correos" contentWidth="full">
             <Head title="Correos" />
 
-            <div className="py-12">
-                <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
-                    <AccountingTabs active="sinpe_emails" />
+            <div className="w-full pb-6 pt-2">
+                <div className="w-full space-y-4">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-3xl">
+                            Correos
+                        </h1>
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            Notificaciones SINPE recibidas por correo y conciliación con clientes.
+                        </p>
+                    </div>
 
                     {/* Filtros */}
-                    <div className="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-lg">
-                        <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 px-4 py-4 sm:px-6">
-                            <div className="mb-3 flex items-center justify-between gap-3 md:hidden">
-                                <div>
-                                    <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Filtros</div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">{paginationMeta.total} transacción(es)</div>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowMobileFilters((value) => !value)}
-                                    className="inline-flex items-center rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 shadow-sm dark:border-gray-600 dark:text-gray-300"
-                                >
-                                    {showMobileFilters ? 'Ocultar' : 'Mostrar'}
-                                </button>
-                            </div>
-                            <form onSubmit={submit} className={`${showMobileFilters ? 'flex' : 'hidden'} flex-col gap-4 lg:flex lg:flex-row lg:flex-wrap lg:items-end`}>
-                                <div className="w-full sm:w-auto">
-                                    <label htmlFor="read" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Bandeja
-                                    </label>
-                                    <select
-                                        id="read"
-                                        value={data.read}
-                                        onChange={(e) => setData('read', e.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto"
-                                    >
-                                        <option value="">Todos</option>
-                                        <option value="unread">No leídos</option>
-                                        <option value="read">Leídos</option>
-                                    </select>
-                                </div>
-                                <div className="w-full sm:w-auto">
-                                    <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Estado
-                                    </label>
-                                    <select
-                                        id="status"
-                                        value={data.status}
-                                        onChange={(e) => setData('status', e.target.value)}
-                                        className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto"
-                                    >
-                                        <option value="">Todos</option>
-                                        {statuses.map((s) => (
-                                            <option key={s} value={s}>{labelForEmailStatus(s)}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="flex flex-col gap-2 sm:flex-row">
-                                    <button
-                                        type="submit"
-                                        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-                                    >
-                                        Filtrar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={resetFilters}
-                                        className="rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                    >
-                                        Limpiar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleSync}
-                                        disabled={syncing}
-                                        className="rounded-md border border-indigo-300 dark:border-indigo-700 px-4 py-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-50"
-                                    >
-                                        {syncing ? 'Recargando…' : 'Recargar correos'}
-                                    </button>
-                                </div>
-                                <span className="text-sm text-gray-500 dark:text-gray-400 lg:ml-auto">
-                                    {paginationMeta.total} transacci{paginationMeta.total === 1 ? 'ón' : 'ones'}
-                                </span>
-                            </form>
-                        </div>
+                    <div className="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800 dark:shadow-gray-900/50">
+                        <FiltersBar
+                            data={data}
+                            setData={setData}
+                            submit={submit}
+                            resetFilters={resetFilters}
+                            handleSync={handleSync}
+                            syncing={syncing}
+                            statuses={statuses}
+                            showMobileFilters={showMobileFilters}
+                            setShowMobileFilters={setShowMobileFilters}
+                            paginationMeta={paginationMeta}
+                            labelForEmailStatus={labelForEmailStatus}
+                        />
 
-                        <div className="space-y-3 p-4 md:hidden">
-                            {rows.length === 0 && (
-                                <div className="rounded-lg border border-dashed px-4 py-8 text-center text-gray-400 dark:text-gray-500">
-                                    No hay transacciones para mostrar.
-                                </div>
-                            )}
-                            {rows.map((tx) => (
-                                <div
-                                    key={tx.id}
-                                    onClick={() => markAsRead(tx)}
-                                    className={`cursor-pointer rounded-lg border p-4 shadow-sm ${tx.is_read ? 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800' : 'border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20'}`}
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <div className="flex items-center gap-2 text-xs font-semibold">
-                                                <span className={`inline-block h-2.5 w-2.5 rounded-full ${tx.is_read ? 'bg-gray-300 dark:bg-gray-600' : 'bg-indigo-500'}`} />
-                                                <span className={tx.is_read ? 'text-gray-500 dark:text-gray-400' : 'text-indigo-700 dark:text-indigo-300'}>
-                                                    {tx.is_read ? 'Leído' : 'No leído'}
-                                                </span>
-                                            </div>
-                                            <div className={`mt-2 text-sm ${tx.is_read ? 'font-medium text-gray-900 dark:text-gray-100' : 'font-semibold text-gray-950 dark:text-white'}`}>
-                                                {tx.mail_subject || tx.origin_name || 'Correo SINPE'}
-                                            </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">{formatDateTime(tx.performed_at)}</div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="font-semibold text-gray-900 dark:text-gray-100">{formatAmount(tx.amount)}</div>
-                                            <span className={`mt-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${classForEmailStatus(tx.status)}`}>
-                                                {labelForEmailStatus(tx.status)}
-                                            </span>
-                                        </div>
-                                    </div>
+                        <MobileTransactionCard
+                            rows={rows}
+                            markAsRead={markAsRead}
+                            openConciliate={openConciliate}
+                            setDeleteTarget={setDeleteTarget}
+                        />
 
-                                    <div className="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                                        <div>Origen: {tx.origin_name || '—'}{tx.origin_phone && tx.origin_phone !== '00000000' ? ` · ${tx.origin_phone}` : ''}</div>
-                                        <div>Motivo: {tx.motive || '—'}</div>
-                                        <div>Referencia: {tx.reference || '—'}</div>
-                                        <div>Cliente: {tx.client?.name || '—'}</div>
-                                        {tx.contract && <div>Contrato: {tx.contract.name}</div>}
-                                    </div>
-
-                                    <div className="mt-4 flex flex-wrap gap-2">
-                                        {tx.status === 'skipped' && (
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openConciliate(tx);
-                                                }}
-                                                className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
-                                            >
-                                                Conciliar
-                                            </button>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setDeleteTarget(tx);
-                                            }}
-                                            className="rounded-md border border-rose-300 dark:border-rose-700 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30"
-                                        >
-                                            Eliminar
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Tabla */}
-                        <div className="hidden overflow-x-auto md:block">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                                <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Bandeja</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Fecha</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Origen</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Motivo</th>
-                                        <th className="px-4 py-3 text-right font-semibold text-gray-600 dark:text-gray-300">Monto</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Estado</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Cliente / Contrato</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Acción</th>
-                                        <th className="px-4 py-3"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                                    {rows.length === 0 && (
-                                        <tr>
-                                            <td colSpan={9} className="px-4 py-8 text-center text-gray-400 dark:text-gray-500">
-                                                No hay transacciones para mostrar.
-                                            </td>
-                                        </tr>
-                                    )}
-                                    {rows.map((tx) => (
-                                        <tr
-                                            key={tx.id}
-                                            onClick={() => markAsRead(tx)}
-                                            className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 ${tx.is_read ? 'bg-white dark:bg-gray-800' : 'bg-indigo-50/40 dark:bg-indigo-950/20'}`}
-                                        >
-                                            <td className="px-4 py-3 align-top">
-                                                <div className="flex min-w-[120px] items-center gap-2">
-                                                    <span className={`inline-block h-2.5 w-2.5 rounded-full ${tx.is_read ? 'bg-gray-300 dark:bg-gray-600' : 'bg-indigo-500'}`} />
-                                                    <span className={`text-xs font-semibold ${tx.is_read ? 'text-gray-500 dark:text-gray-400' : 'text-indigo-700 dark:text-indigo-300'}`}>
-                                                        {tx.is_read ? 'Leído' : 'No leído'}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-300">
-                                                {formatDateTime(tx.performed_at)}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className={`text-sm ${tx.is_read ? 'font-medium text-gray-900 dark:text-gray-100' : 'font-semibold text-gray-950 dark:text-white'}`}>
-                                                    {tx.mail_subject || tx.origin_name || 'Correo SINPE'}
-                                                </div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                    {tx.origin_name || '—'}
-                                                </div>
-                                                {tx.origin_phone && tx.origin_phone !== '00000000' && (
-                                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                        {tx.origin_phone}
-                                                    </div>
-                                                )}
-                                                {tx.reference && (
-                                                    <div className="text-xs text-gray-400 dark:text-gray-500 font-mono">
-                                                        {tx.reference}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[180px] truncate">
-                                                <div className={`${tx.is_read ? '' : 'font-medium text-gray-800 dark:text-gray-200'}`}>
-                                                    {tx.motive || '—'}
-                                                </div>
-                                                {tx.notes && (
-                                                    <div className="mt-1 text-xs text-gray-400 dark:text-gray-500 line-clamp-2">
-                                                        {tx.notes}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                                {formatAmount(tx.amount)}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${classForEmailStatus(tx.status)}`}>
-                                                    {labelForEmailStatus(tx.status)}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {tx.client ? (
-                                                    <div>
-                                                        <div className="text-gray-900 dark:text-gray-100">{tx.client.name}</div>
-                                                        {tx.contract && (
-                                                            <div className="text-xs text-gray-500 dark:text-gray-400">{tx.contract.name}</div>
-                                                        )}
-                                                        {tx.payment && (
-                                                            <a
-                                                                href={route('payments.index')}
-                                                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-                                                            >
-                                                                Pago #{tx.payment.id}
-                                                                {' '}
-                                                                <StatusBadge status={tx.payment.status} />
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-gray-400 dark:text-gray-500">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {tx.status === 'skipped' && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openConciliate(tx);
-                                                        }}
-                                                        className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
-                                                    >
-                                                        Conciliar
-                                                    </button>
-                                                )}
-                                                {tx.status === 'in_review' && (
-                                                    <span className="text-xs text-blue-600 dark:text-blue-400">En revisión</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setDeleteTarget(tx);
-                                                    }}
-                                                    className="rounded-md border border-rose-300 dark:border-rose-700 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30"
-                                                >
-                                                    Eliminar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DesktopTransactionsTable
+                            rows={rows}
+                            markAsRead={markAsRead}
+                            openConciliate={openConciliate}
+                            setDeleteTarget={setDeleteTarget}
+                        />
 
                         {paginationLinks.length > 3 && (
                             <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-4">
@@ -600,6 +331,22 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                                         </select>
                                     </div>
 
+                                    {contracts.length > 0 && contractId && contracts.find((c) => String(c.id) === String(contractId))?.billing_cycle === 'monthly' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                Mes que está pagando
+                                            </label>
+                                            <input
+                                                id="billing_month"
+                                                name="billing_month"
+                                                type="month"
+                                                value={billingMonth}
+                                                onChange={(e) => setBillingMonth(e.target.value)}
+                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                    )}
+
                                     {formError && (
                                         <p className="text-sm text-rose-600 dark:text-rose-400">{formError}</p>
                                     )}
@@ -678,6 +425,6 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                     </div>
                 </Dialog>
             </Transition>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

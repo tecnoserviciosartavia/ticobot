@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import ClientForm from '@/Pages/Clients/Partials/ClientForm';
 import Modal from '@/Components/Modal';
 import ContractForm from '@/Pages/Contracts/Partials/ContractForm';
@@ -87,18 +87,7 @@ export default function EditClient({ client, statuses, services }: EditClientPag
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
-                        Editar cliente
-                    </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Actualiza la información de contacto y el estado para coordinar los recordatorios correctamente.
-                    </p>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Editar cliente">
             <Head title={`Editar ${client.name}`} />
 
             <div className="py-12">
@@ -151,6 +140,6 @@ export default function EditClient({ client, statuses, services }: EditClientPag
                     />
                 </div>
             </Modal>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

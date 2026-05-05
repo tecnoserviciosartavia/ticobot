@@ -1,5 +1,4 @@
-import AccountingTabs from '@/Components/AccountingTabs';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -84,13 +83,12 @@ export default function CollectionsIndex() {
   }, [data]);
 
   return (
-    <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">Cobranzas</h2>}>
+    <ResponsiveLayout title="Cobranzas">
       <Head title="Cobranzas" />
 
       <div>
         <div className="py-6">
         <div className="w-full px-4 sm:px-6 lg:px-8 space-y-6">
-          <AccountingTabs active="collections" />
           <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -200,7 +198,7 @@ export default function CollectionsIndex() {
         </div>
         </div>
       </div>
-    </AuthenticatedLayout>
+    </ResponsiveLayout>
   );
 }
 

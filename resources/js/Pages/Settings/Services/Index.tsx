@@ -1,7 +1,11 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import { Badge } from '@/Components/badge';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import type { PageProps } from '@/types';
+import { Settings, ArrowLeft, Plus, Edit, Trash2, DollarSign, Users, Eye, EyeOff, Save } from '@/Components/icons';
 
 type ServiceItem = {
     id: number;
@@ -32,7 +36,7 @@ const currencySymbol = (currency: string) => {
     }
 };
 
-export default function ServicesSettingsIndex({ services }: Props) {
+export default function ServicesSettingsIndex({ services = [] }: Props) {
     const createForm = useForm({
         name: '',
         price: '0',
@@ -106,23 +110,42 @@ export default function ServicesSettingsIndex({ services }: Props) {
     };
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold">Configuración: Servicios</h2>}>
+        <ResponsiveLayout title="Configuración de Servicios">
             <Head title="Configuración - Servicios" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-[96rem] sm:px-6 lg:px-8 space-y-6">
-                    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow">
-                        <h3 className="text-lg font-semibold">Agregar servicio</h3>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Estos servicios se podrán seleccionar dentro de un contrato y el monto del contrato será la suma.
-                        </p>
+            <div className="py-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Configuración de Servicios</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Administra los servicios disponibles para los contratos del sistema.
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <Button variant="outline">
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Volver
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
 
-                        <form onSubmit={submitCreate} className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-5 items-end">
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium">Nombre</label>
-                                <input
-                                    value={createForm.data.name}
-                                    onChange={(e) => createForm.setData('name', e.target.value)}
+                    <div className="space-y-8">
+                        <Card className="p-6">
+                            <h3 className="text-lg font-semibold">Agregar servicio</h3>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Estos servicios se podrán seleccionar dentro de un contrato y el monto del contrato será la suma.
+                            </p>
+
+                            <form onSubmit={submitCreate} className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-5 items-end">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium">Nombre</label>
+                                    <input
+                                        value={createForm.data.name}
+                                        onChange={(e) => createForm.setData('name', e.target.value)}
                                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                                     placeholder="Ej: YouTube"
                                     required
@@ -246,9 +269,9 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 </button>
                             </div>
                         </form>
-                    </div>
+                        </Card>
 
-                    <div className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow">
+                        <Card className="p-6">
                         <div className="flex items-baseline justify-between">
                             <h3 className="text-lg font-semibold">Servicios existentes</h3>
                             <a
@@ -498,9 +521,10 @@ export default function ServicesSettingsIndex({ services }: Props) {
                                 </tbody>
                             </table>
                         </div>
+                    </Card>
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

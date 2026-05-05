@@ -222,6 +222,80 @@ class ConciliationController extends Controller
         return redirect()->route('payments.index')->with('success', 'Conciliación creada exitosamente.');
     }
 
+    public function update(Request $request, Conciliation $conciliation): RedirectResponse
+    {
+        $data = $request->validate([
+            'status' => ['required', 'in:pending,in_review,approved,rejected'],
+            'verified_at' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $conciliation->update($data);
+
+        // Update payment status based on conciliation status
+        $paymentStatus = match ($data['status']) {
+            'approved' => 'verified',
+            'rejected' => 'rejected',
+            'in_review' => 'in_review',
+            default => 'in_review',
+        };
+
+        $payment = $conciliation->payment;
+        $payment?->update(['status' => $paymentStatus]);
+
+        // If approved, generate PDF and send notification
+        if ($data['status'] === 'approved' && $payment) {
+            try {
+                $payment->load(['client', 'contract']);
+                
+                $pdfService = new ConciliationPdfService();
+                $whatsappService = new WhatsAppNotificationService();
+
+                $months = $pdfService->calculateMonthsFromPayment($payment);
+
+                // If payment amount is 0, try to calculate it
+                if ((float) ($payment->amount ?? 0) <= 0) {
+                    $calculated = null;
+                    if ($payment->contract && (float) $payment->contract->amount > 0) {
+                        $calculated = (float) $payment->contract->amount * max(1, (int) $months);
+                    } elseif (is_array($payment->metadata ?? null) && isset($payment->metadata['calculated_amount'])) {
+                        $calculated = (float) $payment->metadata['calculated_amount'];
+                    }
+
+                    if ($calculated !== null && $calculated > 0) {
+                        $before = $payment->amount;
+                        $payment->forceFill(['amount' => $calculated])->save();
+                    }
+                }
+
+                // Generate PDF
+                $pdfPath = $pdfService->generateConciliationReceipt($payment, $months);
+                
+                // Generate message
+                $message = $pdfService->generateWhatsAppMessage($months);
+
+                // Send PDF and message via WhatsApp
+                $sent = $whatsappService->sendConciliationReceipt($payment, $pdfPath, $message);
+
+                if ($sent) {
+                    Log::info('PDF de conciliación enviado exitosamente', [
+                        'payment_id' => $payment->id,
+                        'conciliation_id' => $conciliation->id,
+                        'months' => $months,
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Error al generar/enviar PDF de conciliación', [
+                    'payment_id' => $payment->id,
+                    'conciliation_id' => $conciliation->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return redirect()->route('conciliations.index')->with('success', 'Conciliación actualizada exitosamente.');
+    }
+
     /**
      * Reprograma recordatorios pendientes cuando se paga por múltiples meses
      */

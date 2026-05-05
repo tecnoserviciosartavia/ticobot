@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import ReminderForm, { ReminderFormData } from '@/Pages/Reminders/Partials/ReminderForm';
 import type { PageProps } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
@@ -56,18 +56,7 @@ export default function RemindersEdit({ reminder, clients, channels }: Reminders
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
-                        Editar recordatorio
-                    </h2>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                        Estado actual: {statusLabel}
-                    </span>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Editar recordatorio">
             <Head title="Editar recordatorio" />
 
             <div className="py-12">
@@ -87,6 +76,6 @@ export default function RemindersEdit({ reminder, clients, channels }: Reminders
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

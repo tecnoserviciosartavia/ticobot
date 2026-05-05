@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import type { PageProps } from '@/types';
 import { FormEvent, useState } from 'react';
@@ -26,22 +26,7 @@ export default function ClientsImport(_props: PageProps) {
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">Importar clientes</h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Sube un archivo CSV o XLSX con las columnas: name, email, phone, status, notes.</p>
-                    </div>
-                    <Link
-                        href={route('clients.index')}
-                        className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                        Volver a clientes
-                    </Link>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Importar clientes">
             <Head title="Importar clientes" />
 
             <div className="py-12">
@@ -105,6 +90,6 @@ María Gómez,maria@example.com,7777-7777,inactive,
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

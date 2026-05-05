@@ -13,6 +13,14 @@ use App\Http\Controllers\api\PaymentStatusController;
 use App\Http\Controllers\Api\ChatMessageController;
 use Illuminate\Support\Facades\Route;
 
+// WhatsApp bot endpoints (no auth required for QR and status)
+Route::prefix('whatsapp')->name('api.whatsapp.')->group(function (): void {
+    Route::get('status', [WhatsAppStatusController::class, 'getStatus'])->name('status');
+    Route::post('qr', [WhatsAppStatusController::class, 'storeQr'])->name('qr');
+    Route::post('ready', [WhatsAppStatusController::class, 'markReady'])->name('ready');
+    Route::post('disconnected', [WhatsAppStatusController::class, 'markDisconnected'])->name('disconnected');
+});
+
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('reminders/pending', [ReminderController::class, 'pending']);
     Route::get('reminders/sent-without-payment', [ReminderController::class, 'sentWithoutPayment']);
@@ -41,11 +49,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('settings/{key}', [\App\Http\Controllers\Api\SettingsController::class, 'update']);
     Route::delete('settings/{key}', [\App\Http\Controllers\Api\SettingsController::class, 'destroy']);
 
+    // Bot menu endpoints (require auth)
     Route::prefix('whatsapp')->name('api.whatsapp.')->group(function (): void {
-        Route::post('qr', [WhatsAppStatusController::class, 'storeQr'])->name('qr');
-        Route::post('ready', [WhatsAppStatusController::class, 'markReady'])->name('ready');
-        Route::post('disconnected', [WhatsAppStatusController::class, 'markDisconnected'])->name('disconnected');
-        // Bot menu endpoints
         Route::get('menu', [BotMenuController::class, 'index'])->name('menu.index');
         Route::post('menu', [BotMenuController::class, 'store'])->name('menu.store');
         Route::put('menu/{menu}', [BotMenuController::class, 'update'])->name('menu.update');

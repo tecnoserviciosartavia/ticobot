@@ -45,7 +45,7 @@ class ClientController extends Controller
 
         $clients = $query
             ->orderBy('name')
-            ->paginate(perPage: 15)
+            ->paginate(perPage: 50)
             ->withQueryString()
             ->through(fn (Client $client) => [
                 'id' => $client->id,
@@ -56,7 +56,12 @@ class ClientController extends Controller
                 'contracts_count' => $client->contracts_count,
                 'reminders_count' => $client->reminders_count,
                 'payments_count' => $client->payments_count,
+                'created_at' => $client->created_at?->toIso8601String(),
                 'updated_at' => $client->updated_at?->toIso8601String(),
+                'total_revenue' => $client->contracts()->with('payments')->get()->sum(function ($contract) {
+                    return $contract->payments->where('status', 'verified')->sum('amount');
+                }),
+                'last_payment_date' => $client->payments()->where('status', 'verified')->latest('paid_at')->value('paid_at'),
             ]);
 
         $statuses = Client::query()
@@ -72,6 +77,60 @@ class ClientController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Calculate mixed statistics - system totals for clients/contracts, current month for payments/reminders
+        try {
+            $currentMonth = now()->startOfMonth();
+            $nextMonth = now()->addMonth()->startOfMonth();
+            
+            // All clients in system
+            $totalClients = Client::count();
+            $activeClients = Client::where('status', 'active')->count();
+            
+            // All contracts in system
+            $totalContracts = Contract::count();
+            
+            // All verified payments in current month
+            $totalRevenue = Payment::where('status', 'verified')
+                ->whereBetween('paid_at', [$currentMonth, $nextMonth])
+                ->sum('amount') ?: 0;
+            
+            // All payments in current month
+            $totalPayments = Payment::whereBetween('paid_at', [$currentMonth, $nextMonth])->count();
+            
+            $verifiedPayments = Payment::where('status', 'verified')
+                ->whereBetween('paid_at', [$currentMonth, $nextMonth])
+                ->count();
+            
+            // All pending payments in current month (including future dates)
+            // Try multiple approaches to find pending payments
+            $pendingPayments = Payment::where('status', 'pending')
+                ->where(function ($query) use ($currentMonth, $nextMonth) {
+                    $query->whereBetween('paid_at', [$currentMonth, $nextMonth])
+                          ->orWhereNull('paid_at')
+                          ->orWhere('paid_at', '>=', $currentMonth)
+                          ->orWhereDate('paid_at', '>=', $currentMonth->format('Y-m-d'))
+                          ->orWhereDate('paid_at', '<=', $nextMonth->format('Y-m-d'));
+                })->count();
+            
+            // Debug: Check if there are any pending payments at all
+            $allPendingPayments = Payment::where('status', 'pending')->count();
+            
+            // Reminders from clients created this month
+            $totalReminders = Reminder::whereHas('client', function ($query) use ($currentMonth, $nextMonth) {
+                $query->whereBetween('created_at', [$currentMonth, $nextMonth]);
+            })->count();
+        } catch (\Exception $e) {
+            // Fallback values if there's an error
+            $totalClients = 0;
+            $activeClients = 0;
+            $totalContracts = 0;
+            $totalRevenue = 0;
+            $totalPayments = 0;
+            $verifiedPayments = 0;
+            $pendingPayments = 0;
+            $totalReminders = 0;
+        }
+
         return Inertia::render('Clients/Index', [
             'clients' => $clients,
             'filters' => [
@@ -81,6 +140,18 @@ class ClientController extends Controller
             ],
             'statuses' => $statuses,
             'services' => $services,
+            'stats' => [
+                'total_clients' => $totalClients,
+                'active_clients' => $activeClients,
+                'total_contracts' => $totalContracts,
+                'total_revenue' => $totalRevenue,
+                'total_payments' => $totalPayments,
+                'verified_payments' => $verifiedPayments,
+                'pending_payments' => $pendingPayments,
+                'all_pending_payments' => $allPendingPayments,
+                'total_reminders' => $totalReminders,
+                'conversion_rate' => $totalPayments > 0 ? round(($verifiedPayments / $totalPayments) * 100, 1) : 0,
+            ],
         ]);
     }
 

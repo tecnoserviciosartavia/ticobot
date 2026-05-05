@@ -49,12 +49,11 @@ class ApiClient {
   /**
    * Revert a reminder previously claimed (queued) back to pending so it can be retried later.
    */
-  async revertToPending(reminderId: number, attempts?: number): Promise<void> {
+  async revertToPending(reminderId: number): Promise<void> {
     const payload: any = {
       status: 'pending',
       queued_at: null,
     };
-    if (typeof attempts === 'number') payload.attempts = attempts;
     await this.http.patch(`reminders/${reminderId}`, payload);
   }
 
@@ -466,4 +465,3 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
-

@@ -53,6 +53,6 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->profile_type === 'admin' || $this->profile_type === null;
+        return trim($this->profile_type ?? '') === 'admin' || $this->profile_type === null;
     }
 }

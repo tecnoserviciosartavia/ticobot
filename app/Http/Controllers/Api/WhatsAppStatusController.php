@@ -9,6 +9,11 @@ use Illuminate\Http\Request;
 
 class WhatsAppStatusController extends Controller
 {
+    public function getStatus(): JsonResponse
+    {
+        return response()->json(\App\Support\WhatsAppStatus::snapshot());
+    }
+
     public function storeQr(Request $request): JsonResponse
     {
         $data = $request->validate([

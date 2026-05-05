@@ -1,10 +1,14 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import { Badge } from '@/Components/badge';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, useForm } from '@inertiajs/react';
 import type { PageProps } from '@/types';
 import WhatsAppConnectionCard, { WhatsAppStatus } from '@/Pages/Profile/Partials/WhatsAppConnectionCard';
 import LogsTab from '@/Pages/Settings/General/Partials/LogsTab';
 import { useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
+import { Settings, ArrowLeft, Save, RefreshCw, Download, Upload, Eye, EyeOff } from '@/Components/icons';
 
 type ServiceItem = {
     id: number;
@@ -129,26 +133,40 @@ export default function SettingsIndex({ settings, whatsapp, services, logSources
     };
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold">Configuración del sistema</h2>}>
+        <ResponsiveLayout title="Configuración del sistema">
             <Head title="Configuración" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
-                    <div className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 shadow-lg dark:shadow-gray-900/50">
-                        <div className="border-b border-gray-200 dark:border-gray-700 px-6 pt-6">
+            <div className="py-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Configuración del sistema</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Administra la configuración general, WhatsApp, correo y servicios del sistema.
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <Button variant="outline">
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Volver
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Card className="p-6">
+                        <div className="border-b border-gray-200 dark:border-gray-700 pb-6 mb-6">
                             <div className="flex flex-wrap gap-2">
                                 {whatsapp && (
-                                    <button
-                                        type="button"
+                                    <Button
+                                        variant={activeTab === 'whatsapp' ? 'default' : 'outline'}
+                                        size="sm"
                                         onClick={() => setActiveTab('whatsapp')}
-                                        className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition ${
-                                            activeTab === 'whatsapp'
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-                                        }`}
                                     >
                                         Integración WhatsApp
-                                    </button>
+                                    </Button>
                                 )}
                                 <button
                                     type="button"
@@ -503,9 +521,9 @@ export default function SettingsIndex({ settings, whatsapp, services, logSources
                                 defaultSource={logDefaultSource}
                             />
                         )}
-                    </div>
+                    </Card>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

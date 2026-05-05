@@ -1,7 +1,10 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import ContractForm from '@/Pages/Contracts/Partials/ContractForm';
 import type { PageProps } from '@/types';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, Link } from '@inertiajs/react';
+import { FileText, Plus, ArrowLeft } from '@/Components/icons';
 
 interface ContractsCreateProps extends PageProps<{
     clients: Array<{ id: number; name: string; phone?: string | null }>;
@@ -31,19 +34,32 @@ export default function ContractsCreate({ clients, services, defaultCurrency, de
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">Nuevo contrato</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Define los parámetros de cobro que el bot utilizará para programar recordatorios.</p>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Nuevo Contrato">
             <Head title="Crear contrato" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
-                    <div className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
+            <div className="py-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Nuevo Contrato</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Define los parámetros de cobro que el bot utilizará para programar recordatorios.
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <Link href={route('contracts.index')}>
+                                    <Button variant="outline">
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Volver
+                                    </Button>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Card className="p-6">
                         <ContractForm
                             data={form.data}
                             errors={form.errors}
@@ -55,9 +71,9 @@ export default function ContractsCreate({ clients, services, defaultCurrency, de
                             onChange={(key, value) => form.setData(key, value)}
                             cancelHref={route('contracts.index')}
                         />
-                    </div>
+                    </Card>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

@@ -22,8 +22,8 @@ class PaymentStatusController extends Controller
         // Formatear el número (limpiar caracteres especiales)
         $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
         
-        // Buscar cliente por teléfono
-        $client = Client::where('phone', 'like', "%$cleanPhone%")
+        // Buscar cliente por teléfono (seguro con parameter binding)
+        $client = Client::where('phone', 'like', '%' . $cleanPhone . '%')
             ->first();
 
         if (!$client) {
@@ -78,7 +78,7 @@ class PaymentStatusController extends Controller
         // that are not registered in the system.
         if (empty($validated['client_id'])) {
             $clean = preg_replace('/[^0-9]/', '', $validated['whatsapp_number']);
-            $client = Client::where('phone', 'like', "%$clean%")->first();
+            $client = Client::where('phone', 'like', '%' . $clean . '%')->first();
             if ($client) {
                 $validated['client_id'] = $client->id;
             }

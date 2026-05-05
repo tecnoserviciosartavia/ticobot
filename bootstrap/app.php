@@ -28,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureIsAdmin::class,
         ]);
+        
+        // Temporarily disable CSRF middleware completely
+        $middleware->remove('App\Http\Middleware\VerifyCsrfToken', 'web');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

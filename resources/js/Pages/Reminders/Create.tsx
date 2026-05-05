@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import ReminderForm, { ReminderFormData } from '@/Pages/Reminders/Partials/ReminderForm';
 import type { PageProps } from '@/types';
 import { Head, useForm } from '@inertiajs/react';
@@ -35,16 +35,7 @@ export default function RemindersCreate({ clients, channels, defaultChannel }: R
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">Programar recordatorio</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Define el mensaje y momento en que el bot enviará el recordatorio al cliente.
-                    </p>
-                </div>
-            }
-        >
+        <ResponsiveLayout title="Programar recordatorio">
             <Head title="Programar recordatorio" />
 
             <div className="py-12">
@@ -64,6 +55,6 @@ export default function RemindersCreate({ clients, channels, defaultChannel }: R
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

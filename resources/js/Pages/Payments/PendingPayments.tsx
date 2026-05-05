@@ -1,7 +1,11 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import { Badge } from '@/Components/badge';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { FormEvent, useEffect, useState } from 'react';
 import type { PageProps } from '@/types';
+import { DollarSign, AlertCircle, ArrowLeft, Send, CheckCircle, Clock, User } from '@/Components/icons';
 
 interface ClientWithPending {
     id: number;
@@ -180,48 +184,89 @@ export default function PendingPayments({}: PageProps) {
     };
 
     return (
-        <AuthenticatedLayout>
+        <ResponsiveLayout title="Pagos Pendientes" contentWidth="full">
             <Head title="Pagos Pendientes" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            <div className="py-6">
+                <div className="w-full max-w-none min-w-0">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Pagos Pendientes</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Gestiona los pagos pendientes de los clientes y envía recordatorios.
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap gap-3">
+                                <Link href={route('payments.index')}>
+                                    <Button variant="outline">
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Volver a Pagos
+                                    </Button>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Summary Cards */}
                     {summary && (
-                        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                            <div className="rounded-lg bg-white px-6 py-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
-                                <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                    Clientes con pagos pendientes
-                                </div>
-                                <div className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
+                        <div className="mb-8 grid gap-6 md:grid-cols-3">
+                            <Card className="p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0">
+                                        <User className="w-8 h-8 text-blue-600" />
+                                    </div>
+                                    <div className="ml-4">
+                                        <p className="text-sm font-medium text-gray-500">
+                                            Clientes con pagos pendientes
+                                        </p>
+                                        <p className="text-2xl font-bold text-gray-900">
                                     {summary.total_clients_with_pending}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
+                            </Card>
 
-                            <div className="rounded-lg bg-white px-6 py-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
-                                <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                    Monto total pendiente (CRC)
+                            <Card className="p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0">
+                                        <DollarSign className="w-8 h-8 text-red-600" />
+                                    </div>
+                                    <div className="ml-4">
+                                        <p className="text-sm font-medium text-gray-500">
+                                            Monto total pendiente (CRC)
+                                        </p>
+                                        <p className="text-2xl font-bold text-red-600">
+                                            {formatCurrency(
+                                                summary.by_currency.find((c) => c.currency === 'CRC')?.total || 0,
+                                                'CRC'
+                                            )}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="mt-2 text-3xl font-bold text-red-600">
-                                    {formatCurrency(
-                                        summary.by_currency.find((c) => c.currency === 'CRC')?.total || 0,
-                                        'CRC'
-                                    )}
-                                </div>
-                            </div>
+                            </Card>
 
-                            <div className="rounded-lg bg-white px-6 py-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
-                                <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                    Total de pagos pendientes
+                            <Card className="p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0">
+                                        <Clock className="w-8 h-8 text-orange-600" />
+                                    </div>
+                                    <div className="ml-4">
+                                        <p className="text-sm font-medium text-gray-500">
+                                            Total de pagos pendientes
+                                        </p>
+                                        <p className="text-2xl font-bold text-gray-900">
+                                            {summary.by_currency.reduce((sum, c) => sum + c.count, 0)}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                    {summary.by_currency.reduce((sum, c) => sum + c.count, 0)}
-                                </div>
-                            </div>
+                            </Card>
                         </div>
                     )}
 
                     {/* Card */}
-                    <div className="bg-white shadow dark:bg-gray-800 dark:shadow-gray-900/50 sm:rounded-lg">
+                    <div className="min-w-0 bg-white shadow dark:bg-gray-800 dark:shadow-gray-900/50 sm:rounded-lg">
                         {errorMsg && (
                             <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
                                 {errorMsg}
@@ -251,8 +296,8 @@ export default function PendingPayments({}: PageProps) {
                         </div>
 
                         {/* Table */}
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <div className="overflow-x-auto overscroll-x-contain">
+                            <table className="w-full min-w-[860px] divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th className="px-6 py-3 text-left">
@@ -332,8 +377,8 @@ export default function PendingPayments({}: PageProps) {
                                                         client.currency
                                                     )}
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-center">
-                                                    <div className="flex items-center justify-center gap-2">
+                                                <td className="px-3 py-4 text-center sm:px-6">
+                                                    <div className="flex flex-col items-center justify-center gap-2 sm:flex-row sm:flex-wrap">
                                                         <Link
                                                             href={route('clients.show', client.id)}
                                                             className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/40"
@@ -387,6 +432,6 @@ export default function PendingPayments({}: PageProps) {
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

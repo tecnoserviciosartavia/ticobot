@@ -1,5 +1,5 @@
 import StatusBadge from '@/Components/StatusBadge';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import type { PageProps } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { labelForChannel } from '@/lib/labels';
@@ -78,36 +78,7 @@ const formatCurrency = (amount: string, currency: string | null | undefined) => 
 
 export default function RemindersShow({ reminder, messages, payments }: ReminderShowProps) {
     return (
-        <AuthenticatedLayout
-            header={
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100 dark:text-gray-100">
-                            Recordatorio #{reminder.id}
-                        </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Programado para {formatDateTime(reminder.scheduled_for)} por {labelForChannel(reminder.channel)}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <StatusBadge status={reminder.status} />
-                        <Link
-                            href={route('reminders.edit', reminder.id)}
-                            className="inline-flex items-center rounded-md border border-indigo-200 px-3 py-1.5 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50 dark:bg-indigo-900/30"
-                        >
-                            Editar
-                        </Link>
-                        <Link
-                            href={route('reminders.index')}
-                            className="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 transition hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700"
-                            preserveScroll
-                        >
-                            Volver a la lista
-                        </Link>
-                    </div>
-                </div>
-            }
-        >
+        <ResponsiveLayout title={`Recordatorio #${reminder.id}`}>
             <Head title={`Recordatorio ${reminder.id}`} />
 
             <div className="py-12">
@@ -289,6 +260,6 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                     </section>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

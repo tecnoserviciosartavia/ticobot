@@ -1,9 +1,12 @@
-import AccountingTabs from '@/Components/AccountingTabs';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { Button } from '@/Components/button';
+import { Card } from '@/Components/card';
+import { Badge } from '@/Components/badge';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, router } from '@inertiajs/react';
 import { Dialog, Transition } from '@headlessui/react';
 import axios from 'axios';
 import { Fragment, useMemo, useState } from 'react';
+import { TrendingUp, TrendingDown, DollarSign, ArrowLeft, BarChart3, PieChart, Activity, Users, Settings, Eye } from '@/Components/icons';
 
 interface ServiceProfit {
     id: number | null;
@@ -101,18 +104,35 @@ export default function AccountingIndicators({ selected_month, selected_month_la
     };
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-100">Indicadores</h2>}>
+        <ResponsiveLayout title="Indicadores">
             <Head title="Indicadores" />
 
-            <div>
-                <div className="py-6">
-                <div className="w-full space-y-8 px-4 sm:px-6 lg:px-8">
-                    <AccountingTabs active="indicators" />
-
-                    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:shadow-gray-900/50">
-                        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="py-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Indicadores por plataforma</p>
+                                <h1 className="text-3xl font-bold text-gray-900">Indicadores</h1>
+                                <p className="mt-2 text-gray-600">
+                                    Análisis de rentabilidad y métricas por plataforma y servicio.
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <Button variant="outline">
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Volver
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-8">
+
+                        <Card className="p-6">
+                            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Indicadores por plataforma</p>
                                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Periodo visible: {selected_month_label}</h3>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">Los montos se calculan con pagos verificados dentro del mes seleccionado.</p>
                             </div>
@@ -136,9 +156,9 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                 />
                             </div>
                         </div>
-                    </div>
+                    </Card>
 
-                    <div className="rounded-lg border-2 border-indigo-300 bg-indigo-50 p-4 shadow dark:border-indigo-800 dark:bg-indigo-950/30 dark:shadow-gray-900/50">
+                    <Card className="border-2 border-indigo-300 bg-indigo-50 p-4 shadow dark:border-indigo-800 dark:bg-indigo-950/30 dark:shadow-gray-900/50">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-500">Total todas las plataformas</div>
@@ -149,7 +169,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                 Margen total: CRC {formatMoney(totalPeriodMargin)}
                             </div>
                         </div>
-                    </div>
+                    </Card>
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         {services_profit.map((service) => {
@@ -175,7 +195,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                             );
                         })}
                     </div>
-                </div>
+                    </div>
                 </div>
             </div>
 
@@ -352,6 +372,6 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                     </div>
                 </Dialog>
             </Transition>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

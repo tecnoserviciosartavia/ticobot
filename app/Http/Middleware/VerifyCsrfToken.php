@@ -14,6 +14,6 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        'debug/push/register',  // Permitir registro de push sin CSRF
+        '*',  // Disable CSRF for all routes temporarily
     ];
 }

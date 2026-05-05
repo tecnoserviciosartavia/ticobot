@@ -1,4 +1,4 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import type { PageProps } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -103,63 +103,65 @@ export default function LogsIndex({ sources, defaultSource }: LogsPageProps) {
     }, [autoScroll, lines]);
 
     return (
-        <AuthenticatedLayout header={<h2 className="text-xl font-semibold">Logs en tiempo real</h2>}>
+        <ResponsiveLayout title="Logs en tiempo real">
             <Head title="Logs en tiempo real" />
 
-            <div className="py-8">
-                <div className="mx-auto w-full px-4 sm:px-6 lg:px-8">
-                    <div className="mb-4 grid gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 md:grid-cols-2 lg:grid-cols-4">
-                        <label className="flex flex-col gap-1 text-sm">
-                            <span className="font-medium text-gray-700 dark:text-gray-300">Fuente</span>
-                            <select
-                                value={source}
-                                onChange={(e) => setSource(e.target.value)}
-                                className="rounded-md border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+            <div className="py-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="bg-white shadow sm:rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                            <div className="mb-4">
+                                <label htmlFor="source" className="block text-sm font-medium text-gray-700">
+                                    Origen de logs
+                                </label>
+                                <select
+                                    id="source"
+                                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                    value={source}
+                                    onChange={(e) => setSource(e.target.value)}
+                                >
+                                    {sources.map((source) => (
+                                        <option key={source.key} value={source.key} disabled={!source.exists}>
+                                            {source.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="mb-4 flex items-center space-x-4">
+                                <button
+                                    onClick={() => setAutoScroll(!autoScroll)}
+                                    className={`px-3 py-1 rounded text-sm font-medium ${
+                                        autoScroll
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                    }`}
+                                >
+                                    Auto-scroll {autoScroll ? 'ON' : 'OFF'}
+                                </button>
+                                <button
+                                    onClick={() => setLines([])}
+                                    className="px-3 py-1 bg-red-100 text-red-800 rounded text-sm font-medium"
+                                >
+                                    Limpiar
+                                </button>
+                            </div>
+                            <div
+                                ref={viewportRef}
+                                className="bg-black text-green-400 p-4 rounded font-mono text-sm overflow-auto"
+                                style={{ height: '500px' }}
                             >
-                                {sources.map((item) => (
-                                    <option key={item.key} value={item.key}>
-                                        {item.label}{item.exists ? '' : ' (sin acceso)'}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-
-                        <label className="flex flex-col gap-1 text-sm">
-                            <span className="font-medium text-gray-700 dark:text-gray-300">Líneas</span>
-                            <select
-                                value={lineLimit}
-                                onChange={(e) => setLineLimit(Number(e.target.value))}
-                                className="rounded-md border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-                            >
-                                {[100, 250, 500, 1000].map((size) => (
-                                    <option key={size} value={size}>
-                                        {size}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-
-                        <label className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm dark:border-gray-700">
-                            <input
-                                type="checkbox"
-                                checked={autoRefresh}
-                                onChange={(e) => setAutoRefresh(e.target.checked)}
-                                className="rounded border-gray-300"
-                            />
-                            <span className="text-gray-700 dark:text-gray-300">Auto-recarga (2s)</span>
-                        </label>
-
-                        <label className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm dark:border-gray-700">
-                            <input
-                                type="checkbox"
-                                checked={autoScroll}
-                                onChange={(e) => setAutoScroll(e.target.checked)}
-                                className="rounded border-gray-300"
-                            />
-                            <span className="text-gray-700 dark:text-gray-300">Seguir al final</span>
-                        </label>
-
-                        <div className="md:col-span-2 lg:col-span-4 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                                {loading && lines.length === 0 ? (
+                                    <div className="text-gray-300">Cargando logs...</div>
+                                ) : lines.length === 0 ? (
+                                    <div className="text-gray-300">No hay líneas para mostrar en esta fuente.</div>
+                                ) : (
+                                    lines.map((line, index) => (
+                                        <div key={index} className="mb-1">
+                                            {line}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                             <span className="rounded bg-gray-100 px-2 py-1 dark:bg-gray-700 dark:text-gray-200">
                                 {activeLabel || selectedSource?.label || 'Fuente de logs'}
                             </span>
@@ -199,6 +201,6 @@ export default function LogsIndex({ sources, defaultSource }: LogsPageProps) {
                     </div>
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </ResponsiveLayout>
     );
 }

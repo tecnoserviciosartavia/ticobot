@@ -15,6 +15,40 @@ class HandleInertiaRequests extends Middleware
     protected $rootView = 'app';
 
     /**
+     * Determine the root template based on the request.
+     */
+    public function rootView(Request $request): string
+    {
+        // Debug: Log the current path
+        \Log::info('Current path: ' . $request->path());
+        \Log::info('Is login: ' . ($request->is('login') ? 'true' : 'false'));
+        \Log::info('Is register: ' . ($request->is('register') ? 'true' : 'false'));
+        
+        // Use auth layout for authentication pages - expanded detection
+        $authPaths = ['login', 'register', 'logout', 'password/request', 'password/email', 
+                     'password/reset', 'password/confirm', 'email/verify', 'email/verification-notification'];
+        
+        foreach ($authPaths as $path) {
+            if ($request->is($path) || $request->is($path . '/*')) {
+                \Log::info('Using auth layout for: ' . $path);
+                return 'auth';
+            }
+        }
+
+        // Also check if the path starts with common auth prefixes
+        if (str_starts_with($request->path(), 'login') || 
+            str_starts_with($request->path(), 'register') || 
+            str_starts_with($request->path(), 'password') || 
+            str_starts_with($request->path(), 'email')) {
+            \Log::info('Using auth layout for path prefix: ' . $request->path());
+            return 'auth';
+        }
+
+        \Log::info('Using app layout for: ' . $request->path());
+        return 'app';
+    }
+
+    /**
      * Determine the current asset version.
      */
     public function version(Request $request): ?string
@@ -29,6 +63,24 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Fix CSRF token mismatch by updating APP_URL and session domain dynamically
+        if (app()->environment('local') || app()->environment('production')) {
+            $host = $request->getSchemeAndHttpHost();
+            $hostOnly = $request->getHost();
+            
+            // Update APP_URL
+            config(['app.url' => $host]);
+            
+            // Update session domain to match current host
+            config(['session.domain' => $hostOnly]);
+            
+            // Update session path and security settings
+            config(['session.path' => '/']);
+            config(['session.secure' => $request->secure()]);
+            config(['session.http_only' => true]);
+            config(['session.same_site' => 'lax']);
+        }
+        
         return [
             ...parent::share($request),
             'auth' => [

@@ -24,6 +24,7 @@ class ReminderController extends Controller
         $status = trim((string) $request->query('status', ''));
         $channel = trim((string) $request->query('channel', ''));
         $recurrence = trim((string) $request->query('recurrence', ''));
+        $clientQuery = trim((string) $request->query('client_query', ''));
         $clientId = (int) $request->query('client_id', 0) ?: null;
         $contractId = (int) $request->query('contract_id', 0) ?: null;
         $scheduledFrom = $this->parseDate($request->query('scheduled_from'));
@@ -49,6 +50,18 @@ class ReminderController extends Controller
             });
         }
 
+        if ($clientQuery !== '') {
+            $query->where(function ($q) use ($clientQuery) {
+                $q->whereHas('client', function ($clientQueryBuilder) use ($clientQuery) {
+                    $clientQueryBuilder
+                        ->where('name', 'like', "%{$clientQuery}%")
+                        ->orWhere('phone', 'like', "%{$clientQuery}%");
+                })->orWhereHas('contract', function ($contractQueryBuilder) use ($clientQuery) {
+                    $contractQueryBuilder->where('name', 'like', "%{$clientQuery}%");
+                });
+            });
+        }
+
         if ($clientId) {
             $query->where('client_id', $clientId);
         }
@@ -65,6 +78,24 @@ class ReminderController extends Controller
             $query->where('scheduled_for', '<=', $scheduledTo->endOfDay());
         }
 
+        $statsBase = clone $query;
+        $stats = [
+            'total' => (clone $statsBase)->count(),
+            'pending' => (clone $statsBase)->where('status', 'pending')->count(),
+            'queued' => (clone $statsBase)->where('status', 'queued')->count(),
+            'sent' => (clone $statsBase)->where('status', 'sent')->count(),
+            'failed' => (clone $statsBase)->where('status', 'failed')->count(),
+            'paid' => (clone $statsBase)->where('status', 'paid')->count(),
+            'stuck_queued' => (clone $statsBase)
+                ->where('status', 'queued')
+                ->where('queued_at', '<=', now(config('app.timezone'))->subMinutes(30))
+                ->count(),
+            'overdue_open' => (clone $statsBase)
+                ->whereIn('status', ['pending', 'queued', 'failed'])
+                ->where('scheduled_for', '<', now(config('app.timezone')))
+                ->count(),
+        ];
+
         $reminders = $query
             ->orderByDesc('scheduled_for')
             ->paginate(perPage: 15)
@@ -75,6 +106,8 @@ class ReminderController extends Controller
                 'channel' => $reminder->channel,
                 'scheduled_for' => $reminder->scheduled_for?->toIso8601String(),
                 'sent_at' => $reminder->sent_at?->toIso8601String(),
+                'queued_at' => $reminder->queued_at?->toIso8601String(),
+                'last_attempt_at' => $reminder->last_attempt_at?->toIso8601String(),
                 'acknowledged_at' => $reminder->acknowledged_at?->toIso8601String(),
                 'attempts' => $reminder->attempts,
                 'messages_count' => $reminder->messages_count,
@@ -117,6 +150,7 @@ class ReminderController extends Controller
             'filters' => [
                 'status' => $status !== '' ? $status : null,
                 'channel' => $channel !== '' ? $channel : null,
+                'client_query' => $clientQuery !== '' ? $clientQuery : null,
                 'client_id' => $clientId,
                 'contract_id' => $contractId,
                 'recurrence' => $recurrence !== '' ? $recurrence : null,
@@ -128,6 +162,7 @@ class ReminderController extends Controller
             'clients' => $clients,
             'contracts' => $contracts,
             'recurrences' => $recurrences,
+            'stats' => $stats,
         ]);
     }
 
@@ -280,6 +315,27 @@ class ReminderController extends Controller
             'clients' => $clients,
             'channels' => Reminder::query()->select('channel')->distinct()->pluck('channel')->filter()->values(),
         ]);
+    }
+
+    public function retry(Reminder $reminder): RedirectResponse
+    {
+        if (! in_array($reminder->status, ['queued', 'failed'], true)) {
+            return back()->with('error', 'Solo se pueden reintentar recordatorios en cola o fallidos.');
+        }
+
+        $responsePayload = is_array($reminder->response_payload) ? $reminder->response_payload : [];
+        $responsePayload['retried_from_status'] = $reminder->status;
+        $responsePayload['retried_manually_at'] = now(config('app.timezone'))->toIso8601String();
+        $responsePayload['retried_manually_by'] = auth()->id();
+
+        $reminder->forceFill([
+            'status' => 'pending',
+            'queued_at' => null,
+            'last_attempt_at' => null,
+            'response_payload' => $responsePayload,
+        ])->save();
+
+        return back()->with('success', 'Recordatorio marcado para reintento.');
     }
 
     public function update(Request $request, Reminder $reminder): RedirectResponse
