@@ -30,6 +30,7 @@ class ContractController extends Controller
             'next_due_date' => ['required', 'date'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'notes' => ['nullable', 'string'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'paused', 'cancelled'])],
             'service_ids' => ['nullable', 'array'],
             'service_ids.*' => ['integer', 'exists:services,id'],
             // Opcional: cantidades por servicio. Ej: { "12": 2, "15": 1 }
@@ -46,6 +47,7 @@ class ContractController extends Controller
             'discount_amount' => max(0, $discount),
             'currency' => $data['currency'],
             'billing_cycle' => $data['billing_cycle'],
+            'status' => $data['status'] ?? 'active',
             'next_due_date' => $data['next_due_date'],
             'grace_period_days' => $data['grace_period_days'] ?? 0,
             'notes' => $data['notes'] ?? null,
@@ -117,6 +119,7 @@ class ContractController extends Controller
             'next_due_date' => ['required', 'date'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'notes' => ['nullable', 'string'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'paused', 'cancelled'])],
             'service_ids' => ['nullable', 'array'],
             'service_ids.*' => ['integer', 'exists:services,id'],
             // Opcional: cantidades por servicio. Ej: { "12": 2, "15": 1 }
@@ -133,6 +136,7 @@ class ContractController extends Controller
             'discount_amount' => max(0, $discount),
             'currency' => $data['currency'],
             'billing_cycle' => $data['billing_cycle'],
+            'status' => $data['status'] ?? 'active',
             'next_due_date' => $data['next_due_date'],
             'grace_period_days' => $data['grace_period_days'] ?? 0,
             'notes' => $data['notes'] ?? null,
@@ -177,6 +181,7 @@ class ContractController extends Controller
     {
         $clientQuery = trim((string) $request->query('client_query', ''));
         $billingCycle = trim((string) $request->query('billing_cycle', ''));
+        $status = trim((string) $request->query('status', ''));
 
         $query = Contract::query()
             ->with(['client:id,name'])
@@ -192,6 +197,10 @@ class ContractController extends Controller
             $query->where('billing_cycle', $billingCycle);
         }
 
+        if ($status !== '' && in_array($status, ['active', 'paused', 'cancelled'], true)) {
+            $query->where('status', $status);
+        }
+
         $contracts = $query
             ->orderByDesc('updated_at')
             ->paginate(15)
@@ -202,6 +211,7 @@ class ContractController extends Controller
                 'amount' => $contract->amount,
                 'currency' => $contract->currency,
                 'billing_cycle' => $contract->billing_cycle,
+                'status' => $contract->status ?? 'active',
                 'next_due_date' => $contract->next_due_date?->toDateString(),
                 'client' => $contract->client?->only(['id', 'name']),
                 'reminders_count' => $contract->reminders_count,
@@ -229,6 +239,7 @@ class ContractController extends Controller
                 'client_query' => $clientQuery !== '' ? $clientQuery : null,
                 'client_id' => null,
                 'billing_cycle' => $billingCycle !== '' ? $billingCycle : null,
+                'status' => $status !== '' ? $status : null,
             ],
             'clients' => $clients,
             'billingCycles' => $billingCycles,
@@ -390,11 +401,15 @@ class ContractController extends Controller
                     continue;
                 }
 
+                $statusRaw = strtolower(trim((string) ($data['status'] ?? $data['estado'] ?? '')));
+                $status = in_array($statusRaw, ['active', 'paused', 'cancelled'], true) ? $statusRaw : 'active';
+
                 $attrs = [
                     'client_id' => $client->id,
                     'amount' => $amount,
                     'currency' => strtoupper($data['currency'] ?? $data['moneda'] ?? 'CRC'),
                     'billing_cycle' => $data['billing_cycle'] ?? 'monthly',
+                    'status' => $status,
                     'next_due_date' => $data['next_due_date']
                         ?? $data['proxima_fecha']
                         ?? $data['próxima_fecha']
@@ -546,6 +561,7 @@ class ContractController extends Controller
                         'quantity' => (int) ($s->pivot?->quantity ?? 1),
                     ]),
                 'billing_cycle' => $contract->billing_cycle,
+                'status' => $contract->status ?? 'active',
                 'next_due_date' => $contract->next_due_date?->toDateString(),
                 'grace_period_days' => $contract->grace_period_days,
                 'metadata' => $contract->metadata,
@@ -589,6 +605,7 @@ class ContractController extends Controller
                 'discount_amount' => $contract->discount_amount,
                 'currency' => $contract->currency,
                 'billing_cycle' => $contract->billing_cycle,
+                'status' => $contract->status ?? 'active',
                 'next_due_date' => $contract->next_due_date?->toDateString(),
                 'grace_period_days' => $contract->grace_period_days,
                 'metadata' => $contract->metadata,
@@ -677,6 +694,7 @@ class ContractController extends Controller
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'billing_cycle' => ['required', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
+            'status' => ['required', Rule::in(['active', 'paused', 'cancelled'])],
             'next_due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:60'],
@@ -698,6 +716,7 @@ class ContractController extends Controller
             'discount_amount' => max(0, $discount),
             'currency' => strtoupper($data['currency']),
             'billing_cycle' => $data['billing_cycle'],
+            'status' => $data['status'],
             'next_due_date' => $data['next_due_date'] ?? null,
             'grace_period_days' => $data['grace_period_days'] ?? 0,
             'service_ids' => $data['service_ids'],

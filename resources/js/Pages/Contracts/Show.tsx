@@ -5,7 +5,7 @@ import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import StatusBadge from '@/Components/StatusBadge';
 import type { PageProps } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { labelForBillingCycle, labelForStatus } from '@/lib/labels';
+import { labelForBillingCycle } from '@/lib/labels';
 import { FileText, Edit, Trash2, ArrowLeft, Calendar, DollarSign, User, Clock, AlertCircle, Plus } from '@/Components/icons';
 
 interface ContractResource {
@@ -17,6 +17,7 @@ interface ContractResource {
     currency: string | null;
     services?: Array<{ id: number; name: string; price: string; currency: string; quantity?: number; account_email?: string | null; password?: string | null; pin?: string | null }>;
     billing_cycle: string;
+    status: string;
     next_due_date: string | null;
     grace_period_days: number;
     metadata: Record<string, unknown> | null;
@@ -169,6 +170,15 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                     <div>
                                         <p className="text-sm text-gray-500">Ciclo de facturación</p>
                                         <p className="font-medium">{labelForBillingCycle(contract.billing_cycle)}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <AlertCircle className="w-5 h-5 text-gray-400" />
+                                    <div>
+                                        <p className="text-sm text-gray-500">Estado del contrato</p>
+                                        <p className="font-medium">
+                                            <StatusBadge status={contract.status ?? 'active'} />
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">

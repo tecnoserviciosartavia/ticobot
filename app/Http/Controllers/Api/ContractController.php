@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Contract;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ContractController extends Controller
 {
@@ -24,6 +25,13 @@ class ContractController extends Controller
 
         if ($request->filled('billing_cycle')) {
             $query->where('billing_cycle', $request->string('billing_cycle')->trim()->toString());
+        }
+
+        if ($request->filled('status')) {
+            $status = $request->string('status')->trim()->toString();
+            if (in_array($status, ['active', 'paused', 'cancelled'], true)) {
+                $query->where('status', $status);
+            }
         }
 
         if ($request->boolean('only_trashed')) {
@@ -51,13 +59,18 @@ class ContractController extends Controller
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', 'string', 'size:3'],
             'billing_cycle' => ['required', 'string', 'max:50'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'paused', 'cancelled'])],
             'next_due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:31'],
             'metadata' => ['nullable', 'array'],
         ]);
 
-    $contract = Contract::create($data);
+        if (! isset($data['status']) || $data['status'] === null || $data['status'] === '') {
+            $data['status'] = 'active';
+        }
+
+        $contract = Contract::create($data);
 
         return response()->json($contract->load('client'), 201);
     }
@@ -86,6 +99,7 @@ class ContractController extends Controller
             'amount' => ['sometimes', 'required', 'numeric', 'min:0'],
             'currency' => ['sometimes', 'required', 'string', 'size:3'],
             'billing_cycle' => ['sometimes', 'required', 'string', 'max:50'],
+            'status' => ['sometimes', 'nullable', 'string', Rule::in(['active', 'paused', 'cancelled'])],
             'next_due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:31'],

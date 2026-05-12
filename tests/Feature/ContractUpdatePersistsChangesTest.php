@@ -47,6 +47,7 @@ class ContractUpdatePersistsChangesTest extends TestCase
             'currency' => 'CRC',
             'discount_amount' => '500',
             'billing_cycle' => 'monthly',
+            'status' => 'active',
             'next_due_date' => '2026-06-15',
             'grace_period_days' => '3',
             'notes' => 'nota actualizada',
@@ -60,7 +61,7 @@ class ContractUpdatePersistsChangesTest extends TestCase
 
         $contract->refresh();
 
-        $this->assertSame('Contrato actualizado', $contract->name);
+        $this->assertSame(Contract::buildCodeFromId((int) $contract->id), $contract->name);
         $this->assertSame('2026-06-15', $contract->next_due_date?->toDateString());
         $this->assertSame('3', (string) $contract->grace_period_days);
         $this->assertSame('nota actualizada', $contract->notes);

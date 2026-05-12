@@ -46,7 +46,8 @@ class CollectionsDashboardController extends Controller
 
         $dueSoonContracts = Contract::query()
             ->whereNotNull('next_due_date')
-            ->whereBetween('next_due_date', [$today->toDateString(), $soonEnd->toDateString()])
+            ->whereDate('next_due_date', '>', $today)
+            ->whereDate('next_due_date', '<=', $soonEnd)
             ->with('client:id,name,phone,email')
             ->get();
 

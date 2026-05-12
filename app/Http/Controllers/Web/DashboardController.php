@@ -3,8 +3,6 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Models\Client;
-use App\Models\Conciliation;
 use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\Reminder;
@@ -19,8 +17,7 @@ class DashboardController extends Controller
     {
         $period = $request->get('period', '30d');
         $today = Carbon::today();
-        $upcomingWindowEnd = $today->copy()->addDays(7);
-        
+
         // Calculate date range based on period
         $startDate = match($period) {
             '7d' => $today->copy()->subDays(7),
@@ -94,6 +91,8 @@ class DashboardController extends Controller
                 'pendingPayments' => round($pendingPaymentsChange, 1),
                 'conversionRate' => round($conversionRateChange, 1),
             ],
+            'recentSentReminders' => $this->getRecentSentReminders($startDate),
+            'upcomingCollections' => $this->getUpcomingCollectionsSnapshot(7),
         ];
 
         return Inertia::render('Dashboard', [
@@ -153,5 +152,134 @@ class DashboardController extends Controller
                 'contracts' => (int) $item->contracts,
             ])
             ->toArray();
+    }
+
+    /**
+     * Recordatorios de cobro ya enviados en el período (WhatsApp, etc.); suelen incluir pedido de comprobante.
+     *
+     * @return array<int, array{id: int, client_name: string|null, client_phone: string|null, contract_name: string|null, channel: string|null, sent_at: string|null}>
+     */
+    private function getRecentSentReminders(Carbon $startDate): array
+    {
+        return Reminder::query()
+            ->where('status', 'sent')
+            ->whereNotNull('sent_at')
+            ->where('sent_at', '>=', $startDate)
+            ->with(['client:id,name,phone', 'contract:id,name'])
+            ->orderByDesc('sent_at')
+            ->limit(30)
+            ->get()
+            ->map(fn (Reminder $r) => [
+                'id' => $r->id,
+                'client_name' => $r->client?->name,
+                'client_phone' => $r->client?->phone,
+                'contract_name' => $r->contract?->name,
+                'channel' => $r->channel,
+                'sent_at' => $r->sent_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Misma regla que Cobranzas: contrato con vencimiento y sin pago registrado en el mes del vencimiento.
+     *
+     * @return array{
+     *   as_of: string,
+     *   window_days: int,
+     *   overdue: array{count: int, by_currency: array<string, float>},
+     *   due_today: array{count: int, by_currency: array<string, float>},
+     *   due_soon: array{count: int, by_currency: array<string, float>},
+     *   total_by_currency: array<string, float>
+     * }
+     */
+    private function getUpcomingCollectionsSnapshot(int $days): array
+    {
+        $today = Carbon::today();
+        if ($days < 0) {
+            $days = 0;
+        }
+        if ($days > 31) {
+            $days = 31;
+        }
+        $soonEnd = $today->copy()->addDays($days);
+
+        $hasPaymentForMonth = function (int $clientId, Carbon $dueDate): bool {
+            $monthStart = $dueDate->copy()->startOfMonth();
+            $monthEnd = $dueDate->copy()->endOfMonth();
+
+            return Payment::query()
+                ->where('client_id', $clientId)
+                ->where('amount', '>', 0)
+                ->whereBetween('created_at', [$monthStart, $monthEnd])
+                ->exists();
+        };
+
+        $overdueContracts = Contract::query()
+            ->whereNotNull('next_due_date')
+            ->whereDate('next_due_date', '<', $today)
+            ->with('client:id,name,phone,email')
+            ->get();
+
+        $dueTodayContracts = Contract::query()
+            ->whereNotNull('next_due_date')
+            ->whereDate('next_due_date', '=', $today)
+            ->with('client:id,name,phone,email')
+            ->get();
+
+        $dueSoonContracts = Contract::query()
+            ->whereNotNull('next_due_date')
+            ->whereDate('next_due_date', '>', $today)
+            ->whereDate('next_due_date', '<=', $soonEnd)
+            ->with('client:id,name,phone,email')
+            ->get();
+
+        $mapRow = function (Contract $c) use ($hasPaymentForMonth): array {
+            $due = $c->next_due_date ? Carbon::parse($c->next_due_date) : null;
+            $client = $c->client;
+            $paid = ($client && $due) ? $hasPaymentForMonth((int) $client->id, $due) : false;
+
+            return [
+                'amount' => (float) $c->amount,
+                'currency' => $c->currency ?? 'CRC',
+                'has_payment_registered' => $paid,
+            ];
+        };
+
+        $aggregate = function ($collection) use ($mapRow): array {
+            $byCurrency = [];
+            $count = 0;
+            foreach ($collection as $c) {
+                $row = $mapRow($c);
+                if ($row['has_payment_registered']) {
+                    continue;
+                }
+                $count++;
+                $cur = $row['currency'];
+                $byCurrency[$cur] = ($byCurrency[$cur] ?? 0) + $row['amount'];
+            }
+
+            return ['count' => $count, 'by_currency' => $byCurrency];
+        };
+
+        $overdue = $aggregate($overdueContracts);
+        $dueToday = $aggregate($dueTodayContracts);
+        $dueSoon = $aggregate($dueSoonContracts);
+
+        $totalByCurrency = [];
+        foreach ([$overdue['by_currency'], $dueToday['by_currency'], $dueSoon['by_currency']] as $part) {
+            foreach ($part as $cur => $amt) {
+                $totalByCurrency[$cur] = ($totalByCurrency[$cur] ?? 0) + $amt;
+            }
+        }
+
+        return [
+            'as_of' => $today->toDateString(),
+            'window_days' => $days,
+            'overdue' => ['count' => $overdue['count'], 'by_currency' => $overdue['by_currency']],
+            'due_today' => ['count' => $dueToday['count'], 'by_currency' => $dueToday['by_currency']],
+            'due_soon' => ['count' => $dueSoon['count'], 'by_currency' => $dueSoon['by_currency']],
+            'total_by_currency' => $totalByCurrency,
+        ];
     }
 }

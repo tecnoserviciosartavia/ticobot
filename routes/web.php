@@ -7,6 +7,7 @@ use App\Http\Controllers\Web\ContractController as WebContractController;
 use App\Http\Controllers\Web\ConciliationController as WebConciliationController;
 use App\Http\Controllers\Web\SinpeEmailController as WebSinpeEmailController;
 use App\Http\Controllers\Web\DashboardController;
+use App\Http\Controllers\Web\ReportsController;
 use App\Http\Controllers\Web\LogsController;
 use App\Http\Controllers\Web\PaymentController as WebPaymentController;
 use App\Http\Controllers\Web\ReminderController as WebReminderController;
@@ -60,6 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     // Rutas exclusivas para administradores
     Route::middleware('admin')->group(function (): void {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+        Route::get('/reports', ReportsController::class)->name('reports.index');
         Route::get('/logs', [LogsController::class, 'index'])->name('logs.index');
         Route::get('/logs/fetch', [LogsController::class, 'fetch'])->name('logs.fetch');
         

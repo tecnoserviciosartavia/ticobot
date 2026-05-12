@@ -23,6 +23,7 @@ export default function ContractsCreate({ clients, services, defaultCurrency, de
         next_due_date: '',
         notes: '',
         grace_period_days: '0',
+        status: 'active',
         service_ids: [] as number[],
         service_quantities: {} as Record<string, number>,
         service_pins: {} as Record<string, string>,

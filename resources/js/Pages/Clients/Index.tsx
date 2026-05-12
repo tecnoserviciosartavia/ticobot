@@ -51,6 +51,21 @@ export default function ClientsIndex() {
     const { clients, filters, stats } = props;
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || '');
+    const [deletingId, setDeletingId] = useState<number | null>(null);
+
+    const handleDeleteClient = (client: Client) => {
+        const msg =
+            `¿Eliminar a "${client.name}" y todos sus datos asociados (contratos, pagos, recordatorios)?\n\n` +
+            'Esta acción no se puede deshacer.';
+        if (!confirm(msg)) {
+            return;
+        }
+        setDeletingId(client.id);
+        router.delete(route('clients.destroy', client.id), {
+            preserveScroll: true,
+            onFinish: () => setDeletingId(null),
+        });
+    };
 
     const applyFilters = () => {
         router.get(route('clients.index'), {
@@ -352,6 +367,17 @@ export default function ClientsIndex() {
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
                                                     </Link>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteClient(client)}
+                                                        disabled={deletingId === client.id}
+                                                        className="text-red-600 hover:text-red-700"
+                                                        title="Eliminar cliente"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
                                                 </div>
                                             </td>
                                         </tr>

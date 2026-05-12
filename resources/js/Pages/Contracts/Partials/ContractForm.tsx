@@ -18,6 +18,7 @@ interface ContractFormData {
     currency: string;
     discount_amount?: string;
     billing_cycle: string;
+    status: string;
     next_due_date: string;
     grace_period_days: string;
     notes?: string;
@@ -506,6 +507,23 @@ export default function ContractForm({
                         <option value="one_time">Un solo pago</option>
                     </select>
                     <InputError message={errors.billing_cycle} className="mt-2" />
+                </div>
+
+                <div>
+                    <InputLabel htmlFor="status" value="Estado del contrato" />
+                    <select
+                        id="status"
+                        name="status"
+                        value={data.status ?? 'active'}
+                        onChange={(event) => onChange('status', event.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                        required
+                    >
+                        <option value="active">Activo</option>
+                        <option value="paused">Pausado</option>
+                        <option value="cancelled">Cancelado</option>
+                    </select>
+                    <InputError message={errors.status} className="mt-2" />
                 </div>
 
                 <div>

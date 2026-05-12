@@ -20,6 +20,7 @@ interface ContractResource {
     service_ids?: number[];
     service_quantities?: Record<string, number>;
     service_pins?: Record<string, string>;
+    status: string;
 }
 
 interface ContractsEditProps extends PageProps<{
@@ -36,6 +37,7 @@ export default function ContractsEdit({ contract, clients, services }: Contracts
         currency: contract.currency ?? 'CRC',
         discount_amount: (contract.discount_amount ?? 0).toString(),
         billing_cycle: contract.billing_cycle ?? '',
+        status: contract.status ?? 'active',
         next_due_date: contract.next_due_date ?? '',
         grace_period_days: contract.grace_period_days?.toString() ?? '0',
         service_ids: (contract.service_ids ?? []) as number[],

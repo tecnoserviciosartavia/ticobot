@@ -85,50 +85,54 @@ export default function CollectionsIndex() {
   return (
     <ResponsiveLayout title="Cobranzas">
       <Head title="Cobranzas" />
-
       <div>
         <div className="py-6">
-        <div className="w-full px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Regla: solo es deuda si NO existe pago registrado.</div>
-                {data && <div className="text-xs text-gray-400 dark:text-gray-500">Corte: {data.as_of}</div>}
-              </div>
-              <div className="flex items-end gap-2">
-                <label className="text-sm text-gray-600 dark:text-gray-300">Ventana próximos días</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={31}
-                  value={days}
-                  onChange={(e) => setDays(Number(e.target.value || 0))}
-                  className="w-24 rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                />
-                <button
-                  onClick={() => fetchOverview(days)}
-                  className="rounded bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 dark:bg-indigo-600 dark:hover:bg-indigo-500"
-                >
-                  Refrescar
-                </button>
-              </div>
-            </div>
-
-            {error && <div className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">{error}</div>}
-
-            {data && (
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <StatCard title="Vencidos" value={data.totals.overdue} color="text-red-700" />
-                <StatCard title="Vence hoy" value={data.totals.due_today} color="text-orange-700" />
-                <StatCard title="Próximos" value={data.totals.due_soon} color="text-yellow-700" />
-              </div>
-            )}
-          </div>
-
+          <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
           <div className="overflow-hidden rounded-lg bg-white shadow dark:bg-gray-800 dark:shadow-gray-900/50">
-            <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-              <div className="font-medium text-gray-900 dark:text-gray-100">Clientes por cobrar</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Ordenado por bucket (vencidos/hoy/próximos). Luego puedes filtrar y automatizar envíos.</div>
+            <div className="border-b border-gray-200 px-4 py-4 dark:border-gray-700">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">Clientes por cobrar</div>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Solo cuenta como deuda si no hay pago registrado en el mes del vencimiento (misma regla que antes).
+                    {data && (
+                      <span className="block text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        Corte: {data.as_of}
+                        {' · '}
+                        <span className="text-gray-600 dark:text-gray-300">
+                          Vencidos {data.totals.overdue} · Hoy {data.totals.due_today} · Próx. {data.window_days}d {data.totals.due_soon}
+                        </span>
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Ventana próximos días</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={31}
+                      value={days}
+                      onChange={(e) => setDays(Number(e.target.value || 0))}
+                      className="w-24 rounded border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchOverview(days)}
+                    className="rounded bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800 dark:bg-indigo-600 dark:hover:bg-indigo-500"
+                  >
+                    Refrescar
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <div className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+                  {error}
+                </div>
+              )}
             </div>
 
             {loading ? (
@@ -178,13 +182,13 @@ export default function CollectionsIndex() {
                       ) : (
                         all.map(({ bucket, row }) => (
                           <tr key={`${bucket}-${row.contract.id}`} className="last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                            <td className="px-3 py-2 whitespace-nowrap">{bucket}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{bucket}</td>
                             <td className="px-3 py-2 text-gray-900 dark:text-gray-100">{row.client?.name || '—'}</td>
                             <td className="px-3 py-2 font-mono text-xs">
                               {row.client?.phone || row.client?.email || '—'}
                             </td>
                             <td className="px-3 py-2">{row.contract.name || `#${row.contract.id}`}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{row.contract.next_due_date || '—'}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{row.contract.next_due_date || '—'}</td>
                             <td className="px-3 py-2 text-right font-mono text-gray-900 dark:text-gray-100">{fmtMoney(row.contract.amount, row.contract.currency)}</td>
                           </tr>
                         ))
@@ -202,11 +206,4 @@ export default function CollectionsIndex() {
   );
 }
 
-function StatCard({ title, value, color }: { title: string; value: number; color: string }) {
-  return (
-    <div className="rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-      <div className="text-sm text-gray-500 dark:text-gray-400">{title}</div>
-      <div className={`mt-1 text-3xl font-bold ${color}`}>{value}</div>
-    </div>
-  );
-}
+

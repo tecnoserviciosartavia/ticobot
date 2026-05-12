@@ -6,7 +6,7 @@ import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import type { PageProps } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { labelForBillingCycle } from '@/lib/labels';
+import { labelForBillingCycle, labelForStatus } from '@/lib/labels';
 import { 
   FileText, 
   Plus, 
@@ -29,6 +29,7 @@ interface ContractSummary {
     amount: string;
     currency: string | null;
     billing_cycle: string;
+    status: string;
     next_due_date: string | null;
     client: { id: number; name: string } | null;
     reminders_count: number;
@@ -47,6 +48,7 @@ interface ContractsPageProps extends PageProps {
     filters: {
         client_query?: string;
         billing_cycle?: string;
+        status?: string;
     };
     flashSuccess?: string;
     flashError?: string;
@@ -58,6 +60,7 @@ export default function ContractsIndex() {
     
     const [search, setSearch] = useState(filters.client_query || '');
     const [billingCycleFilter, setBillingCycleFilter] = useState(filters.billing_cycle || '');
+    const [statusFilter, setStatusFilter] = useState(filters.status || '');
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
     const filteredContracts = contracts.data.filter(contract => {
@@ -66,8 +69,9 @@ export default function ContractsIndex() {
             (contract.client?.name && contract.client.name.toLowerCase().includes(search.toLowerCase()));
         
         const matchesBillingCycle = !billingCycleFilter || contract.billing_cycle === billingCycleFilter;
-        
-        return matchesSearch && matchesBillingCycle;
+        const matchesStatus = !statusFilter || (contract.status ?? 'active') === statusFilter;
+
+        return matchesSearch && matchesBillingCycle && matchesStatus;
     });
 
     const handleDelete = (contractId: number, contractName: string) => {
@@ -84,6 +88,7 @@ export default function ContractsIndex() {
         router.get(route('contracts.index'), {
             client_query: search || undefined,
             billing_cycle: billingCycleFilter || undefined,
+            status: statusFilter || undefined,
         }, {
             preserveState: true,
             preserveScroll: true,
@@ -192,6 +197,16 @@ export default function ContractsIndex() {
                                     <option value="monthly">Mensual</option>
                                     <option value="one_time">Una vez</option>
                                 </select>
+                                <select
+                                    className="block px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                >
+                                    <option value="">Todos los estados</option>
+                                    <option value="active">Activo</option>
+                                    <option value="paused">Pausado</option>
+                                    <option value="cancelled">Cancelado</option>
+                                </select>
                                 <Button variant="outline" size="sm" onClick={applyFilters}>
                                     <Filter className="w-4 h-4 mr-2" />
                                     Aplicar
@@ -290,6 +305,9 @@ export default function ContractsIndex() {
                                             Ciclo
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Estado
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Próximo Vencimiento
                                         </th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -338,6 +356,11 @@ export default function ContractsIndex() {
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <Badge variant="outline">
                                                         {labelForBillingCycle(contract.billing_cycle)}
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <Badge variant="outline">
+                                                        {labelForStatus(contract.status ?? 'active')}
                                                     </Badge>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">

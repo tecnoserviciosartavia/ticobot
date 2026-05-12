@@ -29,6 +29,22 @@ interface DashboardStats {
     revenue: number;
     contracts: number;
   }>;
+  recentSentReminders?: Array<{
+    id: number;
+    client_name: string | null;
+    client_phone: string | null;
+    contract_name: string | null;
+    channel: string | null;
+    sent_at: string | null;
+  }>;
+  upcomingCollections?: {
+    as_of: string;
+    window_days: number;
+    overdue: { count: number; by_currency: Record<string, number> };
+    due_today: { count: number; by_currency: Record<string, number> };
+    due_soon: { count: number; by_currency: Record<string, number> };
+    total_by_currency: Record<string, number>;
+  };
 }
 
 type DashboardPageProps = PageProps<{
@@ -60,6 +76,8 @@ type DashboardPageProps = PageProps<{
             revenue: number;
             contracts: number;
         }>;
+        recentSentReminders?: DashboardStats['recentSentReminders'];
+        upcomingCollections?: DashboardStats['upcomingCollections'];
     };
 }>;
 
@@ -83,7 +101,9 @@ export default function Dashboard({ stats }: DashboardPageProps) {
             pending: stats?.reminderStats?.pending || 0, 
             failed: stats?.reminderStats?.failed || 0 
         },
-        revenueByMonth: stats?.revenueByMonth || []
+        revenueByMonth: stats?.revenueByMonth || [],
+        recentSentReminders: stats?.recentSentReminders ?? [],
+        upcomingCollections: stats?.upcomingCollections,
     };
     
     return <ModernDashboard stats={safeStats} />;

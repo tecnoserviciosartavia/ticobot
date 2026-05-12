@@ -15,6 +15,7 @@ import {
   FileText,
   MessageSquare,
   BarChart3,
+  PieChart,
   ChevronDown
 } from './icons';
 
@@ -175,13 +176,11 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
     }
   }, [page.url]);
 
-  const [accountingExpanded, setAccountingExpanded] = useState(true);
+  const [accountingExpanded, setAccountingExpanded] = useState(accountingRoutesActive);
 
   useEffect(() => {
-    if (accountingRoutesActive) {
-      setAccountingExpanded(true);
-    }
-  }, [accountingRoutesActive]);
+    setAccountingExpanded(accountingRoutesActive);
+  }, [accountingRoutesActive, page.url]);
 
   const AccountingNavBlock = ({ onNavigate }: { onNavigate?: () => void }) => (
     <div className="space-y-1">
@@ -237,7 +236,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
     { name: 'Recordatorios', href: '/reminders', icon: MessageSquare },
     { name: 'Chats', href: '/chats', icon: MessageSquare },
     { name: 'Usuarios', href: '/users', icon: Users },
-    { name: 'Reportes', href: '/reports', icon: BarChart3 },
+    { name: 'Reportes', href: '/reports', icon: PieChart },
     { name: 'Configuración', href: '/settings', icon: Settings },
   ];
 
@@ -532,7 +531,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
             Usuarios
           </a>
           <a href="/reports" className="group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-100">
-            <BarChart3 className="w-5 h-5 mr-3" />
+            <PieChart className="w-5 h-5 mr-3" />
             Reportes
           </a>
                   </nav>

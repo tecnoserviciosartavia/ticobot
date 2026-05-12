@@ -43,6 +43,7 @@ export default function EditClient({ client, statuses, services }: EditClientPag
         next_due_date: '',
         grace_period_days: '0',
         notes: '',
+        status: 'active',
         service_ids: [] as number[],
         service_quantities: {} as Record<string, number>,
         service_pins: {} as Record<string, string>,

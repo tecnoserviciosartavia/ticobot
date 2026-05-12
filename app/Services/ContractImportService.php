@@ -237,11 +237,15 @@ class ContractImportService
             return null;
         }
 
+        $statusRaw = strtolower(trim((string) ($row['status'] ?? $row['estado'] ?? '')));
+        $status = in_array($statusRaw, ['active', 'paused', 'cancelled'], true) ? $statusRaw : 'active';
+
         return [
             'name' => trim($row['name'] ?? $row['contract_name'] ?? ''),
             'amount' => (float) $amount,
             'currency' => strtoupper($row['currency'] ?? $row['moneda'] ?? 'CRC'),
             'billing_cycle' => $row['billing_cycle'] ?? 'monthly',
+            'status' => $status,
             'next_due_date' => $row['next_due_date'] ?? $row['proxima_fecha'] ?? null,
             'grace_period_days' => isset($row['grace_period_days']) ? (int) $row['grace_period_days'] : 0,
             'notes' => $row['notes'] ?? null,

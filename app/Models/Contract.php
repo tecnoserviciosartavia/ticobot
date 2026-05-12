@@ -18,6 +18,7 @@ class Contract extends Model
         'discount_amount',
         'currency',
         'billing_cycle',
+        'status',
         'next_due_date',
         'grace_period_days',
         'metadata',

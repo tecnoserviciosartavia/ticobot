@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, Link } from '@inertiajs/react';
 import { Card } from './card';
 import { Badge } from './badge';
 import { Button } from './button';
@@ -52,6 +52,22 @@ interface DashboardStats {
     revenue: number;
     pendingPayments: number;
     conversionRate: number;
+  };
+  recentSentReminders?: Array<{
+    id: number;
+    client_name: string | null;
+    client_phone: string | null;
+    contract_name: string | null;
+    channel: string | null;
+    sent_at: string | null;
+  }>;
+  upcomingCollections?: {
+    as_of: string;
+    window_days: number;
+    overdue: { count: number; by_currency: Record<string, number> };
+    due_today: { count: number; by_currency: Record<string, number> };
+    due_soon: { count: number; by_currency: Record<string, number> };
+    total_by_currency: Record<string, number>;
   };
 }
 
@@ -116,7 +132,9 @@ export default function Dashboard({ stats }: DashboardProps) {
     recentActivity: stats?.recentActivity || [],
     paymentStats: stats?.paymentStats || { verified: 0, unverified: 0, total: 0, failed: 0 },
     reminderStats: stats?.reminderStats || { sent: 0, pending: 0, failed: 0 },
-    revenueByMonth: stats?.revenueByMonth || []
+    revenueByMonth: stats?.revenueByMonth || [],
+    recentSentReminders: stats?.recentSentReminders ?? [],
+    upcomingCollections: stats?.upcomingCollections,
   };
 
   const formatCurrency = (amount: number, currency = 'CRC') => {
@@ -129,6 +147,16 @@ export default function Dashboard({ stats }: DashboardProps) {
   const getChangePercentage = (current: number, previous: number) => {
     if (previous === 0) return 0;
     return ((current - previous) / previous) * 100;
+  };
+
+  const formatBucketMoney = (byCurrency: Record<string, number>) => {
+    const entries = Object.entries(byCurrency);
+    if (entries.length === 0) {
+      return '—';
+    }
+    return entries
+      .map(([cur, amt]) => formatCurrency(amt, cur === 'USD' ? 'USD' : 'CRC'))
+      .join(' · ');
   };
 
   const StatCard = ({ 
@@ -255,6 +283,108 @@ export default function Dashboard({ stats }: DashboardProps) {
               color="green"
               format="percentage"
             />
+          </div>
+
+          {/* Cobro: recordatorios enviados + montos pendientes */}
+          <div className="grid grid-cols-1 gap-6 mb-8 lg:grid-cols-2">
+            <Card className="p-6">
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Recordatorios de cobro enviados</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Clientes a quienes ya se les envió el recordatorio (p. ej. WhatsApp) en el período seleccionado; suelen incluir la solicitud de comprobante.
+                  </p>
+                </div>
+              </div>
+              <div className="max-h-72 space-y-2 overflow-y-auto">
+                {safeStats.recentSentReminders.length === 0 ? (
+                  <p className="text-sm text-gray-500">No hay recordatorios enviados en este período.</p>
+                ) : (
+                  safeStats.recentSentReminders.map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex flex-col gap-1 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-gray-900">{row.client_name || '—'}</div>
+                        <div className="truncate text-xs text-gray-500">
+                          {row.contract_name ? `${row.contract_name} · ` : ''}
+                          {row.client_phone || '—'}
+                          {row.channel ? ` · ${row.channel}` : ''}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-xs text-gray-500 sm:text-right">
+                        {row.sent_at
+                          ? new Date(row.sent_at).toLocaleString('es-CR', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Montos por cobrar</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Contratos con vencimiento y sin pago registrado en el mes del vencimiento (misma lógica que Cobranzas). Incluye vencidos, hoy y próximos {safeStats.upcomingCollections?.window_days ?? 7} días.
+                  </p>
+                  {safeStats.upcomingCollections && (
+                    <p className="mt-1 text-xs text-gray-400">Corte: {safeStats.upcomingCollections.as_of}</p>
+                  )}
+                </div>
+                <Link
+                  href="/collections"
+                  className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                >
+                  Ir a Cobranzas →
+                </Link>
+              </div>
+              {safeStats.upcomingCollections ? (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg border border-red-100 bg-red-50/50 p-3">
+                      <div className="text-xs font-medium uppercase text-red-700">Vencidos</div>
+                      <div className="mt-1 text-2xl font-bold text-gray-900">{safeStats.upcomingCollections.overdue.count}</div>
+                      <div className="mt-1 text-xs text-gray-600">{formatBucketMoney(safeStats.upcomingCollections.overdue.by_currency)}</div>
+                    </div>
+                    <div className="rounded-lg border border-orange-100 bg-orange-50/50 p-3">
+                      <div className="text-xs font-medium uppercase text-orange-800">Vence hoy</div>
+                      <div className="mt-1 text-2xl font-bold text-gray-900">{safeStats.upcomingCollections.due_today.count}</div>
+                      <div className="mt-1 text-xs text-gray-600">{formatBucketMoney(safeStats.upcomingCollections.due_today.by_currency)}</div>
+                    </div>
+                    <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-3">
+                      <div className="text-xs font-medium uppercase text-amber-800">Próximos {safeStats.upcomingCollections.window_days}d</div>
+                      <div className="mt-1 text-2xl font-bold text-gray-900">{safeStats.upcomingCollections.due_soon.count}</div>
+                      <div className="mt-1 text-xs text-gray-600">{formatBucketMoney(safeStats.upcomingCollections.due_soon.by_currency)}</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    <div className="text-sm font-medium text-gray-700">Total por moneda (todos los buckets)</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {Object.keys(safeStats.upcomingCollections.total_by_currency).length === 0 ? (
+                        <span className="text-sm text-gray-500">Sin montos pendientes con la regla actual.</span>
+                      ) : (
+                        Object.entries(safeStats.upcomingCollections.total_by_currency).map(([cur, amt]) => (
+                          <Badge key={cur} variant="outline" className="text-sm font-semibold">
+                            {formatCurrency(amt, cur === 'USD' ? 'USD' : 'CRC')}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-500">No se pudieron cargar los montos de cobranza.</p>
+              )}
+            </Card>
           </div>
 
           {/* Charts Row */}
