@@ -68,7 +68,7 @@ class PaymentController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'client_id' => ['required', 'exists:clients,id'],
+            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'contract_id' => ['nullable', 'exists:contracts,id'],
             'reminder_id' => ['nullable', 'exists:reminders,id'],
             'amount' => ['required', 'numeric', 'min:0'],
@@ -80,6 +80,12 @@ class PaymentController extends Controller
             'billing_month' => ['nullable', 'date_format:Y-m'],
             'metadata' => ['nullable', 'array'],
         ]);
+
+        if (empty($data['client_id'])) {
+            $data['client_id'] = null;
+            $data['contract_id'] = null;
+            $data['reminder_id'] = null;
+        }
 
         $billingMonth = $data['billing_month'] ?? null;
         unset($data['billing_month']);
@@ -164,6 +170,8 @@ class PaymentController extends Controller
      */
     public function update(Request $request, Payment $payment): JsonResponse
     {
+        $existingMetadata = $payment->metadata ?? [];
+
         $data = $request->validate([
             'contract_id' => ['nullable', 'exists:contracts,id'],
             'reminder_id' => ['nullable', 'exists:reminders,id'],
@@ -184,7 +192,7 @@ class PaymentController extends Controller
         if ($targetContractId) {
             $contract = Contract::query()->find($targetContractId);
 
-            if ($contract && (int) $contract->client_id !== (int) $payment->client_id) {
+            if ($contract && $payment->client_id !== null && (int) $contract->client_id !== (int) $payment->client_id) {
                 throw ValidationException::withMessages([
                     'contract_id' => 'El contrato seleccionado no pertenece al cliente del pago.',
                 ]);
@@ -196,7 +204,7 @@ class PaymentController extends Controller
         if ($targetReminderId) {
             $reminder = Reminder::query()->find($targetReminderId);
 
-            if ($reminder && (int) $reminder->client_id !== (int) $payment->client_id) {
+            if ($reminder && $payment->client_id !== null && (int) $reminder->client_id !== (int) $payment->client_id) {
                 throw ValidationException::withMessages([
                     'reminder_id' => 'El recordatorio seleccionado no corresponde al cliente del pago.',
                 ]);
@@ -211,10 +219,13 @@ class PaymentController extends Controller
             }
         }
 
+        $incomingMeta = $data['metadata'] ?? null;
+        unset($data['metadata']);
+
         $payment->fill($data);
 
-        if (array_key_exists('metadata', $data)) {
-            $payment->metadata = array_merge($payment->metadata ?? [], $data['metadata'] ?? []);
+        if (is_array($incomingMeta)) {
+            $payment->metadata = array_merge($existingMetadata, $incomingMeta);
         }
 
         if ($billingMonth) {

@@ -11,12 +11,16 @@ interface ReminderCreateProps extends PageProps<{
     }>;
     channels: string[];
     defaultChannel: string;
+    prefill?: {
+        client_id: number | null;
+        contract_id: number | null;
+    };
 }> {}
 
-export default function RemindersCreate({ clients, channels, defaultChannel }: ReminderCreateProps) {
+export default function RemindersCreate({ clients, channels, defaultChannel, prefill }: ReminderCreateProps) {
     const form = useForm<ReminderFormData>({
-        client_id: '',
-        contract_id: '',
+        client_id: prefill?.client_id != null ? String(prefill.client_id) : '',
+        contract_id: prefill?.contract_id != null ? String(prefill.contract_id) : '',
         channel: defaultChannel ?? channels[0] ?? 'whatsapp',
         scheduled_for: '',
         message: '',

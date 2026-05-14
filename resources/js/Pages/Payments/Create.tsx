@@ -26,6 +26,10 @@ interface Contract {
 type CreatePaymentPageProps = PageProps<{
     clients: Client[];
     channels: string[];
+    prefill?: {
+        client_id: number | null;
+        contract_id: number | null;
+    };
 }>;
 
 interface PaymentFormData {
@@ -41,10 +45,13 @@ interface PaymentFormData {
     grace_months: string;
 }
 
-export default function CreatePayment({ clients, channels }: CreatePaymentPageProps) {
+export default function CreatePayment({ clients, channels, prefill }: CreatePaymentPageProps) {
+    const initialClientId = prefill?.client_id != null ? String(prefill.client_id) : '';
+    const initialContractId = prefill?.contract_id != null ? String(prefill.contract_id) : '';
+
     const form = useForm<PaymentFormData>({
-        client_id: '',
-        contract_id: '',
+        client_id: initialClientId,
+        contract_id: initialContractId,
         amount: '',
         currency: 'CRC',
         channel: channels[0] || 'manual',
@@ -117,7 +124,6 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
                 })
                 .then((response) => {
                     setContracts(response.data);
-                    // Auto-select contract if client has only one
                     if (response.data.length === 1) {
                         setData((prev) => ({
                             ...prev,
@@ -126,7 +132,15 @@ export default function CreatePayment({ clients, channels }: CreatePaymentPagePr
                             currency: response.data[0].currency,
                         }));
                     } else {
-                        setData((prev) => ({ ...prev, contract_id: '' }));
+                        setData((prev) => {
+                            const stillValid = response.data.some(
+                                (c: Contract) => c.id.toString() === prev.contract_id,
+                            );
+                            if (stillValid) {
+                                return prev;
+                            }
+                            return { ...prev, contract_id: '' };
+                        });
                     }
                 })
                 .catch((error) => {

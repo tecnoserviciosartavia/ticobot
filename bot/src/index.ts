@@ -978,7 +978,7 @@ whatsappClient.registerInboundHandler(async (message) => {
             try { client = await apiClient.findCustomerByPhone(fromNorm); } catch { /* ignore */ }
 
             const paymentPayload: any = {
-              client_id: client && client.id ? client.id : undefined,
+              client_id: client && client.id ? client.id : null,
               amount: 0,
               currency: 'CRC',
               channel: 'whatsapp',
@@ -1860,7 +1860,7 @@ whatsappClient.registerInboundHandler(async (message) => {
           }
 
           const paymentPayload: any = {
-            client_id: client && client.id ? client.id : undefined,
+            client_id: client && client.id ? client.id : null,
             amount: 0,
             currency: 'CRC',
             channel: 'whatsapp',
@@ -1934,6 +1934,13 @@ whatsappClient.registerInboundHandler(async (message) => {
 
     // If we're awaiting number of months for a previously uploaded receipt
   if (awaitingMonths.has(chatId)) {
+    if (lc === 'salir' || lc === 'exit' || lc === 'c') {
+      awaitingMonths.delete(chatId);
+      chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
+      try { touchTimer(chatId); } catch { /* ignore */ }
+      await message.reply('Listo, cancelé el registro de meses. Si aún debes indicar cuántos meses cubre tu comprobante, escribe *menu* y vuelve a enviar el comprobante o contacta a un asesor.');
+      return;
+    }
   const payload = awaitingMonths.get(chatId)!;
   const asNum = Number(body.replace(/[^0-9]/g, ''));
       if (!Number.isNaN(asNum) && asNum > 0) {
@@ -1975,10 +1982,19 @@ whatsappClient.registerInboundHandler(async (message) => {
           let appliedResult: any = null;
           if (payload.backendPaymentId) {
             try {
+              let priorMeta: Record<string, unknown> = {};
+              try {
+                const existingPay = await apiClient.getPayment(payload.backendPaymentId);
+                if (existingPay && typeof existingPay === 'object' && existingPay.metadata && typeof (existingPay as any).metadata === 'object') {
+                  priorMeta = { ...(existingPay as any).metadata as Record<string, unknown> };
+                }
+              } catch (e: any) {
+                logger.debug({ e, chatId }, 'No se pudo leer metadata previa del pago antes de aplicar meses');
+              }
               const updatePayload: any = {
                 amount: amount,
                 currency: 'CRC',
-                metadata: Object.assign({}, { months: asNum, backend_receipt_id: payload.backendPaymentId, local_receipt_id: payload.receiptId })
+                metadata: Object.assign({}, priorMeta, { months: asNum, bot_payment_id: payload.backendPaymentId, local_receipt_id: payload.receiptId })
               };
               appliedResult = await apiClient.updatePayment(payload.backendPaymentId, updatePayload);
               await updateReceiptEntry(payload.receiptId, { months: asNum, status: 'applied', backend_apply_result: appliedResult, backend_payment_id: appliedResult && (appliedResult.id || appliedResult.payment_id) ? (appliedResult.id ?? appliedResult.payment_id) : payload.backendPaymentId, monthly_amount: monthlyAmount, total_amount: amount });
@@ -1987,7 +2003,7 @@ whatsappClient.registerInboundHandler(async (message) => {
             }
           } else {
             const paymentPayload: any = {
-              client_id: client && client.id ? client.id : undefined,
+              client_id: client && client.id ? client.id : null,
               amount: amount,
               currency: 'CRC',
               channel: 'whatsapp',
@@ -2053,7 +2069,7 @@ whatsappClient.registerInboundHandler(async (message) => {
                 }
                 const amountRetry = monthlyAmount ? monthlyAmount * asNum : 0;
                 const paymentPayloadRetry: any = {
-                  client_id: clientRetry && clientRetry.id ? clientRetry.id : undefined,
+                  client_id: clientRetry && clientRetry.id ? clientRetry.id : null,
                   amount: amountRetry,
                   currency: 'CRC',
                   channel: 'whatsapp',

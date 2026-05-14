@@ -200,14 +200,32 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                         Editar Contrato
                                     </Button>
                                 </Link>
-                                <Button variant="outline" className="w-full">
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Crear Recordatorio
-                                </Button>
-                                <Button variant="outline" className="w-full">
-                                    <DollarSign className="w-4 h-4 mr-2" />
-                                    Registrar Pago
-                                </Button>
+                                <Link
+                                    href={
+                                        contract.client?.id
+                                            ? `${route('reminders.create')}?client_id=${contract.client.id}&contract_id=${contract.id}`
+                                            : route('reminders.create')
+                                    }
+                                    className="block w-full"
+                                >
+                                    <Button variant="outline" className="w-full">
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Crear Recordatorio
+                                    </Button>
+                                </Link>
+                                <Link
+                                    href={
+                                        contract.client?.id
+                                            ? `${route('payments.create')}?client_id=${contract.client.id}&contract_id=${contract.id}`
+                                            : route('payments.create')
+                                    }
+                                    className="block w-full"
+                                >
+                                    <Button variant="outline" className="w-full">
+                                        <DollarSign className="w-4 h-4 mr-2" />
+                                        Registrar Pago
+                                    </Button>
+                                </Link>
                             </div>
                         </Card>
                     </div>

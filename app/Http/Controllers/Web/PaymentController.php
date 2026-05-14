@@ -208,7 +208,7 @@ class PaymentController extends Controller
     /**
      * Show the form for creating a new payment.
      */
-    public function create(): Response
+    public function create(Request $request): Response
     {
         $clients = \App\Models\Client::query()
             ->select('id', 'name', 'phone')
@@ -223,9 +223,31 @@ class PaymentController extends Controller
             ->filter()
             ->values();
 
+        $prefillClientId = (int) $request->query('client_id', 0) ?: null;
+        $prefillContractId = (int) $request->query('contract_id', 0) ?: null;
+
+        if ($prefillContractId && ! $prefillClientId) {
+            $prefillClientId = Contract::query()->whereKey($prefillContractId)->value('client_id');
+        }
+
+        if ($prefillClientId && $prefillContractId) {
+            $belongs = Contract::query()
+                ->whereKey($prefillContractId)
+                ->where('client_id', $prefillClientId)
+                ->exists();
+
+            if (! $belongs) {
+                $prefillContractId = null;
+            }
+        }
+
         return Inertia::render('Payments/Create', [
             'clients' => $clients,
             'channels' => $channels->isEmpty() ? ['sinpe', 'transferencia', 'efectivo', 'manual'] : $channels,
+            'prefill' => [
+                'client_id' => $prefillClientId,
+                'contract_id' => $prefillContractId,
+            ],
         ]);
     }
 
