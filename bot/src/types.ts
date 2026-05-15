@@ -12,6 +12,7 @@ export interface ContractSummary {
   currency: string;
   billing_cycle: string;
   next_due_date?: string;
+  services?: Array<{ id?: number; name: string; pivot?: { quantity?: number }; quantity?: number }>;
 }
 
 export interface ReminderPayload {

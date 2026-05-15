@@ -23,6 +23,23 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
       candidates.push(p.subscriptions);
     }
 
+    const contractAny = reminder.contract as any;
+    if (contractAny?.services && Array.isArray(contractAny.services)) {
+      const fromContract = contractAny.services
+        .map((x: any) => {
+          if (!x || typeof x !== 'object') return '';
+          const name = String(x.name ?? '').trim();
+          const qRaw = x.pivot?.quantity ?? x.quantity ?? 1;
+          const q = Number(qRaw);
+          if (name && Number.isFinite(q) && q > 1) return `${name} x${q}`;
+          return name;
+        })
+        .filter(Boolean);
+      if (fromContract.length) {
+        return fromContract.join(', ');
+      }
+    }
+
     for (const c of candidates) {
       if (!c) continue;
       if (typeof c === 'string') {
@@ -145,6 +162,12 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
     contract_name: reminder.contract?.name ?? '',
   });
   lines.push(rendered);
+
+  const templateReferencesServices = /\{services\}/.test(template);
+  if (servicesLine && !templateReferencesServices) {
+    lines.push('');
+    lines.push(`📦 Servicios: ${servicesLine}`);
+  }
 
   // If backend provided a custom message template, append it rendered.
   // When there is no global template, payload.message is used as the main template above.

@@ -43,6 +43,7 @@ interface PaymentFormData {
     paid_at: string;
     billing_month: string;
     grace_months: string;
+    covered_months: string[];
 }
 
 export default function CreatePayment({ clients, channels, prefill }: CreatePaymentPageProps) {
@@ -60,6 +61,7 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
         paid_at: new Date().toISOString().split('T')[0],
         billing_month: new Date().toISOString().slice(0, 7),
         grace_months: '0',
+        covered_months: [],
     });
 
     const { data, setData, post, processing } = form;
@@ -94,6 +96,51 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
 
     const selectedContract = contracts.find((c) => c.id.toString() === data.contract_id);
     const isMonthlyContract = selectedContract?.billing_cycle === 'monthly';
+
+    const monthChoices = useMemo(() => {
+        const anchor =
+            data.billing_month && /^\d{4}-\d{2}$/.test(data.billing_month)
+                ? data.billing_month
+                : new Date().toISOString().slice(0, 7);
+        const [y, m] = anchor.split('-').map((v) => Number(v));
+        const past = 15;
+        const future = 36;
+        const start = new Date(y, (m || 1) - 1 - past, 1);
+        const out: string[] = [];
+        for (let i = 0; i <= past + future; i++) {
+            const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+            out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+        }
+        return out;
+    }, [data.billing_month]);
+
+    const formatYmLabel = (ym: string) => {
+        const [y, mo] = ym.split('-').map((v) => Number(v));
+        const d = new Date(y, (mo || 1) - 1, 1);
+        return d.toLocaleDateString('es-CR', { month: 'short', year: 'numeric' });
+    };
+
+    useEffect(() => {
+        setData((prev) => ({ ...prev, covered_months: [] }));
+    }, [data.contract_id]);
+
+    useEffect(() => {
+        if (!isMonthlyContract) {
+            setData((prev) => (prev.covered_months.length ? { ...prev, covered_months: [] } : prev));
+        }
+    }, [isMonthlyContract]);
+
+    useEffect(() => {
+        if (!isMonthlyContract || !data.billing_month) {
+            return;
+        }
+        setData((prev) => {
+            if (prev.covered_months.length > 0) {
+                return prev;
+            }
+            return { ...prev, covered_months: [prev.billing_month] };
+        });
+    }, [isMonthlyContract, data.contract_id, data.billing_month]);
 
     useEffect(() => {
         const onClickOutside = (event: MouseEvent) => {
@@ -186,10 +233,20 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        form.transform((current) => ({
-            ...current,
-            billing_month: isMonthlyContract ? current.billing_month : '',
-        }));
+        form.transform((current) => {
+            const sel = contracts.find((c) => c.id.toString() === current.contract_id);
+            const monthly = sel?.billing_cycle === 'monthly';
+            let covered = monthly ? [...current.covered_months] : [];
+            covered = [...new Set(covered.filter((x) => /^\d{4}-\d{2}$/.test(x)))].sort();
+            if (monthly && covered.length === 0 && current.billing_month) {
+                covered = [current.billing_month];
+            }
+            return {
+                ...current,
+                billing_month: monthly ? (covered[0] ?? current.billing_month) : '',
+                covered_months: monthly ? covered : [],
+            };
+        });
         post(route('payments.store'));
     };
 
@@ -542,31 +599,78 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
                                 )}
                             </div>
 
-                            {/* Billing Month (only monthly contracts) */}
+                            {/* Meses cubiertos (contratos mensuales) */}
                             {isMonthlyContract && (
-                                <div>
-                                    <label
-                                        htmlFor="billing_month"
-                                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                    >
-                                        Mes que está pagando
-                                    </label>
-                                    <input
-                                        type="month"
-                                        id="billing_month"
-                                        name="billing_month"
-                                        value={data.billing_month}
-                                        onChange={(e) => setData((prev) => ({ ...prev, billing_month: e.target.value }))}
-                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                    />
-                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                        Este mes se usará en el comprobante para indicar el período pagado.
-                                    </p>
-                                    {errors.billing_month && (
-                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                                            {errors.billing_month}
+                                <div className="space-y-3">
+                                    <div>
+                                        <label
+                                            htmlFor="billing_month"
+                                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                        >
+                                            Mes de referencia (lista de períodos)
+                                        </label>
+                                        <input
+                                            type="month"
+                                            id="billing_month"
+                                            name="billing_month"
+                                            value={data.billing_month}
+                                            onChange={(e) =>
+                                                setData((prev) => ({ ...prev, billing_month: e.target.value }))
+                                            }
+                                            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        />
+                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Desplaza el rango de meses disponibles. Los meses marcados abajo definen el
+                                            comprobante y el mensaje de WhatsApp.
                                         </p>
-                                    )}
+                                        {errors.billing_month && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.billing_month}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Meses cubiertos por este pago ({data.covered_months.length} seleccionados)
+                                        </label>
+                                        <div className="mt-2 max-h-52 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                            {monthChoices.map((ym) => (
+                                                <label
+                                                    key={ym}
+                                                    className="flex items-center gap-2 text-sm cursor-pointer"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                        checked={data.covered_months.includes(ym)}
+                                                        onChange={() => {
+                                                            setData((prev) => {
+                                                                const set = new Set(prev.covered_months);
+                                                                if (set.has(ym)) {
+                                                                    set.delete(ym);
+                                                                } else {
+                                                                    set.add(ym);
+                                                                }
+                                                                const next = Array.from(set).sort();
+                                                                return {
+                                                                    ...prev,
+                                                                    covered_months: next,
+                                                                    billing_month:
+                                                                        next.length > 0 ? next[0]! : prev.billing_month,
+                                                                };
+                                                            });
+                                                        }}
+                                                    />
+                                                    <span>{formatYmLabel(ym)}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        {errors.covered_months && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.covered_months}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 

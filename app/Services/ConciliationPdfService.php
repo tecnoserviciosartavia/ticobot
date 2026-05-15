@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Conciliation;
 use App\Models\Payment;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -13,15 +12,12 @@ class ConciliationPdfService
     /**
      * Genera un PDF de recibo conciliado para un pago
      *
-     * @param Payment $payment
-     * @param int $months Meses cancelados
-     * @return string Path del PDF generado
+     * @return string Path absoluto del PDF generado
      */
     public function generateConciliationReceipt(Payment $payment, int $months = 1): string
     {
-        $client = $payment->client;
-        $contract = $payment->contract;
-        
+        $payment->loadMissing(['client', 'contract.services']);
+
         // Obtener el logo de la empresa si existe
         $logoPath = public_path('images/logo.png');
         $logoData = null;
@@ -29,110 +25,211 @@ class ConciliationPdfService
             $logoData = base64_encode(file_get_contents($logoPath));
         }
 
-        // Calcular información del ticket
         $paidAt = $payment->paid_at ? Carbon::parse($payment->paid_at) : Carbon::now();
-        $monthlyAmount = $contract ? $contract->amount : ($payment->amount / max($months, 1));
-        $total = $payment->amount;
-        
-        // Datos para el PDF
+        $contract = $payment->contract;
+        $monthlyAmount = $contract ? (float) $contract->amount : ($months > 0 ? ((float) $payment->amount / max($months, 1)) : (float) $payment->amount);
+        $total = (float) $payment->amount;
+
+        $coveredMonths = $this->resolveCoveredYearMonths($payment, $months);
+        $monthsCount = count($coveredMonths) > 0 ? count($coveredMonths) : max(1, $months);
+
+        $servicesLabel = $contract ? $contract->servicesLabelForMessaging() : '';
+        $periodLabel = $this->formatCoveredMonthsLabel($coveredMonths);
+
+        $graceMonths = (int) (is_array($payment->metadata) ? ($payment->metadata['grace_months'] ?? 0) : 0);
+
         $data = [
-            'client_name' => $client ? $client->name : 'Cliente',
-            'balance' => 0.00, // Balance actual después del pago
-            'ticket_id' => str_pad($payment->id, 6, '0', STR_PAD_LEFT),
+            'client_name' => $payment->client ? $payment->client->name : 'Cliente',
+            'balance' => 0.00,
+            'ticket_id' => str_pad((string) $payment->id, 6, '0', STR_PAD_LEFT),
             'initial_balance' => $total,
             'total_transactions' => -$total,
             'final_balance' => 0.00,
             'date' => $paidAt->format('Y-m-d'),
-            'concept' => $this->getPaymentConcept($payment, $months),
+            'concept' => $this->getPaymentConcept($payment, $monthsCount, $coveredMonths),
             'amount' => $total,
             'currency' => $payment->currency ?? 'CRC',
-            'months' => $months,
+            'months' => $monthsCount,
             'logo_data' => $logoData,
+            'services_label' => $servicesLabel,
+            'period_label' => $periodLabel,
+            'monthly_amount' => $monthlyAmount,
+            'grace_months' => $graceMonths,
         ];
 
-        // Generar el PDF usando una vista blade
         $pdf = Pdf::loadView('pdf.conciliation-receipt', $data)
             ->setPaper('a6', 'portrait');
 
-        // Guardar el PDF en storage (public para poder acceder)
         $filename = "conciliation-{$payment->id}-" . time() . '.pdf';
         $path = "conciliations/{$filename}";
-        
-        // Usar el disco 'public' explícitamente
+
         Storage::disk('public')->put($path, $pdf->output());
 
         return Storage::disk('public')->path($path);
     }
 
-    /**
-     * Genera el mensaje de WhatsApp personalizado según los meses
-     *
-     * @param int $months
-     * @return string
-     */
-    public function generateWhatsAppMessage(int $months): string
+    public function generateWhatsAppMessage(Payment $payment, int $months): string
     {
-        $monthText = $months === 1 ? '1 mes' : "{$months} meses";
-        
-        $message = "¡Pago Recibido! Tu suscripción actual tiene una duración de {$monthText}. ";
-        $message .= "Tres días antes de que se cumpla el ";
-        $message .= $months === 1 ? "mes" : "período";
-        $message .= ", te enviaremos un mensaje para consultar si deseas extenderla por más tiempo.\n\n";
-        $message .= "¡Gracias por su preferencia y esperamos seguir brindándole nuestros Servicios de Entretenimiento!";
+        $payment->loadMissing('contract.services');
+        $meta = is_array($payment->metadata) ? $payment->metadata : [];
+        $covered = $meta['covered_months'] ?? null;
+        $coveredList = [];
 
-        return $message;
+        if (is_array($covered)) {
+            foreach ($covered as $ym) {
+                if (is_string($ym) && preg_match('/^\d{4}-\d{2}$/', $ym) === 1) {
+                    $coveredList[] = $ym;
+                }
+            }
+            sort($coveredList);
+            $coveredList = array_values(array_unique($coveredList));
+        }
+
+        $period = $this->formatCoveredMonthsLabel($coveredList);
+        $services = $payment->contract ? $payment->contract->servicesLabelForMessaging() : '';
+
+        $monthText = $months === 1 ? '1 mes' : "{$months} meses";
+
+        $msg = "¡Pago recibido! ";
+
+        if ($period !== '') {
+            $msg .= "Este pago aplica a los siguientes períodos: {$period}. ";
+        } else {
+            $msg .= "Tu suscripción actual cubre {$monthText}. ";
+        }
+
+        if ($services !== '') {
+            $msg .= "Servicios: {$services}. ";
+        }
+
+        $msg .= 'Tres días antes de que finalice el período pagado, te escribiremos por si deseas renovar.';
+
+        $grace = (int) ($meta['grace_months'] ?? 0);
+        if ($grace > 0) {
+            $msg .= " Incluye {$grace} mes(es) adicional(es) de cortesía.";
+        }
+
+        $msg .= "\n\n¡Gracias por tu preferencia!";
+
+        return $msg;
     }
 
     /**
-     * Obtiene el concepto del pago según los meses
-     *
-     * @param int $months
-     * @return string
+     * @param  array<int, string>  $coveredYms  Lista ordenada de YYYY-MM
      */
-    private function getPaymentConcept(Payment $payment, int $months): string
+    private function getPaymentConcept(Payment $payment, int $months, array $coveredYms): string
     {
+        if ($coveredYms !== []) {
+            $period = $this->formatCoveredMonthsLabel($coveredYms);
+
+            return $period !== '' ? "Pago — {$period}" : "Pago — {$months} meses";
+        }
+
         $baseMonth = Carbon::now(config('app.timezone'))->startOfMonth();
         $paidForMonth = is_array($payment->metadata ?? null) ? ($payment->metadata['paid_for_month'] ?? null) : null;
 
         if (is_string($paidForMonth) && preg_match('/^\d{4}-\d{2}$/', $paidForMonth) === 1) {
             try {
                 $baseMonth = Carbon::createFromFormat('Y-m-d', $paidForMonth . '-01', config('app.timezone'))->startOfMonth();
-            } catch (\Throwable $e) {
-                // fallback a mes actual
+            } catch (\Throwable) {
+                // fallback
             }
         }
 
         $currentMonth = $baseMonth->copy()->locale('es')->translatedFormat('F');
-        
+
         if ($months === 1) {
             return "Pago de {$currentMonth}";
-        } elseif ($months === 2) {
-            $nextMonth = $baseMonth->copy()->addMonth()->locale('es')->translatedFormat('F');
-            return "Pago de {$currentMonth} y {$nextMonth}";
-        } else {
-            return "Pago de {$months} meses";
         }
+
+        if ($months === 2) {
+            $nextMonth = $baseMonth->copy()->addMonth()->locale('es')->translatedFormat('F');
+
+            return "Pago de {$currentMonth} y {$nextMonth}";
+        }
+
+        return "Pago de {$months} meses";
     }
 
     /**
-     * Calcula los meses pagados basándose en el metadata del pago
-     *
-     * @param Payment $payment
-     * @return int
+     * @return array<int, string>
      */
+    private function resolveCoveredYearMonths(Payment $payment, int $fallbackCount): array
+    {
+        $meta = $payment->metadata ?? [];
+
+        if (! empty($meta['covered_months']) && is_array($meta['covered_months'])) {
+            $clean = [];
+
+            foreach ($meta['covered_months'] as $ym) {
+                if (is_string($ym) && preg_match('/^\d{4}-\d{2}$/', $ym) === 1) {
+                    $clean[] = $ym;
+                }
+            }
+
+            if ($clean !== []) {
+                $clean = array_values(array_unique($clean));
+                sort($clean);
+
+                return $clean;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<int, string>  $yMs
+     */
+    public function formatCoveredMonthsLabel(array $yMs): string
+    {
+        if ($yMs === []) {
+            return '';
+        }
+
+        $tz = config('app.timezone');
+        $parts = [];
+
+        foreach ($yMs as $ym) {
+            try {
+                $d = Carbon::createFromFormat('Y-m-d', $ym . '-01', $tz);
+                $parts[] = mb_convert_case($d->locale('es')->translatedFormat('MMMM yyyy'), MB_CASE_TITLE, 'UTF-8');
+            } catch (\Throwable) {
+                $parts[] = $ym;
+            }
+        }
+
+        return implode(', ', $parts);
+    }
+
     public function calculateMonthsFromPayment(Payment $payment): int
     {
-        // Intentar obtener de metadata primero
-        if ($payment->metadata && isset($payment->metadata['months'])) {
-            return (int) $payment->metadata['months'];
+        $meta = is_array($payment->metadata) ? $payment->metadata : [];
+
+        if (! empty($meta['covered_months']) && is_array($meta['covered_months'])) {
+            $n = 0;
+
+            foreach ($meta['covered_months'] as $ym) {
+                if (is_string($ym) && preg_match('/^\d{4}-\d{2}$/', $ym) === 1) {
+                    $n++;
+                }
+            }
+
+            if ($n > 0) {
+                return $n;
+            }
         }
 
-        // Calcular basándose en el monto y el contrato
-        if ($payment->contract && $payment->contract->amount > 0) {
-            return (int) ceil($payment->amount / $payment->contract->amount);
+        if (isset($meta['months']) && is_numeric($meta['months'])) {
+            return max(1, (int) $meta['months']);
         }
 
-        // Por defecto, 1 mes
+        $payment->loadMissing('contract');
+
+        if ($payment->contract && (float) $payment->contract->amount > 0) {
+            return max(1, (int) floor((float) $payment->amount / (float) $payment->contract->amount));
+        }
+
         return 1;
     }
 }

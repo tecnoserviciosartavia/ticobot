@@ -43,6 +43,8 @@ class ContractObserver
             // Map billing_cycle to recurrence
             $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
 
+            $contract->loadMissing('services');
+
             Reminder::createOpenUnique([
                 'client_id' => $contract->client_id,
                 'contract_id' => $contract->id,
@@ -53,7 +55,8 @@ class ContractObserver
                     'recurrence' => $recurrence,
                     'amount' => (string) $contract->amount,
                     'due_date' => $contract->next_due_date?->toDateString(),
-                ], fn ($value) => $value !== null && $value !== ''),
+                    'services' => $contract->servicesForReminderPayload(),
+                ], fn ($value) => $value !== null && $value !== '' && $value !== []),
             ]);
         }
     }
@@ -73,6 +76,8 @@ class ContractObserver
 
                 $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
 
+                $contract->loadMissing('services');
+
                 Reminder::createOpenUnique([
                     'client_id' => $contract->client_id,
                     'contract_id' => $contract->id,
@@ -83,7 +88,8 @@ class ContractObserver
                         'recurrence' => $recurrence,
                         'amount' => (string) $contract->amount,
                         'due_date' => $contract->next_due_date?->toDateString(),
-                    ], fn ($value) => $value !== null && $value !== ''),
+                        'services' => $contract->servicesForReminderPayload(),
+                    ], fn ($value) => $value !== null && $value !== '' && $value !== []),
                 ]);
             }
         }
@@ -104,6 +110,8 @@ class ContractObserver
             if ($updated === 0) {
                 $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
 
+                $contract->loadMissing('services');
+
                 Reminder::createOpenUnique([
                     'client_id' => $contract->client_id,
                     'contract_id' => $contract->id,
@@ -114,7 +122,8 @@ class ContractObserver
                         'recurrence' => $recurrence,
                         'amount' => (string) $contract->amount,
                         'due_date' => $contract->next_due_date?->toDateString(),
-                    ], fn ($value) => $value !== null && $value !== ''),
+                        'services' => $contract->servicesForReminderPayload(),
+                    ], fn ($value) => $value !== null && $value !== '' && $value !== []),
                 ]);
             }
         }
@@ -132,6 +141,9 @@ class ContractObserver
             $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
             $dueDate = $contract->next_due_date?->toDateString();
 
+            $contract->loadMissing('services');
+            $servicesPayload = $contract->servicesForReminderPayload();
+
             foreach ($reminders as $reminder) {
                 $payload = is_array($reminder->payload) ? $reminder->payload : [];
 
@@ -147,9 +159,43 @@ class ContractObserver
                     $payload['due_date'] = $dueDate;
                 }
 
+                $payload['services'] = $servicesPayload;
+
                 $reminder->payload = $payload;
                 $reminder->save();
             }
+        }
+
+        $this->syncReminderPayloadServicesForContract($contract);
+    }
+
+    /**
+     * Mantiene la lista de servicios en recordatorios pendientes cuando cambia el contrato
+     * (incluye altas/bajas de servicios aunque el Observer no detecte un camp o "sucio" en pivote).
+     */
+    private function syncReminderPayloadServicesForContract(Contract $contract): void
+    {
+        if (! $contract->client_id) {
+            return;
+        }
+
+        $contract->loadMissing('services');
+        $servicesPayload = $contract->servicesForReminderPayload();
+
+        $reminders = Reminder::where('contract_id', $contract->id)
+            ->where('status', 'pending')
+            ->get();
+
+        foreach ($reminders as $reminder) {
+            $payload = is_array($reminder->payload) ? $reminder->payload : [];
+            $prev = $payload['services'] ?? null;
+            if (json_encode($prev) === json_encode($servicesPayload)) {
+                continue;
+            }
+
+            $payload['services'] = $servicesPayload;
+            $reminder->payload = $payload;
+            $reminder->save();
         }
     }
 }

@@ -225,8 +225,11 @@ class ReminderController extends Controller
 
         // Fill default message from contract type when message not provided
         $payloadData = $payload['payload'] ?? [];
+        $contract->loadMissing(['contractType', 'services']);
+        $payloadData['services'] = $contract->servicesForReminderPayload();
+        $servicesLabel = $contract->servicesLabelForMessaging();
+
         if (empty($payloadData['message'])) {
-            $contract->load('contractType');
             $template = $contract->contractType->default_message ?? null;
             if ($template) {
                 $replacements = [
@@ -234,6 +237,7 @@ class ReminderController extends Controller
                     '{contract_name}' => $contract->name,
                     '{amount}' => $payloadData['amount'] ?? $contract->amount,
                     '{due_date}' => $payloadData['due_date'] ?? ($contract->next_due_date?->toDateString() ?? ''),
+                    '{services}' => $servicesLabel,
                 ];
 
                 $payloadData['message'] = strtr($template, $replacements);

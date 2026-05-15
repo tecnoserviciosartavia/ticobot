@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Reminder as ReminderModel;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Services\PaymentSettlementService;
 
 class ConciliationController extends Controller
 {
@@ -107,6 +108,11 @@ class ConciliationController extends Controller
             }
         }
 
+        $paymentSettle = $conciliation->payment?->fresh(['contract']);
+        if ($paymentSettle && $paymentSettle->status === 'verified') {
+            app(PaymentSettlementService::class)->settleVerifiedPayment($paymentSettle);
+        }
+
         return response()->json($conciliation->load(['payment', 'reviewer']), 201);
     }
 
@@ -130,6 +136,8 @@ class ConciliationController extends Controller
             'reviewed_by' => ['nullable', 'exists:users,id'],
         ]);
 
+        $previousConciliationStatus = $conciliation->status;
+
         $conciliation->fill($data);
 
         if (isset($data['status'])) {
@@ -151,6 +159,15 @@ class ConciliationController extends Controller
         }
 
         $conciliation->save();
+
+        $justApproved = isset($data['status'])
+            && $data['status'] === 'approved'
+            && $previousConciliationStatus !== 'approved';
+
+        $paymentSettle = $conciliation->payment?->fresh(['contract']);
+        if ($justApproved && $paymentSettle && $paymentSettle->status === 'verified') {
+            app(PaymentSettlementService::class)->settleVerifiedPayment($paymentSettle);
+        }
 
         return response()->json($conciliation->fresh()->load(['payment', 'reviewer']));
     }

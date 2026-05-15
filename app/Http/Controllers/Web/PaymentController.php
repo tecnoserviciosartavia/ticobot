@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Contract;
 use App\Models\Payment;
-use App\Models\Reminder;
+use App\Services\PaymentSettlementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -13,109 +13,6 @@ use Inertia\Response;
 
 class PaymentController extends Controller
 {
-    /**
-     * Al verificar un pago, marcar como "paid" (o al menos no enviables) los
-     * recordatorios pendientes relacionados para evitar reenvíos/duplicados.
-     */
-    private function settleRemindersForVerifiedPayment(Payment $payment): void
-    {
-        if ($payment->status !== 'verified') {
-            return;
-        }
-
-        $settledAt = now(config('app.timezone'));
-        $contract = $payment->contract_id ? Contract::query()->find($payment->contract_id) : null;
-        $isMonthlyContract = $contract?->billing_cycle === 'monthly';
-        $metadata = is_array($payment->metadata) ? $payment->metadata : [];
-        $paidForMonth = $isMonthlyContract ? ($metadata['paid_for_month'] ?? null) : null;
-
-        // Si el pago ya está ligado a un recordatorio específico, liquidarlo.
-        if ($payment->reminder_id) {
-            $linkedReminder = Reminder::query()->find($payment->reminder_id);
-
-            if (! $linkedReminder) {
-                return;
-            }
-
-            $linkedScheduledRaw = $linkedReminder->getRawOriginal('scheduled_for');
-
-            $linkedQuery = Reminder::query()
-                ->where('client_id', $linkedReminder->client_id)
-                ->where('scheduled_for', $linkedScheduledRaw)
-                ->whereIn('status', ['pending', 'queued', 'sent'])
-                ->where(function ($query) use ($linkedReminder) {
-                    if ($linkedReminder->contract_id) {
-                        $query->where('contract_id', $linkedReminder->contract_id);
-                    } else {
-                        $query->whereNull('contract_id');
-                    }
-                });
-
-            $linkedQuery->update([
-                'status' => 'paid',
-                'acknowledged_at' => $settledAt,
-            ]);
-
-            return;
-        }
-
-        // Caso común: pago manual/conciliado sin reminder_id.
-        // Estrategia conservadora: para el mismo cliente/contrato, marcar como "paid"
-        // el próximo recordatorio pendiente/queued y cualquier recordatorio "sent" del día
-        // (para que el bot no lo reenvíe como impago).
-        $query = Reminder::query()->where('client_id', $payment->client_id);
-        if ($payment->contract_id) {
-            $query->where('contract_id', $payment->contract_id);
-        }
-
-        // En contratos mensuales, aplicar el pago al mes indicado sin mover fechas.
-        if ($isMonthlyContract && is_string($paidForMonth) && preg_match('/^\d{4}-\d{2}$/', $paidForMonth)) {
-            $monthStart = Carbon::createFromFormat('Y-m', $paidForMonth, config('app.timezone'))->startOfMonth();
-            $monthEnd = $monthStart->copy()->endOfMonth();
-
-            $updated = (clone $query)
-                ->whereIn('status', ['pending', 'queued', 'sent'])
-                ->whereBetween('scheduled_for', [$monthStart, $monthEnd])
-                ->update([
-                    'status' => 'paid',
-                    'acknowledged_at' => $settledAt,
-                ]);
-
-            if ($updated > 0) {
-                return;
-            }
-        }
-
-        // 1) Liquidar el recordatorio pendiente más cercano (si existe)
-        $nextPending = (clone $query)
-            ->whereIn('status', ['pending', 'queued'])
-            ->orderBy('scheduled_for')
-            ->first();
-
-        if ($nextPending) {
-            $nextScheduledRaw = $nextPending->getRawOriginal('scheduled_for');
-
-            (clone $query)
-                ->whereIn('status', ['pending', 'queued'])
-                ->where('scheduled_for', $nextScheduledRaw)
-                ->update([
-                'status' => 'paid',
-                'acknowledged_at' => $settledAt,
-                ]);
-        }
-
-        // 2) Si hoy se envió un recordatorio y se verificó el pago el mismo día, marcarlo paid
-        $todayStart = Carbon::today(config('app.timezone'))->startOfDay();
-        $todayEnd = Carbon::today(config('app.timezone'))->endOfDay();
-        (clone $query)
-            ->where('status', 'sent')
-            ->whereBetween('sent_at', [$todayStart, $todayEnd])
-            ->update([
-                'status' => 'paid',
-                'acknowledged_at' => $settledAt,
-            ]);
-    }
-
     public function index(Request $request): Response
     {
         $status = trim((string) $request->query('status', ''));
@@ -267,6 +164,8 @@ class PaymentController extends Controller
             'paid_at' => ['nullable', 'date'],
             'billing_month' => ['nullable', 'date_format:Y-m'],
             'grace_months' => ['nullable', 'integer', 'min:0', 'max:12'],
+            'covered_months' => ['nullable', 'array'],
+            'covered_months.*' => ['required', 'date_format:Y-m'],
         ]);
 
         $contract = null;
@@ -282,11 +181,25 @@ class PaymentController extends Controller
 
         $isMonthlyContract = $contract?->billing_cycle === 'monthly';
 
+        $coveredMonthsInput = $validated['covered_months'] ?? [];
+        unset($validated['covered_months']);
+
+        if (! is_array($coveredMonthsInput)) {
+            $coveredMonthsInput = [];
+        }
+
+        $coveredMonthsInput = array_values(array_unique(array_filter($coveredMonthsInput, fn ($v) => is_string($v) && preg_match('/^\d{4}-\d{2}$/', $v) === 1)));
+        sort($coveredMonthsInput);
+
         // Add metadata to track manual creation
         $paidForMonth = $isMonthlyContract
             ? ($validated['billing_month']
                 ?? Carbon::parse($validated['paid_at'] ?? now(), config('app.timezone'))->format('Y-m'))
             : null;
+
+        if ($isMonthlyContract && $coveredMonthsInput === [] && is_string($paidForMonth) && preg_match('/^\d{4}-\d{2}$/', $paidForMonth) === 1) {
+            $coveredMonthsInput = [$paidForMonth];
+        }
 
         $validated['metadata'] = [
             'created_manually' => true,
@@ -295,7 +208,11 @@ class PaymentController extends Controller
             'grace_months' => (int) ($validated['grace_months'] ?? 0),
         ];
 
-        if ($paidForMonth !== null) {
+        if ($isMonthlyContract && $coveredMonthsInput !== []) {
+            $validated['metadata']['covered_months'] = $coveredMonthsInput;
+            $validated['metadata']['paid_for_month'] = $coveredMonthsInput[0];
+            $validated['billing_month'] = $coveredMonthsInput[0];
+        } elseif ($paidForMonth !== null) {
             $validated['metadata']['paid_for_month'] = $paidForMonth;
         }
 
@@ -312,7 +229,7 @@ class PaymentController extends Controller
         // Auto-create conciliation if payment is verified
         if ($validated['status'] === 'verified') {
             // Detener envíos/reenvíos: liquidar recordatorios relacionados
-            $this->settleRemindersForVerifiedPayment($payment);
+            app(PaymentSettlementService::class)->settleVerifiedPayment($payment);
 
             $conciliation = \App\Models\Conciliation::create([
                 'payment_id' => $payment->id,
@@ -333,32 +250,21 @@ class PaymentController extends Controller
                 $pdfService = app(\App\Services\ConciliationPdfService::class);
                 $whatsappService = app(\App\Services\WhatsAppNotificationService::class);
                 
-                // Calculate months covered (default to 1 for manual payments)
-                $months = 1;
-                if ($contract && $contract->amount > 0) {
-                        $months = max(1, floor($payment->amount / $contract->amount));
-                }
-                
-                // Add grace months if provided
+                $months = $pdfService->calculateMonthsFromPayment($payment);
                 $graceMonths = (int) ($validated['grace_months'] ?? 0);
-                $totalMonths = $months + $graceMonths;
-                
-                // Generate PDF
-                $pdfPath = $pdfService->generateConciliationReceipt($payment, $months);
-                
-                // Generate WhatsApp message
-                $message = $pdfService->generateWhatsAppMessage($months);
-                
-                // Send via WhatsApp (usar método específico para pagos manuales)
+
+                $pdfPath = $pdfService->generateConciliationReceipt($payment, max(1, $months));
+
+                $message = $pdfService->generateWhatsAppMessage($payment, max(1, $months));
+
                 $sent = $whatsappService->sendManualPaymentReceipt($payment, $pdfPath, $message);
-                
+
                 if ($sent) {
                     \Log::info('Recibo de pago manual enviado por WhatsApp', [
                         'payment_id' => $payment->id,
                         'conciliation_id' => $conciliation->id,
                         'months_paid' => $months,
                         'grace_months' => $graceMonths,
-                        'total_months' => $totalMonths,
                     ]);
                 }
             } catch (\Exception $e) {
@@ -419,79 +325,4 @@ class PaymentController extends Controller
 
         return redirect()->route('payments.index')->with('success', 'Pago eliminado correctamente.');
     }
-
-    /**
-     * Reschedule pending reminders for a contract by adding months from a specific date
-     *
-     * @param int $contractId
-     * @param int $monthsPaid
-     * @param \Carbon\Carbon $paidAt The date from which to calculate the months
-     * @return void
-     */
-    private function rescheduleReminders(int $contractId, int $monthsPaid, \Carbon\Carbon $paidAt): void
-    {
-        // Obtener recordatorios pendientes del contrato
-        $reminders = Reminder::where('contract_id', $contractId)
-            ->where('status', 'pending')
-            ->get();
-
-        foreach ($reminders as $reminder) {
-            $currentScheduled = \Carbon\Carbon::parse($reminder->scheduled_for);
-            
-            // Si el recordatorio es anterior o igual a la fecha de pago:
-            // - Si el cliente paga ANTES (o el mismo día) de la fecha del recordatorio actual,
-            //   el próximo recordatorio debe caer en el siguiente ciclo (mesesPaid meses adelante).
-            // - Si el cliente paga DESPUÉS de la fecha del recordatorio (atrasado), entonces sí
-            //   movemos desde la fecha de pago.
-            // Esto evita el bug común de “se fue al siguiente mes” cuando el pago manual
-            // se registra antes de la fecha de cobro del mes corriente.
-            if ($currentScheduled->lte($paidAt)) {
-                if ($paidAt->toDateString() <= $currentScheduled->toDateString()) {
-                    $newScheduled = $currentScheduled->copy()->addMonthsNoOverflow($monthsPaid);
-                } else {
-                    $newScheduled = $paidAt->copy()->addMonthsNoOverflow($monthsPaid);
-                }
-            } else {
-                // Si el recordatorio ya está en el futuro, simplemente lo adelantamos
-                $newScheduled = $currentScheduled->copy()->addMonthsNoOverflow($monthsPaid);
-            }
-            
-            $reminder->update([
-                'scheduled_for' => $newScheduled,
-            ]);
-
-            \Log::info('Recordatorio reprogramado por pago manual de múltiples meses', [
-                'reminder_id' => $reminder->id,
-                'contract_id' => $contractId,
-                'months_paid' => $monthsPaid,
-                'paid_at' => $paidAt->toDateString(),
-                'old_date' => $currentScheduled->toDateString(),
-                'new_date' => $newScheduled->toDateString(),
-            ]);
-        }
-
-        // También actualizar el next_due_date del contrato basándose en la fecha de pago
-        $contract = Contract::find($contractId);
-        if ($contract) {
-            // Mantener coherencia con reprogramación: si el pago se registra antes de que venza el mes,
-            // avanzar desde el vencimiento actual; si fue después (atrasado), avanzar desde paidAt.
-            // addMonthsNoOverflow evita saltos a meses siguientes por días inexistentes.
-            $base = $contract->next_due_date
-                ? \Carbon\Carbon::parse($contract->next_due_date, config('app.timezone'))
-                : $paidAt;
-
-            $newDueDate = ($paidAt->toDateString() <= $base->toDateString())
-                ? $base->copy()->addMonthsNoOverflow($monthsPaid)
-                : $paidAt->copy()->addMonthsNoOverflow($monthsPaid);
-            $contract->update(['next_due_date' => $newDueDate]);
-            
-            \Log::info('Contrato actualizado con nueva fecha de vencimiento por pago manual', [
-                'contract_id' => $contractId,
-                'months_paid' => $monthsPaid,
-                'paid_at' => $paidAt->toDateString(),
-                'new_due_date' => $newDueDate->toDateString(),
-            ]);
-        }
-    }
-
 }

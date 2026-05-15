@@ -134,6 +134,15 @@
     <div class="client-info">
         <div class="client-name">Cliente: {{ $client_name }}</div>
         <div class="balance">Balance actual: {{ $currency }} {{ number_format($balance, 2) }}</div>
+        @if(!empty($services_label))
+            <div class="balance" style="margin-top:4px;">Servicios: {{ $services_label }}</div>
+        @endif
+        @if(!empty($period_label))
+            <div class="balance" style="margin-top:2px;">Períodos cubiertos: {{ $period_label }}</div>
+        @endif
+        @if(!empty($grace_months))
+            <div class="balance" style="margin-top:2px;">Meses de cortesía: {{ $grace_months }}</div>
+        @endif
     </div>
 
     <div class="ticket-section">

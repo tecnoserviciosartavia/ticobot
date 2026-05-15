@@ -125,15 +125,19 @@ class ReminderController extends Controller
         // Ensure payload exists (may have been mutated above)
         $payload = $payload ?? ($data['payload'] ?? []);
 
+        $contract->loadMissing(['contractType', 'services']);
+
         // Ensure the reminder payload carries the contract amount so future
         // processing doesn't depend on embedding the contract in API responses.
         if (!isset($payload['amount']) || $payload['amount'] === null) {
             $payload['amount'] = (string) $contract->amount;
         }
 
+        $payload['services'] = $contract->servicesForReminderPayload();
+        $servicesLabel = $contract->servicesLabelForMessaging();
+
         // If no custom message provided, use contract type default_message (with simple templating)
         if (empty($payload['message'])) {
-            $contract->load('contractType');
             $template = $contract->contractType->default_message ?? null;
             if ($template) {
                 $replacements = [
@@ -141,6 +145,7 @@ class ReminderController extends Controller
                     '{contract_name}' => $contract->name,
                     '{amount}' => isset($payload['amount']) ? $payload['amount'] : $contract->amount,
                     '{due_date}' => isset($payload['due_date']) ? $payload['due_date'] : ($contract->next_due_date?->toDateString() ?? ''),
+                    '{services}' => $servicesLabel,
                 ];
 
                 $payload['message'] = strtr($template, $replacements);
@@ -287,7 +292,7 @@ class ReminderController extends Controller
             })
             ->orderBy('scheduled_for')
             ->limit($limit)
-            ->with(['client', 'contract'])
+            ->with(['client', 'contract.services'])
             ->get();
 
         return response()->json($reminders);
@@ -383,7 +388,7 @@ class ReminderController extends Controller
             ->whereDoesntHave('payments', function ($query) {
                 $query->where('status', 'verified');
             })
-            ->with(['client', 'contract'])
+            ->with(['client', 'contract.services'])
             ->orderBy('sent_at')
             ->get();
 

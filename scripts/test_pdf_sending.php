@@ -99,7 +99,7 @@ try {
     echo "   📏 Tamaño: " . number_format($fileSize / 1024, 2) . " KB\n";
     
     // Generar mensaje
-    $message = $pdfService->generateWhatsAppMessage($months);
+    $message = $pdfService->generateWhatsAppMessage($payment, $months);
     echo "\n💬 Mensaje a enviar:\n";
     echo "   " . str_replace("\n", "\n   ", $message) . "\n";
     

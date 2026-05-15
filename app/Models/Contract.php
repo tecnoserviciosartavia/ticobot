@@ -89,4 +89,42 @@ class Contract extends Model
             ->withPivot(['quantity', 'pin_override', 'service_account_id'])
             ->withTimestamps();
     }
+
+    /**
+     * Lista de servicios para guardar en el payload del recordatorio (WhatsApp / API bot).
+     *
+     * @return list<array{name: string, quantity: int}>
+     */
+    public function servicesForReminderPayload(): array
+    {
+        $this->loadMissing('services');
+
+        return $this->services
+            ->map(function (Service $service) {
+                $qty = (int) ($service->pivot->quantity ?? 1);
+
+                return [
+                    'name' => $service->name,
+                    'quantity' => max(1, $qty),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Texto corto para plantillas ({services}) y comprobantes.
+     */
+    public function servicesLabelForMessaging(): string
+    {
+        $this->loadMissing('services');
+        $parts = [];
+
+        foreach ($this->services as $service) {
+            $qty = (int) ($service->pivot->quantity ?? 1);
+            $parts[] = $qty > 1 ? "{$service->name} x{$qty}" : $service->name;
+        }
+
+        return implode(', ', $parts);
+    }
 }

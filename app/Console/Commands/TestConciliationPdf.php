@@ -54,7 +54,7 @@ class TestConciliationPdf extends Command
             $this->info("PDF generado en: storage/app/{$pdfPath}");
 
             // Generar el mensaje personalizado
-            $message = $pdfService->generateWhatsAppMessage($months);
+            $message = $pdfService->generateWhatsAppMessage($payment, $months);
             $this->info("Mensaje:");
             $this->line($message);
 

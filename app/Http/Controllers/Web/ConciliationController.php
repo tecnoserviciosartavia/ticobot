@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Conciliation;
 use App\Services\ConciliationPdfService;
+use App\Services\PaymentSettlementService;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -183,7 +184,7 @@ class ConciliationController extends Controller
                     }
                 }
 
-                // En conciliación manual no se deben correr fechas de contrato ni recordatorios.
+                // Recordatorios y next_due_date: PaymentSettlementService al final del store (pago verified).
 
                 // Generar el PDF
                 $pdfPath = $pdfService->generateConciliationReceipt($payment, $months);
@@ -191,7 +192,7 @@ class ConciliationController extends Controller
                 Log::info('PDF generado en', ['path' => $pdfPath, 'exists' => file_exists($pdfPath)]);
 
                 // Generar el mensaje personalizado
-                $message = $pdfService->generateWhatsAppMessage($months);
+                $message = $pdfService->generateWhatsAppMessage($payment, $months);
 
                 // Enviar el PDF y el mensaje por WhatsApp
                 $sent = $whatsappService->sendConciliationReceipt($payment, $pdfPath, $message);
@@ -219,6 +220,11 @@ class ConciliationController extends Controller
             }
         }
 
+        $paymentSettle = $payment ? $payment->fresh(['contract']) : null;
+        if ($paymentSettle && $paymentSettle->status === 'verified') {
+            app(PaymentSettlementService::class)->settleVerifiedPayment($paymentSettle);
+        }
+
         return redirect()->route('payments.index')->with('success', 'Conciliación creada exitosamente.');
     }
 
@@ -229,6 +235,8 @@ class ConciliationController extends Controller
             'verified_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
         ]);
+
+        $previousConciliationStatus = $conciliation->status;
 
         $conciliation->update($data);
 
@@ -272,7 +280,7 @@ class ConciliationController extends Controller
                 $pdfPath = $pdfService->generateConciliationReceipt($payment, $months);
                 
                 // Generate message
-                $message = $pdfService->generateWhatsAppMessage($months);
+                $message = $pdfService->generateWhatsAppMessage($payment, $months);
 
                 // Send PDF and message via WhatsApp
                 $sent = $whatsappService->sendConciliationReceipt($payment, $pdfPath, $message);
@@ -293,51 +301,12 @@ class ConciliationController extends Controller
             }
         }
 
+        $paymentSettle = $payment ? $payment->fresh(['contract']) : null;
+        $justApproved = $data['status'] === 'approved' && $previousConciliationStatus !== 'approved';
+        if ($justApproved && $paymentSettle && $paymentSettle->status === 'verified') {
+            app(PaymentSettlementService::class)->settleVerifiedPayment($paymentSettle);
+        }
+
         return redirect()->route('conciliations.index')->with('success', 'Conciliación actualizada exitosamente.');
-    }
-
-    /**
-     * Reprograma recordatorios pendientes cuando se paga por múltiples meses
-     */
-    private function rescheduleReminders(int $contractId, int $monthsPaid): void
-    {
-        // Obtener recordatorios pendientes del contrato
-        $reminders = \App\Models\Reminder::where('contract_id', $contractId)
-            ->where('status', 'pending')
-            ->get();
-
-        foreach ($reminders as $reminder) {
-            $currentScheduled = \Carbon\Carbon::parse($reminder->scheduled_for);
-            
-            // Adelantar la fecha por los meses pagados.
-            // addMonthsNoOverflow evita saltos raros cuando el día no existe en el mes (ej: 31).
-            $newScheduled = $currentScheduled->copy()->addMonthsNoOverflow($monthsPaid);
-            
-            $reminder->update([
-                'scheduled_for' => $newScheduled,
-            ]);
-
-            Log::info('Recordatorio reprogramado por pago de múltiples meses', [
-                'reminder_id' => $reminder->id,
-                'contract_id' => $contractId,
-                'months_paid' => $monthsPaid,
-                'old_date' => $currentScheduled->toDateString(),
-                'new_date' => $newScheduled->toDateString(),
-            ]);
-        }
-
-        // También actualizar el next_due_date del contrato
-        $contract = \App\Models\Contract::find($contractId);
-        if ($contract && $contract->next_due_date) {
-            $newDueDate = \Carbon\Carbon::parse($contract->next_due_date, config('app.timezone'))
-                ->addMonthsNoOverflow($monthsPaid);
-            $contract->update(['next_due_date' => $newDueDate]);
-            
-            Log::info('Contrato actualizado con nueva fecha de vencimiento', [
-                'contract_id' => $contractId,
-                'months_paid' => $monthsPaid,
-                'new_due_date' => $newDueDate->toDateString(),
-            ]);
-        }
     }
 }

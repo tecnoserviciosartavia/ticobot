@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\Reminder;
+use App\Services\PaymentSettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -152,6 +153,10 @@ class PaymentController extends Controller
             'metadata' => $metadata,
         ]);
 
+        if (($data['status'] ?? 'unverified') === 'verified') {
+            app(PaymentSettlementService::class)->settleVerifiedPayment($payment->fresh(['contract']));
+        }
+
         return response()->json($payment->load(['client', 'contract']), 201);
     }
 
@@ -269,11 +274,17 @@ class PaymentController extends Controller
             'metadata' => ['nullable', 'array'],
         ]);
 
+        $previousStatus = $payment->status;
+
         $payment->forceFill([
             'status' => $data['status'],
             'paid_at' => $data['paid_at'] ?? $payment->paid_at,
             'metadata' => array_merge($payment->metadata ?? [], $data['metadata'] ?? []),
         ])->save();
+
+        if ($data['status'] === 'verified' && $previousStatus !== 'verified') {
+            app(PaymentSettlementService::class)->settleVerifiedPayment($payment->fresh(['contract']));
+        }
 
         return response()->json($payment->fresh());
     }
