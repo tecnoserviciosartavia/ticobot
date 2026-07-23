@@ -116,15 +116,15 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
 
             <div className="py-6">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="mb-6 overflow-hidden rounded-3xl border border-emerald-100/70 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 shadow-sm dark:border-gray-700 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+                    <div className="mb-6 overflow-hidden rounded-3xl border border-cyan-100/70 bg-gradient-to-br from-cyan-50 via-white to-cyan-50 shadow-sm dark:border-gray-700 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
                         <div className="relative px-5 py-5 sm:px-8">
                             <div className="absolute inset-0 opacity-60">
-                                <div className="absolute -right-10 top-0 h-40 w-40 rounded-full bg-emerald-200/40 blur-3xl" />
+                                <div className="absolute -right-10 top-0 h-40 w-40 rounded-full bg-cyan-200/40 blur-3xl" />
                                 <div className="absolute left-1/3 top-8 h-28 w-28 rounded-full bg-cyan-200/40 blur-3xl" />
                             </div>
                             <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                                 <div className="max-w-2xl">
-                                    <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 backdrop-blur dark:bg-gray-800/80 dark:text-emerald-300 dark:ring-emerald-900/40">
+                                    <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-cyan-700 ring-1 ring-cyan-200 backdrop-blur dark:bg-gray-800/80 dark:text-cyan-300 dark:ring-cyan-900/40">
                                         <MessageSquare className="h-3.5 w-3.5" />
                                         Bandeja de conversaciones
                                     </div>
@@ -140,11 +140,11 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
                                     </div>
                                     <div className="rounded-2xl bg-white/85 px-4 py-3 shadow-sm ring-1 ring-white/80 backdrop-blur dark:bg-gray-800/85 dark:ring-gray-700 sm:min-w-28">
                                         <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Sin leer</p>
-                                        <p className="mt-1 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">{unread}</p>
+                                        <p className="mt-1 text-2xl font-semibold text-cyan-600 dark:text-cyan-400">{unread}</p>
                                     </div>
 
                                     {isSelectionMode ? (
-                                        <Button type="button" variant="outline" onClick={clearSelection} className="h-11 w-full gap-2 border-emerald-200 bg-white/85 text-sm backdrop-blur sm:w-auto dark:border-gray-700 dark:bg-gray-800/85">
+                                        <Button type="button" variant="outline" onClick={clearSelection} className="h-11 w-full gap-2 border-cyan-200 bg-white/85 text-sm backdrop-blur sm:w-auto dark:border-gray-700 dark:bg-gray-800/85">
                                             <XCircle className="h-4 w-4" />
                                             Salir
                                         </Button>
@@ -152,7 +152,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
                                         <>
                                             <Link
                                                 href={route('chats.create')}
-                                                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white/85 px-4 text-sm font-medium text-emerald-700 shadow-sm backdrop-blur transition hover:bg-emerald-50 hover:text-emerald-800 sm:w-auto dark:border-gray-700 dark:bg-gray-800/85 dark:text-emerald-300 dark:hover:bg-gray-700"
+                                                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-cyan-200 bg-white/85 px-4 text-sm font-medium text-cyan-700 shadow-sm backdrop-blur transition hover:bg-cyan-50 hover:text-cyan-800 sm:w-auto dark:border-gray-700 dark:bg-gray-800/85 dark:text-cyan-300 dark:hover:bg-gray-700"
                                             >
                                                 <Plus className="h-4 w-4" />
                                                 Nuevo mensaje
@@ -160,7 +160,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
                                             <div className="sm:hidden">
                                                 <Dropdown>
                                                     <Dropdown.Trigger>
-                                                        <Button type="button" variant="outline" className="h-11 w-full gap-2 border-emerald-200 bg-white/85 text-sm backdrop-blur dark:border-gray-700 dark:bg-gray-800/85">
+                                                        <Button type="button" variant="outline" className="h-11 w-full gap-2 border-cyan-200 bg-white/85 text-sm backdrop-blur dark:border-gray-700 dark:bg-gray-800/85">
                                                             <Menu className="h-4 w-4" />
                                                             Menú
                                                             <ChevronDown className="h-4 w-4" />
@@ -173,7 +173,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
                                                             as="button"
                                                             className="flex items-center gap-2"
                                                         >
-                                                            <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                                            <CheckCircle className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
                                                             Marcar todos como leídos
                                                         </Dropdown.Link>
                                                     </Dropdown.Content>
@@ -183,7 +183,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
                                             <div className="hidden sm:flex sm:flex-wrap sm:gap-3">
                                                 <Dropdown>
                                                     <Dropdown.Trigger>
-                                                        <Button type="button" variant="outline" className="h-full gap-2 border-emerald-200 bg-white/85 backdrop-blur dark:border-gray-700 dark:bg-gray-800/85">
+                                                        <Button type="button" variant="outline" className="h-full gap-2 border-cyan-200 bg-white/85 backdrop-blur dark:border-gray-700 dark:bg-gray-800/85">
                                                             <Menu className="h-4 w-4" />
                                                             Acciones
                                                             <ChevronDown className="h-4 w-4" />
@@ -196,7 +196,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
                                                             as="button"
                                                             className="flex items-center gap-2"
                                                         >
-                                                            <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                                            <CheckCircle className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
                                                             Marcar todos como leídos
                                                         </Dropdown.Link>
                                                     </Dropdown.Content>
@@ -211,7 +211,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
 
                     {conversations.length === 0 ? (
                         <Card className="border-2 border-dashed border-gray-200 bg-white/90 p-10 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
-                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300">
                                 <MessageSquare className="h-8 w-8" />
                             </div>
                             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Aún no hay chats para mostrar</h3>
@@ -222,7 +222,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
                     ) : (
                         <div className="space-y-4">
                             {isSelectionMode && (
-                                <div className="fixed inset-x-4 bottom-4 z-30 rounded-2xl border border-emerald-200 bg-white/95 p-3 shadow-2xl backdrop-blur sm:static sm:mb-0 sm:shadow-sm dark:border-emerald-900/40 dark:bg-gray-800/95">
+                                <div className="fixed inset-x-4 bottom-4 z-30 rounded-2xl border border-cyan-200 bg-white/95 p-3 shadow-2xl backdrop-blur sm:static sm:mb-0 sm:shadow-sm dark:border-cyan-900/40 dark:bg-gray-800/95">
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                         <div>
                                             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -237,7 +237,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
                                                 type="button"
                                                 onClick={markSelectedAsRead}
                                                 disabled={selectedPhones.length === 0}
-                                                className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                                                className="gap-2 bg-cyan-600 text-white hover:bg-cyan-700"
                                             >
                                                 <CheckCircle className="h-4 w-4" />
                                                 Marcar leídos
@@ -264,16 +264,16 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
                                             onPointerUp={handleCardPointerUp}
                                             onPointerLeave={handleCardPointerUp}
                                             onPointerCancel={handleCardPointerUp}
-                                            className={`group relative mx-0.5 rounded-2xl border bg-white p-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-gray-800 sm:p-4 ${selected ? 'border-emerald-400 ring-2 ring-emerald-200 dark:border-emerald-500 dark:ring-emerald-900/50' : 'border-gray-200 hover:border-emerald-200 dark:border-gray-700 dark:hover:border-emerald-900/60'} ${isSelectionMode ? 'pl-12 sm:pl-14' : ''}`}
+                                            className={`group relative mx-0.5 rounded-2xl border bg-white p-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-gray-800 sm:p-4 ${selected ? 'border-cyan-400 ring-2 ring-cyan-200 dark:border-cyan-500 dark:ring-cyan-900/50' : 'border-gray-200 hover:border-cyan-200 dark:border-gray-700 dark:hover:border-cyan-900/60'} ${isSelectionMode ? 'pl-12 sm:pl-14' : ''}`}
                                             aria-pressed={selected}
                                         >
                                             {isSelectionMode && (
-                                                <span className={`absolute left-4 top-4 flex h-6 w-6 items-center justify-center rounded-full border ${selected ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white text-transparent dark:border-gray-600 dark:bg-gray-700'}`}>
+                                                <span className={`absolute left-4 top-4 flex h-6 w-6 items-center justify-center rounded-full border ${selected ? 'border-cyan-600 bg-cyan-600 text-white' : 'border-gray-300 bg-white text-transparent dark:border-gray-600 dark:bg-gray-700'}`}>
                                                     <CheckCircle className="h-5 w-5" />
                                                 </span>
                                             )}
                                             <div className="flex items-start gap-4">
-                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-sm font-semibold text-white shadow-sm sm:h-12 sm:w-12 sm:rounded-2xl">
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-sky-500 text-sm font-semibold text-white shadow-sm sm:h-12 sm:w-12 sm:rounded-2xl">
                                                     {(conv.client_name ?? conv.phone).charAt(0).toUpperCase()}
                                                 </div>
 
@@ -297,7 +297,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
 
                                                         <div className="flex items-center gap-2">
                                                             {conv.unread_count > 0 && (
-                                                                <Badge className="rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white sm:px-2.5 sm:py-1 sm:text-xs">
+                                                                <Badge className="rounded-full bg-cyan-600 px-2 py-0.5 text-[11px] font-semibold text-white sm:px-2.5 sm:py-1 sm:text-xs">
                                                                     {conv.unread_count}
                                                                 </Badge>
                                                             )}

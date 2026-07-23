@@ -43,9 +43,9 @@ export default function ThemeToggle() {
     return (
         <button
             type="button"
-            aria-label="Toggle theme"
+            aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema oscuro'}
             onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-            className="inline-flex items-center rounded-md border border-transparent bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-amber-500 hover:bg-gray-50 dark:bg-gray-700/50 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+            className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-2 text-cyan-600 hover:bg-cyan-50 dark:border-slate-700 dark:bg-slate-950 dark:text-cyan-300 dark:hover:bg-slate-800"
         >
             {theme === 'dark' ? (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

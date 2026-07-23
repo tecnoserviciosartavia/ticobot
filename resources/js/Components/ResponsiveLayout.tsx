@@ -4,6 +4,7 @@ import { Button } from './button';
 import { Card } from './card';
 import { Badge } from './badge';
 import PwaInstallPrompt from './PwaInstallPrompt';
+import ThemeToggle from './ThemeToggle';
 import { 
   Menu, 
   X, 
@@ -186,8 +187,8 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
         onClick={onNavigate}
         className={`flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
           accountingRoutesActive
-            ? 'bg-gray-100 text-gray-900'
-            : 'text-gray-700 hover:bg-gray-100'
+            ? 'bg-cyan-50 text-cyan-800 dark:bg-slate-900 dark:text-cyan-300'
+            : 'text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300'
         }`}
       >
         <BarChart3 className="mr-3 h-5 w-5 shrink-0" />
@@ -218,15 +219,15 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
       
       {/* Mobile sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:hidden
+        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg dark:bg-black dark:text-slate-100 transform transition-transform duration-300 ease-in-out lg:hidden
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex items-center justify-between h-16 px-4 border-b">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-600">
               <span className="text-white font-bold text-sm">TB</span>
             </div>
-            <span className="ml-2 text-xl font-semibold text-gray-900">TicoBOT</span>
+            <span className="ml-2 text-xl font-semibold text-gray-900 dark:text-slate-100">TicoBOT</span>
           </div>
           <Button
             variant="ghost"
@@ -244,7 +245,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
               <a
                 key={item.name}
                 href={item.href}
-                className="flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-700 hover:bg-gray-100"
+                className="flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300"
               >
                 <Icon className="w-5 h-5 mr-3" />
                 {item.name}
@@ -258,7 +259,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
               <a
                 key={item.name}
                 href={item.href}
-                className="flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-700 hover:bg-gray-100"
+                className="flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300"
               >
                 <Icon className="w-5 h-5 mr-3" />
                 {item.name}
@@ -271,7 +272,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
   );
 
   const Header = () => (
-    <header className="bg-white border-b border-gray-200">
+    <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-black">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Mobile menu button */}
@@ -293,7 +294,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                 ref={searchInputRef}
                 type="text"
                 placeholder="Buscar clientes, contratos, pagos..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 value={searchQuery}
                 onChange={(e) => {
                   console.log('Input changed:', e.target.value);
@@ -304,7 +305,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
               
               {/* Search Results Dropdown */}
               {showSearchResults && searchResults && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-2 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-950 z-50 max-h-96 overflow-y-auto">
                   {searchLoading ? (
                     <div className="p-4 text-center text-gray-500">
                       Buscando...
@@ -314,14 +315,14 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                       {/* Clientes */}
                       {searchResults.clients && searchResults.clients.length > 0 && (
                         <div className="border-b border-gray-200">
-                          <div className="px-4 py-2 bg-gray-50 font-semibold text-sm text-gray-700">
+                          <div className="bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 dark:bg-slate-900 dark:text-slate-200">
                             Clientes ({searchResults.clients.length})
                           </div>
                           {searchResults.clients.slice(0, 5).map((client: any) => (
                             <div
                               key={client.id}
                               onClick={() => handleResultClick('clients', client.id)}
-                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                              className="flex cursor-pointer items-center justify-between px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-900"
                             >
                               <div>
                                 <div className="font-medium text-gray-900">{client.name}</div>
@@ -336,14 +337,14 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                       {/* Contratos */}
                       {searchResults.contracts && searchResults.contracts.length > 0 && (
                         <div className="border-b border-gray-200">
-                          <div className="px-4 py-2 bg-gray-50 font-semibold text-sm text-gray-700">
+                          <div className="bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 dark:bg-slate-900 dark:text-slate-200">
                             Contratos ({searchResults.contracts.length})
                           </div>
                           {searchResults.contracts.slice(0, 5).map((contract: any) => (
                             <div
                               key={contract.id}
                               onClick={() => handleResultClick('contracts', contract.id)}
-                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                              className="flex cursor-pointer items-center justify-between px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-900"
                             >
                               <div>
                                 <div className="font-medium text-gray-900">{contract.name}</div>
@@ -360,14 +361,14 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                       {/* Pagos */}
                       {searchResults.payments && searchResults.payments.length > 0 && (
                         <div className="border-b border-gray-200">
-                          <div className="px-4 py-2 bg-gray-50 font-semibold text-sm text-gray-700">
+                          <div className="bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 dark:bg-slate-900 dark:text-slate-200">
                             Pagos ({searchResults.payments.length})
                           </div>
                           {searchResults.payments.slice(0, 5).map((payment: any) => (
                             <div
                               key={payment.id}
                               onClick={() => handleResultClick('payments', payment.id)}
-                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                              className="flex cursor-pointer items-center justify-between px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-900"
                             >
                               <div>
                                 <div className="font-medium text-gray-900">{payment.reference || 'Sin referencia'}</div>
@@ -398,6 +399,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
 
           {/* Right side items */}
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             {/* Notifications */}
             <div className="relative">
               <Button variant="ghost" size="icon" onClick={() => router.visit('/chats')} title="Abrir chats pendientes">
@@ -413,13 +415,13 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
             {/* User menu */}
             <div className="flex items-center space-x-3">
               <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium text-gray-900">{currentUserForNav?.name}</p>
-                <p className="text-xs text-gray-500">{isAdminNav ? 'Administrador' : 'Usuario'}</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{currentUserForNav?.name}</p>
+                <p className="text-xs text-gray-500 dark:text-slate-400">{isAdminNav ? 'Administrador' : 'Usuario'}</p>
               </div>
               <div className="relative">
                 <button
                   onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                  className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 transition-colors hover:bg-cyan-500"
                 >
                   <span className="text-white text-sm font-medium">
                     {currentUserForNav?.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -428,10 +430,10 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
 
                 {/* Header Profile Dropdown */}
                 {profileMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-48">
+                  <div className="absolute right-0 top-full z-50 mt-2 min-w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-950">
                     <Link
                       href="/profile"
-                      className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      className="flex items-center px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-900"
                       onClick={() => setProfileMenuOpen(false)}
                     >
                       <Users className="w-4 h-4 mr-2 text-gray-400" />
@@ -442,7 +444,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                       href="/logout"
                       method="post"
                       as="button"
-                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      className="flex w-full items-center px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-900"
                       onClick={() => setProfileMenuOpen(false)}
                     >
                       <X className="w-4 h-4 mr-2 text-gray-400" />
@@ -460,43 +462,43 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
 
   const Sidebar = () => (
     <aside className="hidden md:flex w-64 flex-col fixed inset-y-0">
-      <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
+      <div className="flex flex-grow flex-col border-r border-gray-200 bg-white dark:border-slate-800 dark:bg-black">
         {/* Logo */}
         <div className="flex items-center h-16 px-4 border-b">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-600">
             <span className="text-white font-bold text-sm">TB</span>
           </div>
-          <span className="ml-2 text-xl font-semibold text-gray-900">TicoBOT</span>
+          <span className="ml-2 text-xl font-semibold text-gray-900 dark:text-slate-100">TicoBOT</span>
         </div>
 
         {/* Navigation - Always show all items */}
         <nav className="flex-1 px-3 py-6 space-y-1">
-          <a href="/dashboard" className="group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-100">
+          <a href="/dashboard" className="group flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300">
             <Home className="w-5 h-5 mr-3" />
             Dashboard
           </a>
-          <a href="/clients" className="group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-100">
+          <a href="/clients" className="group flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300">
             <Users className="w-5 h-5 mr-3" />
             Clientes
           </a>
-          <a href="/contracts" className="group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-100">
+          <a href="/contracts" className="group flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300">
             <FileText className="w-5 h-5 mr-3" />
             Contratos
           </a>
-          <a href="/reminders" className="group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-100">
+          <a href="/reminders" className="group flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300">
             <MessageSquare className="w-5 h-5 mr-3" />
             Recordatorios
           </a>
-          <a href="/chats" className="group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-100">
+          <a href="/chats" className="group flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300">
             <MessageSquare className="w-5 h-5 mr-3" />
             Chats
           </a>
           <AccountingNavBlock />
-          <a href="/users" className="group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-100">
+          <a href="/users" className="group flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300">
             <Users className="w-5 h-5 mr-3" />
             Usuarios
           </a>
-          <a href="/reports" className="group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-100">
+          <a href="/reports" className="group flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-cyan-300">
             <PieChart className="w-5 h-5 mr-3" />
             Reportes
           </a>
@@ -534,7 +536,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                 <div className="absolute bottom-full right-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-48">
                   <Link
                     href="/profile"
-                    className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    className="flex items-center px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-900"
                     onClick={() => setSidebarProfileMenuOpen(false)}
                   >
                     <Users className="w-4 h-4 mr-2 text-gray-400" />
@@ -542,7 +544,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                   </Link>
                   <Link
                     href="/settings"
-                    className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    className="flex items-center px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-900"
                     onClick={() => setSidebarProfileMenuOpen(false)}
                   >
                     <Settings className="w-4 h-4 mr-2 text-gray-400" />
@@ -553,7 +555,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                     href="/logout"
                     method="post"
                     as="button"
-                    className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    className="flex w-full items-center px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-900"
                     onClick={() => setSidebarProfileMenuOpen(false)}
                   >
                     <X className="w-4 h-4 mr-2 text-gray-400" />
@@ -569,32 +571,32 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
   );
 
   const MobileSearch = () => (
-    <div className="md:hidden px-4 py-3 border-b border-gray-200">
+    <div className="border-b border-gray-200 px-4 py-3 dark:border-slate-800 dark:bg-black md:hidden">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
           type="text"
           placeholder="Buscar..."
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
         />
       </div>
     </div>
   );
 
   return (
-    <div className="h-full min-h-0 bg-gray-50">
+    <div className="h-full min-h-0 bg-gray-50 dark:bg-black dark:text-slate-100">
       <Head title={title || 'TicoBOT'} />
       
       <MobileMenu />
       
-      <div className="flex h-full min-h-0 bg-gray-50">
+      <div className="flex h-full min-h-0 bg-gray-50 dark:bg-black">
         <Sidebar />
         
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:ml-64 ml-0">
           <Header />
           <MobileSearch />
           
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto dark:bg-slate-950">
             <div className="py-6">
               <div
                 className={

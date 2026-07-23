@@ -98,7 +98,7 @@ function statusClass(status: string) {
     }
 
     if (status === 'sent' || status === 'delivered' || status === 'read') {
-        return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-300';
+        return 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/25 dark:text-cyan-300';
     }
 
     return 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200';
@@ -488,7 +488,7 @@ export default function ChatsShow({
                                     </div>
                                     <Link
                                         href={route('chats.index')}
-                                        className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-emerald-600 transition hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-300"
+                                        className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-cyan-600 transition hover:bg-cyan-50 hover:text-cyan-700 dark:text-cyan-400 dark:hover:bg-cyan-900/20 dark:hover:text-cyan-300"
                                     >
                                         <ArrowLeft className="h-4 w-4" />
                                         Bandeja
@@ -500,9 +500,9 @@ export default function ChatsShow({
                                         <p className="uppercase tracking-wide">Chats</p>
                                         <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">{conversations.length}</p>
                                     </div>
-                                    <div className="rounded-2xl bg-emerald-50 px-3 py-2 dark:bg-emerald-900/20">
-                                        <p className="uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Sin leer</p>
-                                        <p className="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-300">{totalUnread}</p>
+                                    <div className="rounded-2xl bg-cyan-50 px-3 py-2 dark:bg-cyan-900/20">
+                                        <p className="uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Sin leer</p>
+                                        <p className="mt-1 text-base font-semibold text-cyan-700 dark:text-cyan-300">{totalUnread}</p>
                                     </div>
                                 </div>
                             </div>
@@ -517,10 +517,10 @@ export default function ChatsShow({
                                                 key={conversation.phone}
                                                 href={route('chats.show', conversation.phone)}
                                                 className={`flex items-start gap-3 rounded-2xl p-3 transition hover:bg-slate-50 dark:hover:bg-gray-700/60 ${
-                                                    active ? 'bg-emerald-50 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:ring-emerald-900/40' : ''
+                                                    active ? 'bg-cyan-50 ring-1 ring-cyan-200 dark:bg-cyan-900/20 dark:ring-cyan-900/40' : ''
                                                 }`}
                                             >
-                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-sm font-semibold text-white shadow-sm">
+                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-sky-500 text-sm font-semibold text-white shadow-sm">
                                                     {(conversation.client_name ?? conversation.phone).charAt(0).toUpperCase()}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
@@ -536,7 +536,7 @@ export default function ChatsShow({
                                                         <div className="text-right text-[11px] text-gray-500 dark:text-gray-400">
                                                             <p>{timelineFormatter.format(new Date(conversation.last_message_at))}</p>
                                                             {conversation.unread_count > 0 && (
-                                                                <span className="mt-1 inline-flex min-w-5 justify-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                                                                <span className="mt-1 inline-flex min-w-5 justify-center rounded-full bg-cyan-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
                                                                     {conversation.unread_count}
                                                                 </span>
                                                             )}
@@ -546,7 +546,7 @@ export default function ChatsShow({
                                                         <span
                                                             className={`mt-0.5 inline-flex shrink-0 items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
                                                                 conversation.last_direction === 'outbound'
-                                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                                                    ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'
                                                                     : 'bg-slate-100 text-slate-500 dark:bg-gray-700 dark:text-gray-300'
                                                             }`}
                                                         >
@@ -567,7 +567,7 @@ export default function ChatsShow({
                         <section className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                             <div className="shrink-0 border-b border-slate-100 px-3 py-2.5 dark:border-gray-700 sm:px-6 sm:py-3">
                                 <div className="mb-2 flex items-center justify-between gap-3 lg:hidden">
-                                    <Link href={route('chats.index')} className="inline-flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300">
+                                    <Link href={route('chats.index')} className="inline-flex items-center gap-2 text-sm font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300">
                                         <ArrowLeft className="h-4 w-4" />
                                         Volver
                                     </Link>
@@ -575,7 +575,7 @@ export default function ChatsShow({
                                         <button
                                             type="button"
                                             onClick={() => setMobileConversationsOpen((current) => !current)}
-                                            className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/35"
+                                            className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700 shadow-sm transition hover:bg-cyan-100 dark:border-cyan-900/40 dark:bg-cyan-900/20 dark:text-cyan-300 dark:hover:bg-cyan-900/35"
                                         >
                                             <MessageSquare className="h-3.5 w-3.5" />
                                             {mobileConversationsOpen ? 'Cerrar chats' : 'Ver chats'}
@@ -591,7 +591,7 @@ export default function ChatsShow({
                                                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">Conversaciones</p>
                                                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Cambiate entre chats sin salir del hilo actual.</p>
                                             </div>
-                                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                            <span className="inline-flex items-center rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-900/20 dark:text-cyan-300">
                                                 {conversations.length}
                                             </span>
                                         </div>
@@ -605,10 +605,10 @@ export default function ChatsShow({
                                                         href={route('chats.show', conversation.phone)}
                                                         onClick={() => setMobileConversationsOpen(false)}
                                                         className={`flex items-start gap-3 rounded-2xl p-3 transition hover:bg-slate-50 dark:hover:bg-gray-700/60 ${
-                                                            active ? 'bg-emerald-50 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:ring-emerald-900/40' : ''
+                                                            active ? 'bg-cyan-50 ring-1 ring-cyan-200 dark:bg-cyan-900/20 dark:ring-cyan-900/40' : ''
                                                         }`}
                                                     >
-                                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-sm font-semibold text-white shadow-sm">
+                                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-sky-500 text-sm font-semibold text-white shadow-sm">
                                                             {(conversation.client_name ?? conversation.phone).charAt(0).toUpperCase()}
                                                         </div>
                                                         <div className="min-w-0 flex-1">
@@ -623,7 +623,7 @@ export default function ChatsShow({
                                                                 </div>
                                                                 <div className="text-right text-[11px] text-gray-500 dark:text-gray-400">
                                                                     {conversation.unread_count > 0 && (
-                                                                        <span className="inline-flex min-w-5 justify-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                                                                        <span className="inline-flex min-w-5 justify-center rounded-full bg-cyan-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
                                                                             {conversation.unread_count}
                                                                         </span>
                                                                     )}
@@ -643,7 +643,7 @@ export default function ChatsShow({
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0">
                                         <div className="flex flex-wrap items-center gap-3">
-                                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-sm font-semibold text-white shadow-sm">
+                                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-sky-500 text-sm font-semibold text-white shadow-sm">
                                                 {displayName.charAt(0).toUpperCase()}
                                             </div>
                                             <div className="min-w-0">
@@ -655,7 +655,7 @@ export default function ChatsShow({
                                                         <Phone className="h-3.5 w-3.5" />
                                                         {displayPhone}
                                                     </span>
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2.5 py-1 text-cyan-700 dark:bg-cyan-900/20 dark:text-cyan-300">
                                                         <ArrowUpRight className="h-3.5 w-3.5" />
                                                         Mensajes salientes visibles
                                                     </span>
@@ -667,7 +667,7 @@ export default function ChatsShow({
                                         {!client && (
                                             <Link
                                                 href={route('clients.create', { phone: displayPhone, from_chat: 1 })}
-                                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+                                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-500"
                                             >
                                                 <Plus className="h-4 w-4" />
                                                 Crear cliente
@@ -675,7 +675,7 @@ export default function ChatsShow({
                                         )}
                                         <Link
                                             href={route('chats.create', { phone: displayPhone })}
-                                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-gray-900 dark:text-emerald-300 dark:hover:bg-gray-700"
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-200 bg-white px-4 py-2.5 text-sm font-semibold text-cyan-700 shadow-sm transition hover:bg-cyan-50 dark:border-cyan-900/50 dark:bg-gray-900 dark:text-cyan-300 dark:hover:bg-gray-700"
                                         >
                                             <Plus className="h-4 w-4" />
                                             Nuevo mensaje
@@ -697,20 +697,16 @@ export default function ChatsShow({
                             </div>
 
                             <div className="flex min-h-0 flex-1 flex-col">
-                                <div className="hidden shrink-0 border-b border-slate-100 px-3 py-2.5 dark:border-gray-700 sm:block sm:px-6">
-                                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-sm leading-6 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-900/15 dark:text-emerald-100">
-                                    </div>
-                                </div>
 
                                 <div
                                     ref={messagesViewportRef}
-                                    className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.07),_transparent_36%),linear-gradient(180deg,_rgba(248,250,252,1),_rgba(255,255,255,1))] px-2 py-2.5 [scrollbar-gutter:stable] dark:bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.07),_transparent_36%),linear-gradient(180deg,_rgba(17,24,39,1),_rgba(31,41,55,1))] sm:px-6 sm:py-3"
+                                    className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.07),_transparent_36%),linear-gradient(180deg,_rgba(248,250,252,1),_rgba(255,255,255,1))] px-2 py-2.5 [scrollbar-gutter:stable] dark:bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.07),_transparent_36%),linear-gradient(180deg,_rgba(17,24,39,1),_rgba(31,41,55,1))] sm:px-6 sm:py-3"
                                     style={{ WebkitOverflowScrolling: 'touch' }}
                                 >
                                     {messages.length === 0 ? (
                                         <div className="flex min-h-[240px] items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/80 p-6 text-center dark:border-gray-700 dark:bg-gray-800/70">
                                             <div className="max-w-md">
-                                                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300">
                                                     <MessageSquare className="h-7 w-7" />
                                                 </div>
                                                 <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 sm:text-lg">Aún no hay mensajes en este chat</h3>
@@ -737,7 +733,7 @@ export default function ChatsShow({
                                                             <div
                                                                 className={`rounded-3xl px-4 py-3 shadow-sm ring-1 ${
                                                                     outbound
-                                                                        ? 'bg-emerald-600 text-white ring-emerald-500/20'
+                                                                        ? 'bg-cyan-600 text-white ring-cyan-500/20'
                                                                         : 'bg-white text-gray-900 ring-slate-200 dark:bg-gray-700 dark:text-gray-100 dark:ring-gray-600'
                                                                 }`}
                                                             >
@@ -746,7 +742,7 @@ export default function ChatsShow({
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => openImageAt(message.id)}
-                                                                            className="block w-full overflow-hidden rounded-2xl outline-none ring-0 transition hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-emerald-400"
+                                                                            className="block w-full overflow-hidden rounded-2xl outline-none ring-0 transition hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-cyan-400"
                                                                             aria-label="Abrir imagen en tamaño grande"
                                                                         >
                                                                             <img
@@ -852,7 +848,7 @@ export default function ChatsShow({
                                             <button
                                                 type="button"
                                                 onClick={() => setQuickRepliesOpen((open) => !open)}
-                                                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300"
+                                                className="text-xs font-semibold text-cyan-700 hover:text-cyan-800 dark:text-cyan-300"
                                             >
                                                 {quickRepliesOpen ? 'Ocultar respuestas rápidas' : 'Respuestas rápidas'}
                                             </button>
@@ -868,7 +864,7 @@ export default function ChatsShow({
                                                             key={reply}
                                                             type="button"
                                                             onClick={() => insertQuickReply(reply)}
-                                                            className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-xs font-medium leading-5 text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/35"
+                                                            className="shrink-0 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-2 text-left text-xs font-medium leading-5 text-cyan-800 transition hover:bg-cyan-100 dark:border-cyan-900/50 dark:bg-cyan-900/20 dark:text-cyan-200 dark:hover:bg-cyan-900/35"
                                                         >
                                                             {reply}
                                                         </button>
@@ -886,12 +882,12 @@ export default function ChatsShow({
                                                             }
                                                         }}
                                                         placeholder="Agregar respuesta rápida personalizada"
-                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/30"
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/30"
                                                     />
                                                     <button
                                                         type="button"
                                                         onClick={addQuickReply}
-                                                        className="inline-flex shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/35"
+                                                        className="inline-flex shrink-0 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100 dark:border-cyan-900/50 dark:bg-cyan-900/20 dark:text-cyan-200 dark:hover:bg-cyan-900/35"
                                                     >
                                                         Agregar
                                                     </button>
@@ -902,17 +898,17 @@ export default function ChatsShow({
                                             {errors.attachment && <p className="text-sm text-red-600">{errors.attachment}</p>}
 
                                             {data.attachment && (
-                                                <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-900/20">
+                                                <div className="flex items-center gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 p-3 dark:border-cyan-900/50 dark:bg-cyan-900/20">
                                                     {data.attachment.type.startsWith('image/') ? (
                                                         <img src={URL.createObjectURL(data.attachment)} alt="Vista previa" className="h-14 w-14 rounded-xl object-cover" />
                                                     ) : (
-                                                        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white text-emerald-700 dark:bg-gray-800 dark:text-emerald-300"><Upload className="h-6 w-6" /></div>
+                                                        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white text-cyan-700 dark:bg-gray-800 dark:text-cyan-300"><Upload className="h-6 w-6" /></div>
                                                     )}
                                                     <div className="min-w-0 flex-1">
                                                         <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{data.attachment.name}</p>
                                                         <p className="text-xs text-gray-500 dark:text-gray-400">{(data.attachment.size / 1024 / 1024).toFixed(1)} MB</p>
                                                     </div>
-                                                    <button type="button" aria-label="Quitar archivo" onClick={() => { setData('attachment', null); if (attachmentRef.current) attachmentRef.current.value = ''; }} className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 active:bg-emerald-100 dark:text-gray-300 dark:active:bg-gray-700">
+                                                    <button type="button" aria-label="Quitar archivo" onClick={() => { setData('attachment', null); if (attachmentRef.current) attachmentRef.current.value = ''; }} className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 active:bg-cyan-100 dark:text-gray-300 dark:active:bg-gray-700">
                                                         <X className="h-5 w-5" />
                                                     </button>
                                                 </div>
@@ -920,7 +916,7 @@ export default function ChatsShow({
 
                                             <textarea
                                                 ref={bodyRef}
-                                                className="max-h-28 min-h-[46px] w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-emerald-500 dark:focus:ring-emerald-900/30"
+                                                className="max-h-28 min-h-[46px] w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-900/30"
                                                 rows={1}
                                                 placeholder="Escribe una respuesta..."
                                                 value={data.body}
@@ -964,7 +960,7 @@ export default function ChatsShow({
                                                 <Button
                                                     type="submit"
                                                     disabled={processing || (!data.body.trim() && !data.attachment)}
-                                                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-white hover:bg-emerald-700"
+                                                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-white hover:bg-cyan-700"
                                                 >
                                                     <Send className="h-4 w-4" />
                                                     {processing ? 'Enviando...' : 'Enviar mensaje'}
