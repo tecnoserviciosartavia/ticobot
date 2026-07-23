@@ -87,8 +87,8 @@ export default function ClientsIndex() {
                     <div className="mb-8">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-                                <p className="mt-2 text-gray-600">
+                                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Clientes</h1>
+                                <p className="mt-2 text-slate-600 dark:text-slate-300">
                                     Gestiona los clientes, contratos asociados y su historial de recordatorios
                                 </p>
                             </div>
@@ -106,9 +106,9 @@ export default function ClientsIndex() {
                     <Card className="mb-8 p-6">
                         <div className="grid gap-4 md:grid-cols-[minmax(220px,1fr)_180px_auto_auto] md:items-end">
                             <div>
-                                <label className="mb-1 block text-xs font-medium text-gray-600">Buscar</label>
+                                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Buscar</label>
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                                    <Search className="absolute left-3 top-2.5 h-5 w-5 text-slate-400 dark:text-slate-500" />
                                     <input
                                         type="text"
                                         value={search}
@@ -117,16 +117,16 @@ export default function ClientsIndex() {
                                             if (e.key === 'Enter') applyFilters();
                                         }}
                                         placeholder="Nombre, teléfono o correo"
-                                        className="block w-full rounded-lg border-gray-300 pl-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="block w-full rounded-lg border-slate-300 dark:border-slate-700 pl-10 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
                                     />
                                 </div>
                             </div>
                             <div>
-                                <label className="mb-1 block text-xs font-medium text-gray-600">Estado</label>
+                                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Estado</label>
                                 <select
                                     value={status}
                                     onChange={(e) => setStatus(e.target.value)}
-                                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border-slate-300 dark:border-slate-700 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
                                 >
                                     <option value="">Todos</option>
                                     <option value="active">Activos</option>
@@ -155,12 +155,12 @@ export default function ClientsIndex() {
                         <Card className="p-6 border-l-4 border-l-blue-500">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
-                                    <Users className="h-8 w-8 text-blue-600" />
+                                    <Users className="h-8 w-8 text-cyan-600" />
                                 </div>
                                 <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-600">Total Clientes</p>
-                                    <p className="text-2xl font-bold text-gray-900">{stats?.total_clients || clients?.data?.length || 0}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Total Clientes</p>
+                                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats?.total_clients || clients?.data?.length || 0}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                                         {stats?.active_clients || clients?.data?.filter(c => c.status === 'active').length || 0} activos
                                     </p>
                                 </div>
@@ -169,12 +169,12 @@ export default function ClientsIndex() {
                         <Card className="p-6 border-l-4 border-l-green-500">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
-                                    <TrendingUp className="h-8 w-8 text-green-600" />
+                                    <TrendingUp className="h-8 w-8 text-cyan-600" />
                                 </div>
                                 <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-600">Total Contratos</p>
-                                    <p className="text-2xl font-bold text-gray-900">{stats?.total_contracts || 0}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Total Contratos</p>
+                                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats?.total_contracts || 0}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                                         En todo el sistema
                                     </p>
                                 </div>
@@ -183,17 +183,17 @@ export default function ClientsIndex() {
                         <Card className="p-6 border-l-4 border-l-purple-500">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
-                                    <DollarSign className="h-8 w-8 text-purple-600" />
+                                    <DollarSign className="h-8 w-8 text-cyan-600" />
                                 </div>
                                 <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-600">Ingresos del Mes</p>
-                                    <p className="text-2xl font-bold text-gray-900">
+                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Ingresos del Mes</p>
+                                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                                         {new Intl.NumberFormat('es-CR', {
                                             style: 'currency',
                                             currency: 'CRC',
                                         }).format(stats?.total_revenue || 0)}
                                     </p>
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                                         Pagos verificados este mes
                                     </p>
                                 </div>
@@ -205,9 +205,9 @@ export default function ClientsIndex() {
                                     <CheckCircle className="h-8 w-8 text-yellow-600" />
                                 </div>
                                 <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-600">Tasa Conversión Mes</p>
-                                    <p className="text-2xl font-bold text-gray-900">{stats?.conversion_rate || 0}%</p>
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Tasa Conversión Mes</p>
+                                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats?.conversion_rate || 0}%</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                                         {stats?.verified_payments || 0} de {stats?.total_payments || 0} pagos
                                     </p>
                                 </div>
@@ -220,97 +220,97 @@ export default function ClientsIndex() {
                         <Card className="p-6 bg-gradient-to-r from-blue-50 to-blue-100">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-blue-600">Recordatorios del Mes</p>
-                                    <p className="text-2xl font-bold text-blue-900">{stats?.total_reminders || 0}</p>
+                                    <p className="text-sm font-medium text-cyan-600">Recordatorios del Mes</p>
+                                    <p className="text-2xl font-bold text-cyan-900">{stats?.total_reminders || 0}</p>
                                 </div>
-                                <Clock className="h-8 w-8 text-blue-500" />
+                                <Clock className="h-8 w-8 text-cyan-500" />
                             </div>
                         </Card>
                         <Card className="p-6 bg-gradient-to-r from-green-50 to-green-100">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-green-600">Pagos Verificados Mes</p>
-                                    <p className="text-2xl font-bold text-green-900">{stats?.verified_payments || 0}</p>
+                                    <p className="text-sm font-medium text-cyan-600">Pagos Verificados Mes</p>
+                                    <p className="text-2xl font-bold text-cyan-900">{stats?.verified_payments || 0}</p>
                                 </div>
-                                <CheckCircle className="h-8 w-8 text-green-500" />
+                                <CheckCircle className="h-8 w-8 text-cyan-500" />
                             </div>
                         </Card>
                         <Card className="p-6 bg-gradient-to-r from-purple-50 to-purple-100">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-purple-600">Pagos Pendientes Mes</p>
-                                    <p className="text-2xl font-bold text-purple-900">{stats?.pending_payments || 0}</p>
+                                    <p className="text-sm font-medium text-cyan-600">Pagos Pendientes Mes</p>
+                                    <p className="text-2xl font-bold text-cyan-900">{stats?.pending_payments || 0}</p>
                                 </div>
-                                <Clock className="h-8 w-8 text-purple-500" />
+                                <Clock className="h-8 w-8 text-cyan-500" />
                             </div>
                         </Card>
                     </div>
 
                     {/* Clients Table */}
                     <Card className="overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Lista de Clientes</h3>
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+                            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Lista de Clientes</h3>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
+                                <thead className="bg-slate-50 dark:bg-slate-950">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                             Cliente
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                             Contacto
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                             Estado
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                             Estadísticas
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                             Ingresos
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                             Actualización
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                             Acciones
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-800">
                                     {clients?.data?.map((client) => (
-                                        <tr key={client.id} className="hover:bg-gray-50">
+                                        <tr key={client.id} className="hover:bg-slate-50 dark:bg-slate-950">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
                                                     <div className="flex-shrink-0 h-10 w-10">
-                                                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                                            <span className="text-blue-600 font-medium">
+                                                        <div className="h-10 w-10 rounded-full bg-cyan-100 flex items-center justify-center">
+                                                            <span className="text-cyan-600 font-medium">
                                                                 {client.name.charAt(0).toUpperCase()}
                                                             </span>
                                                         </div>
                                                     </div>
                                                     <div className="ml-4">
-                                                        <div className="text-sm font-medium text-gray-900">
+                                                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                                             {client.name}
                                                         </div>
-                                                        <div className="text-sm text-gray-500">
+                                                        <div className="text-sm text-slate-500 dark:text-slate-400">
                                                             ID: #{client.id}
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-gray-900 space-y-1">
+                                                <div className="text-sm text-slate-900 dark:text-slate-100 space-y-1">
                                                     {client.email && (
                                                         <div className="flex items-center">
-                                                            <Mail className="h-4 w-4 text-gray-400 mr-2" />
+                                                            <Mail className="h-4 w-4 text-slate-400 dark:text-slate-500 mr-2" />
                                                             {client.email}
                                                         </div>
                                                     )}
                                                     {client.phone && (
                                                         <div className="flex items-center">
-                                                            <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                                                            <Phone className="h-4 w-4 text-slate-400 dark:text-slate-500 mr-2" />
                                                             {client.phone}
                                                         </div>
                                                     )}
@@ -319,37 +319,37 @@ export default function ClientsIndex() {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                                     client.status === 'active' 
-                                                        ? 'bg-green-100 text-green-800' 
-                                                        : 'bg-gray-100 text-gray-800'
+                                                        ? 'bg-cyan-100 text-cyan-800'
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100'
                                                 }`}>
                                                     {client.status === 'active' ? 'Activo' : 'Inactivo'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-gray-900 space-y-1">
+                                                <div className="text-sm text-slate-900 dark:text-slate-100 space-y-1">
                                                     <div className="flex items-center">
                                                         <span className="font-medium">{client.contracts_count}</span>
-                                                        <span className="ml-1 text-gray-500">contratos</span>
+                                                        <span className="ml-1 text-slate-500 dark:text-slate-400">contratos</span>
                                                     </div>
                                                     <div className="flex items-center">
                                                         <span className="font-medium">{client.payments_count}</span>
-                                                        <span className="ml-1 text-gray-500">pagos</span>
+                                                        <span className="ml-1 text-slate-500 dark:text-slate-400">pagos</span>
                                                     </div>
                                                     <div className="flex items-center">
                                                         <span className="font-medium">{client.reminders_count}</span>
-                                                        <span className="ml-1 text-gray-500">recordatorios</span>
+                                                        <span className="ml-1 text-slate-500 dark:text-slate-400">recordatorios</span>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">
+                                                <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                                     {new Intl.NumberFormat('es-CR', {
                                                         style: 'currency',
                                                         currency: 'CRC',
                                                     }).format(client.total_revenue || 0)}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                                                 <div className="space-y-1">
                                                     <div>Creado: {client.created_at ? new Date(client.created_at).toLocaleDateString('es-CR') : '—'}</div>
                                                     <div>Actualizado: {client.updated_at ? new Date(client.updated_at).toLocaleDateString('es-CR') : '—'}</div>
@@ -391,7 +391,7 @@ export default function ClientsIndex() {
                     {clients?.links && clients.links.length > 3 && (
                         <div className="mt-6">
                             <div className="flex items-center justify-between">
-                                <div className="text-sm text-gray-700">
+                                <div className="text-sm text-slate-700 dark:text-slate-200">
                                     Mostrando {clients.meta?.from || 0} a {clients.meta?.to || 0} de {clients.meta?.total || 0} resultados
                                 </div>
                                 <div className="flex items-center space-x-1">
@@ -401,10 +401,10 @@ export default function ClientsIndex() {
                                             href={link.url || '#'}
                                             className={`px-3 py-2 text-sm font-medium rounded-md ${
                                                 link.active
-                                                    ? 'bg-blue-600 text-white'
+                                                    ? 'bg-cyan-600 text-white'
                                                     : link.url
-                                                    ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                    ? 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-950'
+                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
                                             }`}
                                             dangerouslySetInnerHTML={{ __html: link.label }}
                                             preserveScroll={true}
@@ -418,9 +418,9 @@ export default function ClientsIndex() {
                     {/* Empty State */}
                     {(!clients?.data || clients.data.length === 0) && (
                         <Card className="text-center py-12">
-                            <Users className="mx-auto h-12 w-12 text-gray-400" />
-                            <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron clientes</h3>
-                            <p className="mt-1 text-sm text-gray-500">
+                            <Users className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" />
+                            <h3 className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">No se encontraron clientes</h3>
+                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                                 Comienza creando un nuevo cliente.
                             </p>
                             <div className="mt-6">

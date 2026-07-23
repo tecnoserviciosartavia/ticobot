@@ -34,12 +34,12 @@ export default function Edit({
                     {/* Header */}
                     <div className="mb-8">
                         <div className="flex items-center gap-4">
-                            <div className="h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center">
+                            <div className="h-16 w-16 bg-cyan-600 rounded-full flex items-center justify-center">
                                 <User className="h-8 w-8 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Configuración del Perfil</h1>
-                                <p className="mt-2 text-gray-600">
+                                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Configuración del Perfil</h1>
+                                <p className="mt-2 text-slate-600 dark:text-slate-300">
                                     Gestiona tu información personal, seguridad y preferencias
                                 </p>
                             </div>
@@ -48,13 +48,13 @@ export default function Edit({
 
                     {/* Status Message */}
                     {status && (
-                        <div className="mb-6 rounded-md bg-green-50 p-4">
+                        <div className="mb-6 rounded-md bg-cyan-50 p-4">
                             <div className="flex">
                                 <div className="flex-shrink-0">
-                                    <CheckCircle className="h-5 w-5 text-green-400" />
+                                    <CheckCircle className="h-5 w-5 text-cyan-400" />
                                 </div>
                                 <div className="ml-3">
-                                    <p className="text-sm font-medium text-green-800">
+                                    <p className="text-sm font-medium text-cyan-800">
                                         {status}
                                     </p>
                                 </div>
@@ -67,8 +67,8 @@ export default function Edit({
                         <Card>
                             <div className="p-6">
                                 <div className="flex items-center mb-6">
-                                    <User className="h-6 w-6 text-blue-600 mr-3" />
-                                    <h2 className="text-xl font-semibold text-gray-900">Información del Perfil</h2>
+                                    <User className="h-6 w-6 text-cyan-600 mr-3" />
+                                    <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Información del Perfil</h2>
                                 </div>
                                 <UpdateProfileInformationForm
                                     mustVerifyEmail={mustVerifyEmail}
@@ -82,8 +82,8 @@ export default function Edit({
                         <Card>
                             <div className="p-6">
                                 <div className="flex items-center mb-6">
-                                    <Lock className="h-6 w-6 text-green-600 mr-3" />
-                                    <h2 className="text-xl font-semibold text-gray-900">Contraseña</h2>
+                                    <Lock className="h-6 w-6 text-cyan-600 mr-3" />
+                                    <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Contraseña</h2>
                                 </div>
                                 <UpdatePasswordForm className="max-w-2xl" />
                             </div>
@@ -93,8 +93,8 @@ export default function Edit({
                         <Card>
                             <div className="p-6">
                                 <div className="flex items-center mb-6">
-                                    <Bell className="h-6 w-6 text-purple-600 mr-3" />
-                                    <h2 className="text-xl font-semibold text-gray-900">Preferencias de Notificación</h2>
+                                    <Bell className="h-6 w-6 text-cyan-600 mr-3" />
+                                    <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Preferencias de Notificación</h2>
                                 </div>
                                 <UpdatePushNotificationPreferencesForm 
                                     preferences={pushNotificationPreferences}
@@ -108,7 +108,7 @@ export default function Edit({
                             <div className="p-6">
                                 <div className="flex items-center mb-6">
                                     <Shield className="h-6 w-6 text-red-600 mr-3" />
-                                    <h2 className="text-xl font-semibold text-gray-900">Zona de Peligro</h2>
+                                    <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Zona de Peligro</h2>
                                 </div>
                                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                                     <div className="flex">

@@ -54,8 +54,8 @@ export default function ContractsCreate({ clients, services, defaultCurrency, de
                     <div className="mb-8">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Nuevo Contrato</h1>
-                                <p className="mt-2 text-gray-600">
+                                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Nuevo Contrato</h1>
+                                <p className="mt-2 text-slate-600 dark:text-slate-300">
                                     Define los parámetros de cobro que el bot utilizará para programar recordatorios.
                                 </p>
                             </div>

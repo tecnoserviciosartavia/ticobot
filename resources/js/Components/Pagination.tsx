@@ -32,8 +32,8 @@ export default function Pagination({ links }: PaginationProps) {
                                 preserveScroll
                                 className={`inline-flex items-center rounded-md border px-3 py-1 text-sm font-medium transition-colors ${
                                     link.active
-                                        ? 'border-indigo-500 bg-indigo-500 text-white'
-                                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50'
+                                        ? 'border-cyan-500 bg-cyan-500 text-white'
+                                        : 'border-slate-300 bg-white text-slate-700 hover:bg-cyan-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                                 }`}
                                 dangerouslySetInnerHTML={{
                                     __html: sanitizeLabel(link.label),
@@ -41,7 +41,7 @@ export default function Pagination({ links }: PaginationProps) {
                             />
                         ) : (
                             <span
-                                className="inline-flex items-center rounded-md border border-gray-200 px-3 py-1 text-sm font-medium text-gray-400"
+                                className="inline-flex items-center rounded-md border border-slate-200 px-3 py-1 text-sm font-medium text-slate-400 dark:border-slate-800 dark:text-slate-600"
                                 dangerouslySetInnerHTML={{
                                     __html: sanitizeLabel(link.label),
                                 }}

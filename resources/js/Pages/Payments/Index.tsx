@@ -83,7 +83,7 @@ export default function PaymentsIndex() {
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'verified':
-                return <CheckCircle className="h-4 w-4 text-green-500" />;
+                return <CheckCircle className="h-4 w-4 text-cyan-500" />;
             case 'failed':
                 return <XCircle className="h-4 w-4 text-red-500" />;
             default:
@@ -94,7 +94,7 @@ export default function PaymentsIndex() {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'verified':
-                return 'bg-green-100 text-green-800';
+                return 'bg-cyan-100 text-cyan-800';
             case 'failed':
                 return 'bg-red-100 text-red-800';
             default:
@@ -124,8 +124,8 @@ export default function PaymentsIndex() {
                     <div className="mb-8">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Pagos</h1>
-                                <p className="mt-2 text-gray-600">
+                                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Pagos</h1>
+                                <p className="mt-2 text-slate-600 dark:text-slate-300">
                                     Gestiona los pagos recibidos, verificación y conciliación bancaria
                                 </p>
                             </div>
@@ -149,14 +149,14 @@ export default function PaymentsIndex() {
                                     placeholder="Buscar por referencia o cliente..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-md border-slate-300 dark:border-slate-700 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
                                 />
                             </div>
                             <div className="w-full md:w-auto md:min-w-[11rem] md:max-w-[14rem]">
                                 <select
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-md border-slate-300 dark:border-slate-700 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
                                 >
                                     <option value="">Todos los estados</option>
                                     <option value="verified">Verificados</option>
@@ -168,7 +168,7 @@ export default function PaymentsIndex() {
                                 <select
                                     value={channelFilter}
                                     onChange={(e) => setChannelFilter(e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="block w-full rounded-md border-slate-300 dark:border-slate-700 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
                                 >
                                     <option value="">Todos los canales</option>
                                     <option value="sinpe_móvil">Sinpe Móvil</option>
@@ -185,22 +185,22 @@ export default function PaymentsIndex() {
                         <Card className="p-6">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
-                                    <CreditCard className="h-8 w-8 text-blue-600" />
+                                    <CreditCard className="h-8 w-8 text-cyan-600" />
                                 </div>
                                 <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-600">Total Pagos</p>
-                                    <p className="text-2xl font-bold text-gray-900">{(payments?.data || []).length}</p>
+                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Total Pagos</p>
+                                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{(payments?.data || []).length}</p>
                                 </div>
                             </div>
                         </Card>
                         <Card className="p-6">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
-                                    <CheckCircle className="h-8 w-8 text-green-600" />
+                                    <CheckCircle className="h-8 w-8 text-cyan-600" />
                                 </div>
                                 <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-600">Verificados</p>
-                                    <p className="text-2xl font-bold text-gray-900">
+                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Verificados</p>
+                                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                                         {(payments?.data || []).filter((p: Payment) => p.status === 'verified').length}
                                     </p>
                                 </div>
@@ -209,11 +209,11 @@ export default function PaymentsIndex() {
                         <Card className="p-6">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
-                                    <DollarSign className="h-8 w-8 text-green-600" />
+                                    <DollarSign className="h-8 w-8 text-cyan-600" />
                                 </div>
                                 <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-600">Monto Total</p>
-                                    <p className="text-2xl font-bold text-gray-900">
+                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Monto Total</p>
+                                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                                         {formatCurrency(
                                             (payments?.data || []).reduce((sum: number, p: Payment) => sum + Number(p.amount), 0),
                                             'CRC'
@@ -228,8 +228,8 @@ export default function PaymentsIndex() {
                                     <Clock className="h-8 w-8 text-yellow-600" />
                                 </div>
                                 <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                                    <p className="text-2xl font-bold text-gray-900">
+                                    <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Pendientes</p>
+                                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                                         {(payments?.data || []).filter((p: Payment) => p.status !== 'verified').length}
                                     </p>
                                 </div>
@@ -240,55 +240,55 @@ export default function PaymentsIndex() {
                     {/* Payments Table */}
                     <Card className="min-w-0 overflow-hidden">
                         <div className="overflow-x-auto overscroll-x-contain -mx-px">
-                            <table className="w-full min-w-[720px] divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                            <table className="w-full min-w-[720px] divide-y divide-slate-200 dark:divide-slate-800">
+                                <thead className="bg-slate-50 dark:bg-slate-950">
                                     <tr>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider sm:px-6">
                                             Referencia
                                         </th>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider sm:px-6">
                                             Cliente
                                         </th>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider sm:px-6">
                                             Monto
                                         </th>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider sm:px-6">
                                             Canal
                                         </th>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider sm:px-6">
                                             Estado
                                         </th>
-                                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                        <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider sm:px-6">
                                             Fecha
                                         </th>
-                                        <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sm:px-6">
+                                        <th className="px-3 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider sm:px-6">
                                             Acciones
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-800">
                                     {filteredPayments.map((payment) => (
-                                        <tr key={payment.id} className="hover:bg-gray-50">
+                                        <tr key={payment.id} className="hover:bg-slate-50 dark:bg-slate-950">
                                             <td className="px-3 py-4 sm:px-6">
                                                 <div className="flex min-w-0 items-center gap-2">
-                                                    <FileText className="h-4 w-4 shrink-0 text-gray-400" />
-                                                    <span className="truncate text-sm font-medium text-gray-900">
+                                                    <FileText className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                                                    <span className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
                                                         {payment.reference || 'N/A'}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="px-3 py-4 sm:px-6">
                                                 <div className="flex min-w-0 items-center gap-2">
-                                                    <Users className="h-4 w-4 shrink-0 text-gray-400" />
-                                                    <span className="truncate text-sm text-gray-900">
+                                                    <Users className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                                                    <span className="truncate text-sm text-slate-900 dark:text-slate-100">
                                                         {payment.client?.name || 'N/A'}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="whitespace-nowrap px-3 py-4 sm:px-6">
                                                 <div className="flex items-center">
-                                                    <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
-                                                    <span className="text-sm font-medium text-gray-900">
+                                                    <DollarSign className="h-4 w-4 text-slate-400 dark:text-slate-500 mr-2" />
+                                                    <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                                         {formatCurrency(payment.amount, payment.currency)}
                                                     </span>
                                                 </div>
@@ -307,7 +307,7 @@ export default function PaymentsIndex() {
                                                     </Badge>
                                                 </div>
                                             </td>
-                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 sm:px-6">
+                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-slate-500 dark:text-slate-400 sm:px-6">
                                                 {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('es-CR') : 'N/A'}
                                             </td>
                                             <td className="px-3 py-4 text-right text-sm font-medium sm:px-6">
@@ -349,7 +349,7 @@ export default function PaymentsIndex() {
                     </Card>
 
                     <div className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-slate-600 dark:text-slate-300">
                             Mostrando {payments?.meta?.from ?? 0} a {payments?.meta?.to ?? 0} de {payments?.meta?.total ?? filteredPayments.length} pagos
                         </div>
                         <Pagination links={payments?.links ?? []} />
@@ -358,9 +358,9 @@ export default function PaymentsIndex() {
                     {/* Empty State */}
                     {filteredPayments.length === 0 && (
                         <Card className="text-center py-12">
-                            <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
-                            <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron pagos</h3>
-                            <p className="mt-1 text-sm text-gray-500">
+                            <CreditCard className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" />
+                            <h3 className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">No se encontraron pagos</h3>
+                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                                 Comienza registrando un nuevo pago o ajusta los filtros de búsqueda.
                             </p>
                             <div className="mt-6">
