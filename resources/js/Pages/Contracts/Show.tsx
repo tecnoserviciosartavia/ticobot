@@ -235,15 +235,25 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                         <Card className="p-6">
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Servicios Asociados</h3>
                             <div className="space-y-3">
-                                {contract.services.map((service) => (
-                                    <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                        {contract.services.map((service) => (
+                                    <div key={service.id} className="flex flex-col gap-3 p-3 border rounded-lg sm:flex-row sm:items-center sm:justify-between">
                                         <div>
                                             <p className="font-medium">{service.name}</p>
                                             <p className="text-sm text-gray-500">{formatCurrency(service.price, service.currency)}</p>
                                         </div>
-                                        <Badge variant="secondary">
-                                            {service.quantity || 1}x
-                                        </Badge>
+                                        <div className="flex flex-col gap-2 sm:items-end sm:justify-end">
+                                            <Badge variant="secondary">
+                                                {service.quantity || 1}x
+                                            </Badge>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => router.post(route('contracts.resend-access', contract.id), { service_id: service.id })}
+                                                className="text-blue-700 border-blue-300 hover:bg-blue-50"
+                                            >
+                                                Reenviar acceso
+                                            </Button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

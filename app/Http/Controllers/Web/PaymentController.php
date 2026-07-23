@@ -102,6 +102,22 @@ class PaymentController extends Controller
         }
     }
 
+    private function contractSupportsMonthlyCoverage(?Contract $contract): bool
+    {
+        if (! $contract) {
+            return false;
+        }
+
+        $raw = $contract->billing_cycle;
+        if ($raw === null || $raw === '') {
+            return true;
+        }
+
+        $cycle = strtolower(trim((string) $raw));
+
+        return $cycle === 'monthly' || $cycle === 'mensual';
+    }
+
     /**
      * Show the form for creating a new payment.
      */
@@ -179,7 +195,7 @@ class PaymentController extends Controller
             }
         }
 
-        $isMonthlyContract = $contract?->billing_cycle === 'monthly';
+        $isMonthlyContract = $this->contractSupportsMonthlyCoverage($contract);
 
         $coveredMonthsInput = $validated['covered_months'] ?? [];
         unset($validated['covered_months']);

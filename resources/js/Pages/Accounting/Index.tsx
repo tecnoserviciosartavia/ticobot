@@ -2,7 +2,7 @@ import { Button } from '@/Components/button';
 import { Card } from '@/Components/card';
 import { Badge } from '@/Components/badge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { DollarSign, TrendingUp, TrendingDown, Calendar, ArrowLeft, BarChart3, PieChart, Activity } from '@/Components/icons';
 
 interface StatusCurrencyRow {
@@ -81,10 +81,12 @@ export default function AccountingIndex({
                 </p>
               </div>
               <div className="flex gap-3">
-                <Button variant="outline">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Volver
-                </Button>
+                <Link href={route('dashboard')}>
+                  <Button type="button" variant="outline">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Volver
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>

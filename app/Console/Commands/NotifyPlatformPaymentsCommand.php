@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Contract;
 use App\Models\PushDeviceToken;
+use App\Models\PushWebSubscription;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\PushNotificationService;
@@ -83,6 +84,10 @@ class NotifyPlatformPaymentsCommand extends Command
             $pushTokens = PushDeviceToken::query()
                 ->where('is_active', true)
                 ->pluck('token');
+            $webSubscriptions = PushWebSubscription::query()
+                ->with('user:id,push_notification_preferences')
+                ->where('is_active', true)
+                ->get();
 
             foreach ($pushTokens as $token) {
                 $alreadyPushSent = DB::table('service_payment_push_notifications')
@@ -124,6 +129,49 @@ class NotifyPlatformPaymentsCommand extends Command
                 ]);
                 $pushSent++;
             }
+
+            foreach ($webSubscriptions as $subscription) {
+                $subscriptionKey = $this->webSubscriptionNotificationKey($subscription);
+                $alreadyPushSent = DB::table('service_payment_push_notifications')
+                    ->where('service_id', $service->id)
+                    ->where('due_date', $dueDate)
+                    ->where('token', $subscriptionKey)
+                    ->exists();
+
+                if ($alreadyPushSent) {
+                    continue;
+                }
+
+                $title = 'Costo mensual por pagar';
+                $body = sprintf(
+                    '%s · %s%s · vence %s',
+                    $service->name,
+                    strtoupper((string) $service->currency) === 'USD' ? '$' : 'CRC ',
+                    number_format((float) $service->cost, 2, '.', ','),
+                    $dueDate
+                );
+
+                $ok = $push->sendToWebSubscription($subscription, $title, $body, [
+                    'type' => 'platform_cost_due',
+                    'service_id' => (string) $service->id,
+                    'due_date' => $dueDate,
+                    'url' => route('settings.index'),
+                ]);
+
+                if (! $ok) {
+                    continue;
+                }
+
+                DB::table('service_payment_push_notifications')->insert([
+                    'service_id' => $service->id,
+                    'due_date' => $dueDate,
+                    'token' => $subscriptionKey,
+                    'sent_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $pushSent++;
+            }
         }
 
         $dailyExpectedPushSent = $this->sendDailyExpectedPaymentsSummary($push, $today);
@@ -135,6 +183,7 @@ class NotifyPlatformPaymentsCommand extends Command
     private function sendDailyExpectedPaymentsSummary(PushNotificationService $push, Carbon $today): int
     {
         $summaryDate = $today->toDateString();
+        $sent = 0;
 
         $contractsDueToday = Contract::query()
             ->whereNotNull('next_due_date')
@@ -175,8 +224,11 @@ class NotifyPlatformPaymentsCommand extends Command
             ->with('user:id,push_notification_preferences')
             ->where('is_active', true)
             ->get(['user_id', 'token']);
+        $webSubscriptions = PushWebSubscription::query()
+            ->with('user:id,push_notification_preferences')
+            ->where('is_active', true)
+            ->get();
 
-        $sent = 0;
         foreach ($tokens as $device) {
             $token = (string) $device->token;
             if ($token === '') {
@@ -218,10 +270,47 @@ class NotifyPlatformPaymentsCommand extends Command
             $sent++;
         }
 
+        foreach ($webSubscriptions as $subscription) {
+            if (! $this->shouldReceiveDailyExpectedPush($subscription)) {
+                continue;
+            }
+
+            $subscriptionKey = $this->webSubscriptionNotificationKey($subscription);
+            $alreadySent = DB::table('daily_expected_payment_push_notifications')
+                ->where('summary_date', $summaryDate)
+                ->where('token', $subscriptionKey)
+                ->exists();
+
+            if ($alreadySent) {
+                continue;
+            }
+
+            $ok = $push->sendToWebSubscription($subscription, $title, $body, [
+                'type' => 'daily_expected_payments',
+                'summary_date' => $summaryDate,
+                'count' => (string) $count,
+                'totals' => json_encode(array_map(fn ($value) => round((float) $value, 2), $totalsByCurrency), JSON_UNESCAPED_UNICODE),
+                'url' => route('dashboard'),
+            ]);
+
+            if (! $ok) {
+                continue;
+            }
+
+            DB::table('daily_expected_payment_push_notifications')->insert([
+                'summary_date' => $summaryDate,
+                'token' => $subscriptionKey,
+                'sent_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $sent++;
+        }
         return $sent;
     }
 
-    private function shouldReceiveDailyExpectedPush(PushDeviceToken $device): bool
+    private function shouldReceiveDailyExpectedPush(object $device): bool
     {
         $prefs = $device->user?->push_notification_preferences;
         if (! is_array($prefs)) {
@@ -229,6 +318,12 @@ class NotifyPlatformPaymentsCommand extends Command
         }
 
         return (bool) ($prefs['daily_expected_payments'] ?? true);
+    }
+
+
+    private function webSubscriptionNotificationKey(PushWebSubscription $subscription): string
+    {
+        return 'web:' . $subscription->endpoint_hash;
     }
 
     /**

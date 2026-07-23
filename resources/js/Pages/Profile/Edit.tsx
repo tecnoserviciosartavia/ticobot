@@ -1,6 +1,4 @@
-import { Button } from '@/Components/button';
 import { Card } from '@/Components/card';
-import { Badge } from '@/Components/badge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { PageProps } from '@/types';
 import { Head } from '@inertiajs/react';
@@ -8,25 +6,12 @@ import DeleteUserForm from './Partials/DeleteUserForm';
 import UpdatePushNotificationPreferencesForm from './Partials/UpdatePushNotificationPreferencesForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
-import WhatsAppConnectionCard, { WhatsAppStatus } from './Partials/WhatsAppConnectionCard';
-import { 
-  User, 
-  Settings, 
-  Bell, 
-  Lock, 
-  Shield, 
-  MessageSquare,
-  Smartphone,
-  Key,
-  CheckCircle,
-  AlertCircle
-} from '@/Components/icons';
+import { User, Bell, Lock, Shield, CheckCircle, AlertCircle } from '@/Components/icons';
 
 export default function Edit({
     mustVerifyEmail,
     pushNotificationPreferences,
     status,
-    whatsapp,
 }: PageProps<{
     mustVerifyEmail: boolean;
     pushNotificationPreferences: {
@@ -35,9 +20,10 @@ export default function Edit({
         platform_cost_due: boolean;
         conciliation_pending: boolean;
         whatsapp_manual_pause_events: boolean;
+        whatsapp_help_requests: boolean;
+        whatsapp_incoming_messages: boolean;
     };
     status?: string;
-    whatsapp: WhatsAppStatus;
 }>) {
     return (
         <ResponsiveLayout title="Perfil">
@@ -100,17 +86,6 @@ export default function Edit({
                                     <h2 className="text-xl font-semibold text-gray-900">Contraseña</h2>
                                 </div>
                                 <UpdatePasswordForm className="max-w-2xl" />
-                            </div>
-                        </Card>
-
-                        {/* WhatsApp Connection */}
-                        <Card>
-                            <div className="p-6">
-                                <div className="flex items-center mb-6">
-                                    <MessageSquare className="h-6 w-6 text-green-600 mr-3" />
-                                    <h2 className="text-xl font-semibold text-gray-900">Conexión WhatsApp</h2>
-                                </div>
-                                <WhatsAppConnectionCard data={whatsapp} />
                             </div>
                         </Card>
 

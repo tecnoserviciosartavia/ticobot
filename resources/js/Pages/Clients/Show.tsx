@@ -26,6 +26,7 @@ interface ContractSummary {
     billing_cycle: string;
     next_due_date: string | null;
     payments_count: number;
+    services_label?: string;
     updated_at: string | null;
 }
 
@@ -113,12 +114,22 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
     const flashSuccess = (page.props as any)?.flash?.success as string | undefined;
     const flashError = (page.props as any)?.flash?.error as string | undefined;
 
+    const viewContract = (contractId: number) => {
+        router.visit(route('contracts.show', contractId));
+    };
+
     const removeContract = (contract: ContractSummary) => {
-        if ((contract.payments_count ?? 0) > 0) {
-            alert('No se puede eliminar el contrato porque tiene pagos asociados.');
+        const payCount = contract.payments_count ?? 0;
+        if (payCount > 0) {
+            alert(
+                `No se puede eliminar el contrato ${contract.name} porque tiene ${payCount} pago(s) registrado(s) asociados.\n\n` +
+                    'Desde la sección Pagos puedes revisar esos registros; el contrato solo se puede eliminar cuando no queden pagos vinculados.',
+            );
             return;
         }
-        if (!confirm('¿Eliminar este contrato? Esta acción no se puede deshacer.')) return;
+        const platforms = (contract.services_label ?? '').trim();
+        const platformLine = platforms ? `\n\nPlataformas en este contrato: ${platforms}` : '';
+        if (!confirm(`¿Eliminar este contrato? Esta acción no se puede deshacer.${platformLine}\n\nSe enviará un mensaje de baja por WhatsApp al cliente si tiene teléfono registrado.`)) return;
         router.delete(route('contracts.destroy', contract.id), {
             preserveScroll: true,
             onSuccess: () => {
@@ -268,6 +279,13 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                         </div>
                                         <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">Vence: {contract.next_due_date ? formatDate(contract.next_due_date) : '—'}</div>
                                         <div className="mt-4 flex flex-wrap gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => viewContract(contract.id)}
+                                                className="inline-flex items-center rounded-md bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                                            >
+                                                Ver
+                                            </button>
                                             <Link
                                                 href={route('contracts.edit', contract.id)}
                                                 className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
@@ -277,8 +295,16 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                             <button
                                                 type="button"
                                                 onClick={() => removeContract(contract)}
-                                                disabled={(contract.payments_count ?? 0) > 0}
-                                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold ${(contract.payments_count ?? 0) > 0 ? 'cursor-not-allowed bg-gray-100 text-gray-400' : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200'}`}
+                                                title={
+                                                    (contract.payments_count ?? 0) > 0
+                                                        ? 'Tiene pagos asociados: la eliminación no está permitida hasta que no queden pagos en este contrato.'
+                                                        : 'Eliminar contrato'
+                                                }
+                                                className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold ${
+                                                    (contract.payments_count ?? 0) > 0
+                                                        ? 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100'
+                                                        : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200'
+                                                }`}
                                             >
                                                 Eliminar
                                             </button>
@@ -314,6 +340,13 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                                 <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{contract.next_due_date ? formatDate(contract.next_due_date) : '—'}</td>
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex justify-end gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => viewContract(contract.id)}
+                                                            className="inline-flex items-center rounded-md bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                                                        >
+                                                            Ver
+                                                        </button>
                                                         <Link
                                                             href={route('contracts.edit', contract.id)}
                                                             className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
@@ -323,10 +356,14 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                                         <button
                                                             type="button"
                                                             onClick={() => removeContract(contract)}
-                                                            disabled={(contract.payments_count ?? 0) > 0}
+                                                            title={
+                                                                (contract.payments_count ?? 0) > 0
+                                                                    ? 'Tiene pagos asociados: la eliminación no está permitida hasta que no queden pagos en este contrato.'
+                                                                    : 'Eliminar contrato'
+                                                            }
                                                             className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold ${
                                                                 (contract.payments_count ?? 0) > 0
-                                                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                                                    ? 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100'
                                                                     : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200'
                                                             }`}
                                                         >

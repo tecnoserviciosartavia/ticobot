@@ -277,7 +277,7 @@ class AccountingController extends Controller
      * Método usa asignación proporcional del pago a los servicios del contrato
      * según la participación del precio de cada servicio en el total del contrato.
      */
-    private function calculateServiceProfits(
+    public function calculateServiceProfits(
         \Illuminate\Support\Carbon $startOfPeriod,
         \Illuminate\Support\Carbon $endOfPeriod
     ): array {

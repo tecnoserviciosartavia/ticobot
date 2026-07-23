@@ -11,11 +11,45 @@ use App\Models\Client;
 use App\Models\Contract;
 use App\Models\Reminder;
 use Carbon\Carbon;
-use App\Support\WhatsAppStatus;
 
 class SettingsController extends Controller
 {
-    public function index()
+
+    /**
+     * @return array<string,bool>
+     */
+    private function defaultPushNotificationPreferences(): array
+    {
+        return [
+            'daily_expected_payments' => true,
+            'overdue_payments' => true,
+            'platform_cost_due' => true,
+            'conciliation_pending' => true,
+            'whatsapp_manual_pause_events' => false,
+            'whatsapp_help_requests' => true,
+            'whatsapp_incoming_messages' => true,
+            'whatsapp_incoming_messages' => true,
+        ];
+    }
+
+    /**
+     * @param mixed $raw
+     * @return array<string,bool>
+     */
+    private function normalizePushNotificationPreferences($raw): array
+    {
+        $defaults = $this->defaultPushNotificationPreferences();
+        $stored = is_array($raw) ? $raw : [];
+
+        $normalized = [];
+        foreach ($defaults as $key => $default) {
+            $normalized[$key] = isset($stored[$key]) ? (bool) $stored[$key] : $default;
+        }
+
+        return $normalized;
+    }
+
+    public function index(Request $request)
     {
         $all = Setting::all()->mapWithKeys(function ($s) {
             return [$s->key => $s->value];
@@ -42,7 +76,9 @@ class SettingsController extends Controller
 
         return Inertia::render('Settings/General/Index', [
             'settings' => $all,
-            'whatsapp' => WhatsAppStatus::snapshot(),
+            'pushNotificationPreferences' => $this->normalizePushNotificationPreferences(
+                $request->user()?->push_notification_preferences
+            ),
             'services' => $services,
             'logSources' => [
                 [

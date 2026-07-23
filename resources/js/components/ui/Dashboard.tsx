@@ -42,6 +42,7 @@ interface DashboardStats {
   };
   revenueByMonth: Array<{
     month: string;
+    currency: string;
     revenue: number;
     contracts: number;
   }>;
@@ -69,6 +70,21 @@ interface DashboardStats {
     due_soon: { count: number; by_currency: Record<string, number> };
     total_by_currency: Record<string, number>;
   };
+  financialSummary?: {
+    payments_received: Record<string, number>;
+    verified_count: number;
+    platform_costs: Record<string, number>;
+    real_profit: Record<string, number>;
+    top_services: Array<{ id: number | null; name: string; currency: string; revenue: number; cost: number; net: number }>;
+  };
+  recentVerifiedPayments?: Array<{
+    id: number;
+    client_name: string | null;
+    contract_name: string | null;
+    amount: number;
+    currency: string;
+    paid_at: string | null;
+  }>;
 }
 
 interface DashboardProps {
@@ -76,7 +92,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ stats }: DashboardProps) {
-  const [selectedPeriod, setSelectedPeriod] = useState(stats?.period || '30d');
+  const [selectedPeriod, setSelectedPeriod] = useState(stats?.period || 'month');
   const [isLoading, setIsLoading] = useState(false);
 
   // Handle period change
@@ -99,7 +115,7 @@ export default function Dashboard({ stats }: DashboardProps) {
     const csvData = [
       ['Métrica', 'Valor Actual', 'Cambio %'],
       ['Contratos Activos', stats.activeContracts?.toString() || '0', `${stats.changes?.activeContracts || 0}%`],
-      ['Ingresos Totales', formatCurrency(stats.totalRevenue), `${stats.changes?.revenue || 0}%`],
+      ['Ingresos Totales (CRC)', formatCurrency(stats.totalRevenue), `${stats.changes?.revenue || 0}%`],
       ['Pagos Pendientes', stats.pendingPayments?.toString() || '0', `${stats.changes?.pendingPayments || 0}%`],
       ['Tasa de Conversión', `${stats.conversionRate || 0}%`, `${stats.changes?.conversionRate || 0}%`],
       ['Pagos Verificados', stats.paymentStats?.verified?.toString() || '0', ''],
@@ -135,6 +151,8 @@ export default function Dashboard({ stats }: DashboardProps) {
     revenueByMonth: stats?.revenueByMonth || [],
     recentSentReminders: stats?.recentSentReminders ?? [],
     upcomingCollections: stats?.upcomingCollections,
+    financialSummary: stats?.financialSummary,
+    recentVerifiedPayments: stats?.recentVerifiedPayments ?? [],
   };
 
   const formatCurrency = (amount: number, currency = 'CRC') => {
@@ -214,6 +232,30 @@ export default function Dashboard({ stats }: DashboardProps) {
     );
   };
 
+  const MoneyCard = ({ title, amounts, subtitle, color = 'green' }: {
+    title: string;
+    amounts: Record<string, number>;
+    subtitle: string;
+    color?: 'green' | 'blue';
+  }) => (
+    <Card className={`border-2 p-6 ${color === 'green' ? 'border-green-200 bg-green-500/10' : 'border-blue-200 bg-blue-500/10'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <div className="mt-1 space-y-1">
+            {Object.keys(amounts).length === 0 ? (
+              <p className="text-2xl font-bold text-gray-900">—</p>
+            ) : Object.entries(amounts).map(([currency, amount]) => (
+              <p key={currency} className="text-2xl font-bold text-gray-900">{formatCurrency(amount, currency)}</p>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-gray-500">{subtitle}</p>
+        </div>
+        <DollarSign className={`h-6 w-6 ${color === 'green' ? 'text-green-600' : 'text-blue-600'}`} />
+      </div>
+    </Card>
+  );
+
   return (
     <ResponsiveLayout title="Dashboard" user={{ name: 'Admin User' }}>
       <Head title="Dashboard" />
@@ -229,7 +271,7 @@ export default function Dashboard({ stats }: DashboardProps) {
           {/* Period Selector */}
           <div className="mb-6 flex items-center justify-between">
             <div className="flex space-x-2">
-              {['7d', '30d', '90d', '1y'].map((period) => (
+              {['7d', 'month', '30d', '90d', '1y'].map((period) => (
                 <Button
                   key={period}
                   variant={selectedPeriod === period ? 'default' : 'outline'}
@@ -238,6 +280,7 @@ export default function Dashboard({ stats }: DashboardProps) {
                   disabled={isLoading}
                 >
                   {period === '7d' && '7 días'}
+                  {period === 'month' && 'Mes actual'}
                   {period === '30d' && '30 días'}
                   {period === '90d' && '90 días'}
                   {period === '1y' && '1 año'}
@@ -254,19 +297,22 @@ export default function Dashboard({ stats }: DashboardProps) {
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
-              title="Contratos Activos"
+              title="Contratos activos nuevos"
               value={stats.activeContracts}
               change={stats.changes?.activeContracts || 0}
               icon={Users}
               color="blue"
             />
-            <StatCard
-              title="Ingresos Totales"
-              value={stats.totalRevenue}
-              change={stats.changes?.revenue || 0}
-              icon={DollarSign}
-              color="green"
-              format="currency"
+            <MoneyCard
+              title="Pagos recibidos"
+              amounts={safeStats.financialSummary?.payments_received ?? {}}
+              subtitle={`${safeStats.financialSummary?.verified_count ?? 0} pagos verificados en el período`}
+            />
+            <MoneyCard
+              title="Ganancia real"
+              amounts={safeStats.financialSummary?.real_profit ?? {}}
+              subtitle="Pagos recibidos menos costos de plataformas"
+              color="blue"
             />
             <StatCard
               title="Pagos Pendientes"
@@ -275,15 +321,30 @@ export default function Dashboard({ stats }: DashboardProps) {
               icon={Clock}
               color="yellow"
             />
-            <StatCard
-              title="Tasa de Conversión"
-              value={stats.conversionRate || 0}
-              change={stats.changes?.conversionRate || 0}
-              icon={TrendingUp}
-              color="green"
-              format="percentage"
-            />
           </div>
+
+          <Card className="mb-8 p-6">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Últimos pagos recibidos</h3>
+                <p className="mt-1 text-sm text-gray-500">Detalle de los pagos verificados incluidos en las cifras anteriores.</p>
+              </div>
+              <Link href="/accounting" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">Ver contabilidad →</Link>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {safeStats.recentVerifiedPayments.length === 0 ? (
+                <p className="py-3 text-sm text-gray-500">No hay pagos verificados en este período.</p>
+              ) : safeStats.recentVerifiedPayments.map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between gap-4 py-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-gray-900">{payment.client_name || 'Cliente sin nombre'}</p>
+                    <p className="truncate text-xs text-gray-500">{payment.contract_name || 'Sin contrato'} · {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('es-CR') : 'Sin fecha'}</p>
+                  </div>
+                  <p className="shrink-0 font-semibold text-green-700">{formatCurrency(payment.amount, payment.currency)}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
 
           {/* Cobro: recordatorios enviados + montos pendientes */}
           <div className="grid grid-cols-1 gap-6 mb-8 lg:grid-cols-2">
@@ -405,16 +466,16 @@ export default function Dashboard({ stats }: DashboardProps) {
                         <div key={index} className="flex-1 flex flex-col items-center">
                           <div className="w-full flex flex-col items-center">
                             <span className="text-xs text-gray-600 mb-1">
-                              {formatCurrency(month.revenue)}
+                              {formatCurrency(month.revenue, month.currency)}
                             </span>
                             <div 
                               className="w-full bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600"
                               style={{ height: `${height}%`, minHeight: '4px' }}
-                              title={`${month.month}: ${formatCurrency(month.revenue)}`}
+                              title={`${month.month}: ${formatCurrency(month.revenue, month.currency)}`}
                             />
                           </div>
                           <span className="text-xs text-gray-500 mt-2 text-center">
-                            {month.month}
+                            {month.month} · {month.currency}
                           </span>
                         </div>
                       );

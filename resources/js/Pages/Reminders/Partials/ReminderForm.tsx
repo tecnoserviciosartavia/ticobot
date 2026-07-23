@@ -2,6 +2,7 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import DatePickerInput from '@/Components/DatePickerInput';
 import { Link } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEventHandler } from 'react';
@@ -220,10 +221,10 @@ export default function ReminderForm({
 
                 <div>
                     <InputLabel htmlFor="scheduled_for" value="Programado para" />
-                    <TextInput
+                    <DatePickerInput
                         id="scheduled_for"
                         name="scheduled_for"
-                        type="datetime-local"
+                        type="date"
                         value={data.scheduled_for}
                         onChange={(event) => onChange('scheduled_for', event.target.value)}
                         className="mt-1 block w-full"
@@ -390,7 +391,7 @@ export default function ReminderForm({
 
                 <div>
                     <InputLabel htmlFor="due_date" value="Fecha de vencimiento" />
-                    <TextInput
+                    <DatePickerInput
                         id="due_date"
                         name="due_date"
                         type="date"

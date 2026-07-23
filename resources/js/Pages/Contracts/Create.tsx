@@ -8,7 +8,16 @@ import { FileText, Plus, ArrowLeft } from '@/Components/icons';
 
 interface ContractsCreateProps extends PageProps<{
     clients: Array<{ id: number; name: string; phone?: string | null }>;
-    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
+    services: Array<{
+        id: number;
+        name: string;
+        price: string;
+        currency: string;
+        account_email?: string | null;
+        max_profiles?: number | null;
+        profiles_used?: number;
+        accounts?: Array<{ id: number; name?: string | null; identifier: string; is_active: boolean }>;
+    }>;
     defaultCurrency: string;
     defaultBillingCycle: string;
 }> {}
@@ -27,6 +36,7 @@ export default function ContractsCreate({ clients, services, defaultCurrency, de
         service_ids: [] as number[],
         service_quantities: {} as Record<string, number>,
         service_pins: {} as Record<string, string>,
+        service_account_ids: {} as Record<string, number>,
     });
 
     const submit: React.FormEventHandler<HTMLFormElement> = (event) => {

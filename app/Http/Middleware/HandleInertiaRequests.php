@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\WhatsappChatMessage;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -90,6 +91,18 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
                 'mail_status' => fn () => $request->session()->get('mail_status'),
+            ],
+            'push' => [
+                'web_public_key' => fn () => config('services.webpush.public_key'),
+            ],
+            'notifications' => fn () => [
+                'unread_chats' => $request->user()
+                    ? WhatsappChatMessage::query()
+                        ->where('direction', 'inbound')
+                        ->where('status', 'received')
+                        ->distinct()
+                        ->count('phone')
+                    : 0,
             ],
         ];
     }

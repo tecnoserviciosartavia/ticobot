@@ -3,12 +3,64 @@
 namespace App\Services;
 
 use App\Models\PushDeviceToken;
+use App\Models\PushWebSubscription;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Minishlink\WebPush\WebPush;
 
 class PushNotificationService
 {
+    /**
+     * Send a push notification to every active device whose owner has the given
+     * preference enabled. If the preference is missing, it is treated as enabled
+     * so older accounts keep receiving the alert by default.
+     *
+     * @return int number of successful deliveries
+     */
+    public function sendToActiveUsersWithPreference(
+        string $preferenceKey,
+        string $title,
+        string $body,
+        array $data = [],
+    ): int {
+        $sent = 0;
+
+        $nativeDevices = PushDeviceToken::query()
+            ->with('user:id,push_notification_preferences')
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($nativeDevices as $device) {
+            $prefs = $device->user?->push_notification_preferences;
+            if (is_array($prefs) && array_key_exists($preferenceKey, $prefs) && ! (bool) $prefs[$preferenceKey]) {
+                continue;
+            }
+
+            if ($this->sendToToken((string) $device->token, $title, $body, $data)) {
+                $sent++;
+            }
+        }
+
+        $webSubscriptions = PushWebSubscription::query()
+            ->with('user:id,push_notification_preferences')
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($webSubscriptions as $subscription) {
+            $prefs = $subscription->user?->push_notification_preferences;
+            if (is_array($prefs) && array_key_exists($preferenceKey, $prefs) && ! (bool) $prefs[$preferenceKey]) {
+                continue;
+            }
+
+            if ($this->sendToWebSubscription($subscription, $title, $body, $data)) {
+                $sent++;
+            }
+        }
+
+        return $sent;
+    }
+
     public function sendToToken(string $token, string $title, string $body, array $data = []): bool
     {
         $projectId = $this->projectId();
@@ -31,15 +83,15 @@ class PushNotificationService
                 ])
                 ->post("https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send", [
                     'message' => [
-                        'token'        => $token,
-                        'notification' => [
-                            'title' => $title,
-                            'body'  => $body,
-                        ],
+                        'token' => $token,
                         'android' => [
                             'priority' => 'high',
                         ],
-                        'data' => array_map('strval', $data),
+                        'data' => $this->normalizeDataPayload([
+                            ...$data,
+                            'title' => $title,
+                            'body' => $body,
+                        ]),
                     ],
                 ]);
 
@@ -65,6 +117,89 @@ class PushNotificationService
             Log::error('Error enviando push FCM v1', ['message' => $e->getMessage()]);
             return false;
         }
+    }
+
+    public function sendToWebSubscription(PushWebSubscription $subscription, string $title, string $body, array $data = []): bool
+    {
+        $webPush = $this->webPush();
+        if (! $webPush) {
+            Log::warning('Web push no configurado.');
+            return false;
+        }
+
+        $browserSubscription = $subscription->subscription;
+        if (! is_array($browserSubscription) || empty($browserSubscription['endpoint'])) {
+            Log::warning('Web push: suscripción inválida.', ['subscription_id' => $subscription->id]);
+            return false;
+        }
+
+        $payload = json_encode([
+            'title' => $title,
+            'body' => $body,
+            'tag' => (string) ($data['tag'] ?? 'ticobot-push'),
+            'data' => $this->normalizeDataPayload($data),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        if ($payload === false) {
+            Log::warning('Web push: no se pudo serializar el payload.', ['subscription_id' => $subscription->id]);
+            return false;
+        }
+
+        try {
+            $report = $webPush->sendOneNotification($browserSubscription, $payload, [
+                'TTL' => 300,
+                'urgency' => 'high',
+            ]);
+
+            if ($report->isSuccess()) {
+                return true;
+            }
+
+            if ($report->isSubscriptionExpired()) {
+                $subscription->update([
+                    'is_active' => false,
+                    'last_seen_at' => now(),
+                ]);
+            }
+
+            Log::warning('Web push error', [
+                'subscription_id' => $subscription->id,
+                'endpoint' => $report->getEndpoint(),
+                'reason' => $report->getReason(),
+            ]);
+
+            return false;
+        } catch (\Throwable $e) {
+            Log::error('Error enviando web push', [
+                'subscription_id' => $subscription->id,
+                'message' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    private function webPush(): ?WebPush
+    {
+        $subject = (string) config('services.webpush.subject', '');
+        $publicKey = (string) config('services.webpush.public_key', '');
+        $privateKey = (string) config('services.webpush.private_key', '');
+
+        if ($subject === '' || $publicKey === '' || $privateKey === '') {
+            return null;
+        }
+
+        return new WebPush([
+            'VAPID' => [
+                'subject' => $subject,
+                'publicKey' => $publicKey,
+                'privateKey' => $privateKey,
+            ],
+        ]);
+    }
+
+    private function normalizeDataPayload(array $data): array
+    {
+        return array_map(static fn ($value) => (string) $value, $data);
     }
 
     // -------------------------------------------------------------------------

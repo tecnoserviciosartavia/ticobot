@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Carbon;
 
 class SinpeEmailController extends Controller
 {
@@ -29,6 +30,7 @@ class SinpeEmailController extends Controller
     {
         $status = trim((string) $request->query('status', ''));
         $read = trim((string) $request->query('read', ''));
+        $search = trim((string) $request->query('search', ''));
 
         $query = SinpeEmailTransaction::query()
             ->with([
@@ -47,6 +49,19 @@ class SinpeEmailController extends Controller
 
         if ($read === 'unread') {
             $query->where('is_read', false);
+        }
+
+        if ($search !== '') {
+            $query->where(function ($innerQuery) use ($search) {
+                $innerQuery
+                    ->where('origin_name', 'like', "%{$search}%")
+                    ->orWhere('origin_phone', 'like', "%{$search}%")
+                    ->orWhere('motive', 'like', "%{$search}%")
+                    ->orWhere('reference', 'like', "%{$search}%")
+                    ->orWhere('mail_subject', 'like', "%{$search}%")
+                    ->orWhereHas('client', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('contract', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+            });
         }
 
         $transactions = $query
@@ -90,6 +105,7 @@ class SinpeEmailController extends Controller
             'filters'      => [
                 'status' => $status !== '' ? $status : null,
                 'read' => $read !== '' ? $read : null,
+                'search' => $search !== '' ? $search : null,
             ],
             'statuses'     => $statuses,
             'clients'      => $clients,
@@ -111,11 +127,20 @@ class SinpeEmailController extends Controller
         }
 
         $contracts = Contract::query()
+            ->with('services:id,name')
             ->select('id', 'name', 'amount', 'currency', 'billing_cycle')
             ->where('client_id', $clientId)
             ->whereNull('deleted_at')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(fn (Contract $contract) => [
+                'id' => $contract->id,
+                'name' => $contract->name,
+                'amount' => $contract->amount,
+                'currency' => $contract->currency,
+                'billing_cycle' => $contract->billing_cycle,
+                'services_label' => $contract->servicesLabelForMessaging(),
+            ]);
 
         return response()->json($contracts);
     }
@@ -149,9 +174,12 @@ class SinpeEmailController extends Controller
     public function conciliate(Request $request, int $id): RedirectResponse
     {
         $validated = $request->validate([
-            'client_id'    => ['required', 'integer', 'exists:clients,id'],
-            'contract_id'  => ['required', 'integer', 'exists:contracts,id'],
+            'client_id' => ['required', 'integer', 'exists:clients,id'],
+            'contract_id' => ['required', 'integer', 'exists:contracts,id'],
             'billing_month' => ['nullable', 'date_format:Y-m'],
+            'covered_months' => ['nullable', 'array'],
+            'covered_months.*' => ['required', 'date_format:Y-m'],
+            'months_count' => ['nullable', 'integer', 'min:1', 'max:36'],
         ]);
 
         $transaction = SinpeEmailTransaction::query()->findOrFail($id);
@@ -163,8 +191,11 @@ class SinpeEmailController extends Controller
         DB::transaction(function () use ($transaction, $validated) {
             $clientId    = (int) $validated['client_id'];
             $contractId  = (int) $validated['contract_id'];
-            $billingMonth = $validated['billing_month'] ?? null;
             $contract = Contract::query()->findOrFail($contractId);
+
+            if ((int) $contract->client_id !== $clientId) {
+                abort(422, 'El contrato no pertenece al cliente.');
+            }
             $amount      = (float) $transaction->amount;
             $reference   = $transaction->reference;
             $performedAt = $transaction->performed_at ?? now();
@@ -198,9 +229,13 @@ class SinpeEmailController extends Controller
             $metadata['sinpe_email_motive']         = $transaction->motive;
             $metadata['sinpe_email_conciliated_manually'] = true;
 
-            if ($billingMonth && $contract->billing_cycle === 'monthly') {
-                $metadata['sinpe_email_billing_month'] = $billingMonth;
-                $metadata['paid_for_month'] = $billingMonth;
+            $coveredMonths = $this->resolveSinpeConciliationCoveredMonths($contract, $validated);
+
+            if ($coveredMonths !== []) {
+                $metadata['sinpe_email_billing_month'] = $coveredMonths[0];
+                $metadata['paid_for_month'] = $coveredMonths[0];
+                $metadata['covered_months'] = $coveredMonths;
+                $metadata['months'] = count($coveredMonths);
             }
 
             if ($payment) {
@@ -252,6 +287,74 @@ class SinpeEmailController extends Controller
         });
 
         return redirect()->back()->with('success', 'Transacción enviada a revisión correctamente.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return list<string>
+     */
+    private function resolveSinpeConciliationCoveredMonths(Contract $contract, array $validated): array
+    {
+        if (! $this->contractSupportsMonthlyCoverage($contract)) {
+            return [];
+        }
+
+        $raw = $validated['covered_months'] ?? [];
+        $input = [];
+        if (is_array($raw)) {
+            foreach ($raw as $ym) {
+                if (is_string($ym) && preg_match('/^\d{4}-\d{2}$/', $ym) === 1) {
+                    $input[] = $ym;
+                }
+            }
+        }
+        $input = array_values(array_unique($input));
+        sort($input);
+
+        $billingMonth = $validated['billing_month'] ?? null;
+        if ($input !== []) {
+            return $input;
+        }
+
+        if (! is_string($billingMonth) || preg_match('/^\d{4}-\d{2}$/', $billingMonth) !== 1) {
+            return [];
+        }
+
+        $n = (int) ($validated['months_count'] ?? 1);
+        $n = max(1, min(36, $n));
+
+        return $this->buildConsecutiveYearMonths($billingMonth, $n);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function buildConsecutiveYearMonths(string $anchorYm, int $count): array
+    {
+        $tz = config('app.timezone');
+        $start = Carbon::createFromFormat('Y-m-d', $anchorYm.'-01', $tz);
+        $out = [];
+        for ($i = 0; $i < $count; $i++) {
+            $out[] = $start->copy()->addMonths($i)->format('Y-m');
+        }
+
+        return $out;
+    }
+
+    private function contractSupportsMonthlyCoverage(?Contract $contract): bool
+    {
+        if (! $contract) {
+            return false;
+        }
+
+        $raw = $contract->billing_cycle;
+        if ($raw === null || $raw === '') {
+            return true;
+        }
+
+        $cycle = strtolower(trim((string) $raw));
+
+        return $cycle === 'monthly' || $cycle === 'mensual';
     }
 
     private function deleteMailboxMessage(SinpeEmailTransaction $transaction): bool

@@ -8,6 +8,7 @@ use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\Reminder;
 use App\Models\ReminderMessage;
+use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -343,6 +344,103 @@ class ReminderController extends Controller
         ]);
     }
 
+    public function sendManually(Reminder $reminder, WhatsAppNotificationService $whatsApp): RedirectResponse
+    {
+        if (! in_array($reminder->status, ['pending', 'failed'], true)) {
+            return back()->with('error', 'Solo puedes enviar manualmente recordatorios pendientes o fallidos.');
+        }
+
+        if ($reminder->channel !== 'whatsapp') {
+            return back()->with('error', 'El envío manual solo está disponible para recordatorios de WhatsApp.');
+        }
+
+        $reminder->loadMissing(['client:id,name,phone', 'contract.contractType']);
+        $phone = trim((string) ($reminder->client?->phone ?? ''));
+        if ($phone === '') {
+            return back()->with('error', 'Este recordatorio no tiene un teléfono de cliente válido.');
+        }
+
+        $message = $this->buildManualReminderMessage($reminder);
+        if ($message === '') {
+            return back()->with('error', 'No se pudo construir el mensaje del recordatorio.');
+        }
+
+        $sent = $whatsApp->sendTextMessage($phone, $message);
+        if (! $sent) {
+            return back()->with('error', 'No se pudo enviar el recordatorio manual por WhatsApp.');
+        }
+
+        $now = now(config('app.timezone'));
+        $reminder->forceFill([
+            'status' => 'sent',
+            'sent_at' => $now,
+            'queued_at' => null,
+            'last_attempt_at' => $now,
+            'last_resend_at' => $now,
+            'attempts' => ((int) ($reminder->attempts ?? 0)) + 1,
+            'response_payload' => array_merge($reminder->response_payload ?? [], [
+                'manual_send' => true,
+                'manual_sent_at' => $now->toIso8601String(),
+                'manual_sent_by' => auth()->id(),
+            ]),
+        ])->save();
+
+        $reminder->messages()->create([
+            'client_id' => (int) $reminder->client_id,
+            'direction' => 'outbound',
+            'message_type' => 'text',
+            'content' => $message,
+            'metadata' => [
+                'manual_send' => true,
+                'sent_by_user_id' => auth()->id(),
+            ],
+            'sent_at' => $now,
+        ]);
+
+        return back()->with('success', 'Recordatorio enviado manualmente por WhatsApp.');
+    }
+
+    private function buildManualReminderMessage(Reminder $reminder): string
+    {
+        $payload = is_array($reminder->payload) ? $reminder->payload : [];
+        $customMessage = trim((string) ($payload['message'] ?? ''));
+        if ($customMessage !== '') {
+            return $customMessage;
+        }
+
+        $clientName = trim((string) ($reminder->client?->name ?? '')) ?: 'cliente';
+        $contractName = trim((string) ($reminder->contract?->name ?? '')) ?: 'su contrato';
+        $amount = trim((string) ($payload['amount'] ?? $reminder->contract?->amount ?? ''));
+        $dueDate = trim((string) ($payload['due_date'] ?? ($reminder->contract?->next_due_date?->toDateString() ?? '')));
+
+        $template = $reminder->contract?->contractType?->default_message;
+        if (is_string($template) && trim($template) !== '') {
+            return strtr($template, [
+                '{client_name}' => $clientName,
+                '{contract_name}' => $contractName,
+                '{amount}' => $amount,
+                '{due_date}' => $dueDate,
+                '{services}' => '',
+            ]);
+        }
+
+        $parts = [
+            "Hola {$clientName}, te compartimos un recordatorio pendiente de {$contractName}.",
+        ];
+
+        if ($amount !== '') {
+            $parts[] = "Monto: {$amount}.";
+        }
+
+        if ($dueDate !== '') {
+            $parts[] = "Fecha de vencimiento: {$dueDate}.";
+        }
+
+        $parts[] = 'Si ya realizaste el pago, por favor envíanos el comprobante.';
+
+        return implode(' ', $parts);
+    }
+
     public function retry(Reminder $reminder): RedirectResponse
     {
         if (! in_array($reminder->status, ['queued', 'failed'], true)) {
@@ -406,11 +504,11 @@ class ReminderController extends Controller
             'client_id' => ['required', Rule::exists('clients', 'id')],
             'contract_id' => ['required', Rule::exists('contracts', 'id')],
             'channel' => ['required', 'string', 'max:50'],
-            'scheduled_for' => ['required', 'date'],
+            'scheduled_for' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
             'recurrence' => ['nullable', 'string', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'message' => ['nullable', 'string'],
             'amount' => ['nullable', 'string'],
-            'due_date' => ['nullable', 'date'],
+            'due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
         ]);
 
         $payload = array_filter([
@@ -419,11 +517,11 @@ class ReminderController extends Controller
             'due_date' => isset($data['due_date']) ? Carbon::parse($data['due_date'])->toDateString() : null,
         ], fn ($value) => $value !== null && $value !== '');
 
-        // Determine scheduled datetime. Preserve the exact datetime/time the
-        // user provided. If recurrence provided, include it in payload so
-        // the API can auto-create the next occurrence when appropriate.
-        $requested = Carbon::parse($data['scheduled_for']);
-        $scheduled = $requested;
+        // The UI submits a calendar date. The backend owns the delivery hour,
+        // preventing malformed mobile timestamps (for example dates in 1970).
+        $scheduled = Carbon::createFromFormat('Y-m-d', $data['scheduled_for'], config('app.timezone'))
+            ->startOfDay()
+            ->setTimeFromTimeString((string) config('reminders.send_time', '12:00'));
         if (!empty($data['recurrence'])) {
             $payload['recurrence'] = $data['recurrence'];
         }

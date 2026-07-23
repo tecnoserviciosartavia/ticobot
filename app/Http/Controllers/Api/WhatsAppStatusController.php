@@ -3,49 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Support\WhatsAppStatus;
+use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class WhatsAppStatusController extends Controller
 {
-    public function getStatus(): JsonResponse
+    public function getStatus(WhatsAppNotificationService $whatsApp): JsonResponse
     {
-        return response()->json(\App\Support\WhatsAppStatus::snapshot());
-    }
-
-    public function storeQr(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'qr' => ['required', 'string'],
-        ]);
-
-        WhatsAppStatus::storeQr($data['qr']);
-
-        return response()->json([
-            'status' => 'pending',
-        ]);
-    }
-
-    public function markReady(): JsonResponse
-    {
-        WhatsAppStatus::markReady();
-
-        return response()->json([
-            'status' => 'ready',
-        ]);
-    }
-
-    public function markDisconnected(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'reason' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        WhatsAppStatus::markDisconnected($data['reason'] ?? null);
-
-        return response()->json([
-            'status' => 'disconnected',
-        ]);
+        return response()->json(['status' => $whatsApp->isMetaConfigured() ? 'ready' : 'not_configured', 'transport' => 'meta_cloud_api', 'qr' => null]);
     }
 }

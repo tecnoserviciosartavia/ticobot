@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ACCOUNTING_SUBMENU_ITEMS } from '@/constants/accountingSubmenu';
 import { Button } from './button';
 import { Card } from './card';
 import { Badge } from './badge';
+import PwaInstallPrompt from './PwaInstallPrompt';
 import { 
   Menu, 
   X, 
@@ -16,7 +16,7 @@ import {
   MessageSquare,
   BarChart3,
   PieChart,
-  ChevronDown
+  ChevronDown,
 } from './icons';
 
 interface ResponsiveLayoutProps {
@@ -32,7 +32,6 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
   const page = usePage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [notifications, setNotifications] = useState(3);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [sidebarProfileMenuOpen, setSidebarProfileMenuOpen] = useState(false);
@@ -166,6 +165,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
     try {
       return Boolean(
         route().current('accounting.*') ||
+          route().current('finance.*') ||
           route().current('conciliations.*') ||
           route().current('payments.*') ||
           route().current('collections.*') ||
@@ -176,17 +176,14 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
     }
   }, [page.url]);
 
-  const [accountingExpanded, setAccountingExpanded] = useState(accountingRoutesActive);
-
-  useEffect(() => {
-    setAccountingExpanded(accountingRoutesActive);
-  }, [accountingRoutesActive, page.url]);
+  const currentUserForNav = user ?? (page.props as { auth?: { user?: { name?: string; profile_type?: string | null } } })?.auth?.user;
+  const unreadChats = Number((page.props as { notifications?: { unread_chats?: number } }).notifications?.unread_chats ?? 0);
+  const isAdminNav = !currentUserForNav?.profile_type || currentUserForNav.profile_type === 'admin';
 
   const AccountingNavBlock = ({ onNavigate }: { onNavigate?: () => void }) => (
-    <div className="space-y-1">
-      <button
-        type="button"
-        onClick={() => setAccountingExpanded((prev) => !prev)}
+      <a
+        href={route('finance.index')}
+        onClick={onNavigate}
         className={`flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
           accountingRoutesActive
             ? 'bg-gray-100 text-gray-900'
@@ -195,38 +192,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
       >
         <BarChart3 className="mr-3 h-5 w-5 shrink-0" />
         <span className="min-w-0 flex-1 text-left">Contabilidad</span>
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 text-gray-500 transition-transform ${accountingExpanded ? 'rotate-180' : ''}`}
-          aria-hidden
-        />
-      </button>
-      {accountingExpanded && (
-        <div className="ml-4 border-l-2 border-gray-200 py-1 pl-3 space-y-0.5">
-          {ACCOUNTING_SUBMENU_ITEMS.map((item) => {
-            let active = false;
-            try {
-              active = Boolean(route().current(item.routePattern));
-            } catch {
-              active = false;
-            }
-            return (
-              <Link
-                key={item.routeName}
-                href={route(item.routeName)}
-                onClick={onNavigate}
-                className={`block rounded-md px-2 py-1.5 text-sm transition-colors ${
-                  active
-                    ? 'bg-indigo-50 font-medium text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
+      </a>
   );
 
   const navigation = [
@@ -434,11 +400,11 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
           <div className="flex items-center space-x-4">
             {/* Notifications */}
             <div className="relative">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => router.visit('/chats')} title="Abrir chats pendientes">
                 <Bell className="w-5 h-5" />
-                {notifications > 0 && (
+                {unreadChats > 0 && (
                   <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {notifications}
+                    {unreadChats > 99 ? '99+' : unreadChats}
                   </span>
                 )}
               </Button>
@@ -447,8 +413,8 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
             {/* User menu */}
             <div className="flex items-center space-x-3">
               <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                <p className="text-xs text-gray-500">Administrador</p>
+                <p className="text-sm font-medium text-gray-900">{currentUserForNav?.name}</p>
+                <p className="text-xs text-gray-500">{isAdminNav ? 'Administrador' : 'Usuario'}</p>
               </div>
               <div className="relative">
                 <button
@@ -456,7 +422,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                   className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors"
                 >
                   <span className="text-white text-sm font-medium">
-                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    {currentUserForNav?.name?.charAt(0)?.toUpperCase() || 'U'}
                   </span>
                 </button>
 
@@ -541,15 +507,15 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
           <div className="flex items-center space-x-3">
             <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
               <span className="text-white text-sm font-medium">
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                {currentUserForNav?.name?.charAt(0)?.toUpperCase() || 'U'}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {user?.name || 'Usuario'}
+                {currentUserForNav?.name || 'Usuario'}
               </p>
               <p className="text-xs text-gray-500 truncate">
-                Administrador
+                {isAdminNav ? 'Administrador' : 'Usuario'}
               </p>
             </div>
             <div className="relative">
@@ -616,12 +582,12 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-full min-h-0 bg-gray-50">
       <Head title={title || 'TicoBOT'} />
       
       <MobileMenu />
       
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-full min-h-0 bg-gray-50">
         <Sidebar />
         
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:ml-64 ml-0">
@@ -643,6 +609,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
           </main>
         </div>
       </div>
+      <PwaInstallPrompt />
     </div>
   );
 }

@@ -3,8 +3,8 @@ import { Card } from '@/Components/card';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import ContractForm from '@/Pages/Contracts/Partials/ContractForm';
 import type { PageProps } from '@/types';
-import { Head, useForm } from '@inertiajs/react';
-import { FileText, Edit, ArrowLeft } from '@/Components/icons';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { ArrowLeft } from '@/Components/icons';
 
 interface ContractResource {
     id: number;
@@ -20,13 +20,23 @@ interface ContractResource {
     service_ids?: number[];
     service_quantities?: Record<string, number>;
     service_pins?: Record<string, string>;
+    service_account_ids?: Record<string, number>;
     status: string;
 }
 
 interface ContractsEditProps extends PageProps<{
     contract: ContractResource;
     clients: Array<{ id: number; name: string; phone?: string | null }>;
-    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
+    services: Array<{
+        id: number;
+        name: string;
+        price: string;
+        currency: string;
+        account_email?: string | null;
+        max_profiles?: number | null;
+        profiles_used?: number;
+        accounts?: Array<{ id: number; name?: string | null; identifier: string; is_active: boolean }>;
+    }>;
 }> {}
 
 export default function ContractsEdit({ contract, clients, services }: ContractsEditProps) {
@@ -43,6 +53,7 @@ export default function ContractsEdit({ contract, clients, services }: Contracts
         service_ids: (contract.service_ids ?? []) as number[],
         service_quantities: (contract.service_quantities ?? {}) as Record<string, number>,
         service_pins: (contract.service_pins ?? {}) as Record<string, string>,
+        service_account_ids: (contract.service_account_ids ?? {}) as Record<string, number>,
     });
 
     const submit: React.FormEventHandler<HTMLFormElement> = (event) => {
@@ -66,10 +77,12 @@ export default function ContractsEdit({ contract, clients, services }: Contracts
                                 </p>
                             </div>
                             <div className="flex gap-3">
-                                <Button variant="outline">
-                                    <ArrowLeft className="w-4 h-4 mr-2" />
-                                    Volver
-                                </Button>
+                                <Link href={route('contracts.show', contract.id)}>
+                                    <Button type="button" variant="outline">
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Volver
+                                    </Button>
+                                </Link>
                             </div>
                         </div>
                     </div>

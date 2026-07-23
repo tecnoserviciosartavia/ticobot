@@ -25,6 +25,7 @@ class ServiceController extends Controller
             ->toArray();
 
         $services = Service::query()
+            ->with(['accounts' => fn ($query) => $query->orderBy('identifier')])
             ->orderBy('name')
             ->get()
             ->map(fn (Service $s) => [
@@ -41,6 +42,12 @@ class ServiceController extends Controller
                 'currency' => $s->currency,
                 'is_active' => (bool) $s->is_active,
                 'updated_at' => $s->updated_at?->toIso8601String(),
+                'accounts' => $s->accounts->map(fn ($account) => [
+                    'id' => $account->id,
+                    'name' => $account->name,
+                    'identifier' => $account->identifier,
+                    'is_active' => (bool) $account->is_active,
+                ])->values()->all(),
             ]);
 
         return Inertia::render('Settings/Services/Index', [

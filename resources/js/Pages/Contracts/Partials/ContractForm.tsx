@@ -2,6 +2,7 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import DatePickerInput from '@/Components/DatePickerInput';
 import { Link } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, FormEventHandler } from 'react';
@@ -25,13 +26,25 @@ interface ContractFormData {
     service_ids?: number[];
     service_quantities?: Record<string, number>;
     service_pins?: Record<string, string>;
+    service_account_ids?: Record<string, number>;
+}
+
+interface ServiceOption {
+    id: number;
+    name: string;
+    price: string;
+    currency: string;
+    account_email?: string | null;
+    max_profiles?: number | null;
+    profiles_used?: number;
+    accounts?: Array<{ id: number; name?: string | null; identifier: string; is_active: boolean }>;
 }
 
 interface ContractFormProps {
     data: ContractFormData;
     errors: Record<string, string | undefined>;
     clients: ClientOption[];
-    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
+    services: ServiceOption[];
     processing: boolean;
     submitLabel: string;
     onSubmit: FormEventHandler<HTMLFormElement>;
@@ -53,6 +66,14 @@ const currencySymbol = (currency: string | null | undefined) => {
             return (currency ?? '').toUpperCase() || '';
     }
 };
+
+const serviceAccountIdentifiers = (service: ServiceOption) =>
+    Array.from(new Set([
+        service.account_email?.trim(),
+        ...(service.accounts ?? [])
+            .filter((account) => account.is_active)
+            .map((account) => account.identifier?.trim()),
+    ].filter((identifier): identifier is string => Boolean(identifier))));
 
 export default function ContractForm({
     data,
@@ -119,6 +140,7 @@ export default function ContractForm({
     const selectedServices = services.filter((s) => selectedIds.includes(s.id));
     const quantities = (data.service_quantities ?? {}) as Record<string, number>;
     const servicePins = (data.service_pins ?? {}) as Record<string, string>;
+    const serviceAccountIds = (data.service_account_ids ?? {}) as Record<string, number>;
     const getQty = (serviceId: number) => {
         const q = Number((quantities as any)[String(serviceId)] ?? 1);
         return Number.isFinite(q) && q > 0 ? Math.floor(q) : 1;
@@ -290,6 +312,15 @@ export default function ContractForm({
                                 if (!values.includes(idNum)) delete nextQ[key];
                             }
                             onChange('service_quantities', nextQ);
+
+                            const nextAccounts: Record<string, number> = { ...(data.service_account_ids ?? {}) };
+                            for (const key of Object.keys(nextAccounts)) {
+                                const idNum = Number(key);
+                                if (!values.includes(idNum)) {
+                                    delete nextAccounts[key];
+                                }
+                            }
+                            onChange('service_account_ids', nextAccounts);
                         }}
                         className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
                         required
@@ -297,12 +328,13 @@ export default function ContractForm({
                     >
                         {services.map((s) => {
                             const isFull = s.max_profiles != null && (s.profiles_used ?? 0) >= s.max_profiles;
+                            const accountIdentifiers = serviceAccountIdentifiers(s);
                             const slotLabel = s.max_profiles != null
                                 ? ` [${s.profiles_used ?? 0}/${s.max_profiles}${isFull ? ' LLENO' : ''}]`
                                 : '';
                             return (
                                 <option key={s.id} value={s.id}>
-                                    {s.name}{s.account_email ? ` (${s.account_email})` : ''}{slotLabel} — {currencySymbol(s.currency)} {Number.parseFloat(s.price || '0').toFixed(2)}
+                                    {s.name}{accountIdentifiers.length ? ` — ${accountIdentifiers.join(' · ')}` : ' — Sin correo vinculado'}{slotLabel} — {currencySymbol(s.currency)} {Number.parseFloat(s.price || '0').toFixed(2)}
                                 </option>
                             );
                         })}
@@ -359,6 +391,52 @@ export default function ContractForm({
                             </div>
                             <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                                 Usa esto cuando un contrato lleva el mismo servicio varias veces (ej: Netflix x2).
+                            </div>
+
+                            <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+                                <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">Cuenta / subcuenta por servicio</div>
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Selecciona una subcuenta si el servicio no se aplica con la cuenta principal. Si no eliges ninguna, se usará la cuenta principal del servicio.
+                                </div>
+                                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                                    {selectedServices
+                                        .slice()
+                                        .sort((a, b) => a.name.localeCompare(b.name))
+                                        .map((service) => {
+                                            const key = String(service.id);
+                                            const selectedAccountId = serviceAccountIds[key] ?? '';
+                                            return (
+                                                <label key={service.id} className="rounded-md border border-gray-200 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-800">
+                                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                                        {service.name}{service.account_email ? ` — ${service.account_email}` : ''}
+                                                    </div>
+                                                    <select
+                                                        value={String(selectedAccountId)}
+                                                        onChange={(ev) => {
+                                                            const next = { ...(data.service_account_ids ?? {}) } as Record<string, number>;
+                                                            if (ev.target.value === '') {
+                                                                delete next[key];
+                                                            } else {
+                                                                next[key] = Number(ev.target.value);
+                                                            }
+                                                            onChange('service_account_ids', next);
+                                                        }}
+                                                        className="mt-2 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    >
+                                                        <option value="">Cuenta principal{service.account_email ? ` — ${service.account_email}` : ''}</option>
+                                                        {service.accounts?.map((account) => (
+                                                            <option key={account.id} value={account.id}>
+                                                                {account.identifier}{account.name ? ` — ${account.name}` : ''}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                                        {service.accounts?.length ? `${service.accounts.length} subcuenta(s) disponibles` : 'No hay subcuentas registradas para este servicio.'}
+                                                    </div>
+                                                </label>
+                                            );
+                                        })}
+                                </div>
                             </div>
 
                             <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
@@ -528,7 +606,7 @@ export default function ContractForm({
 
                 <div>
                     <InputLabel htmlFor="next_due_date" value="Próxima fecha de cobro" />
-                    <TextInput
+                    <DatePickerInput
                         id="next_due_date"
                         name="next_due_date"
                         type="date"

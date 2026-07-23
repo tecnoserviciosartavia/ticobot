@@ -3,6 +3,10 @@
 .env
 .env.backup
 .env.production
+/.env.local
+/.codex/
+/.wwebjs_cache/
+/android/app/google-services.json
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -18,6 +22,7 @@
 /public/storage
 /storage/*.key
 /storage/backups/
+/storage/whatsapp-session/
 /storage/pail
 /vendor
 Homestead.json

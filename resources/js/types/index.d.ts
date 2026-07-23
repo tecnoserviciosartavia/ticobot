@@ -11,6 +11,9 @@ export interface User {
         platform_cost_due?: boolean;
         conciliation_pending?: boolean;
         whatsapp_manual_pause_events?: boolean;
+        whatsapp_help_requests?: boolean;
+        whatsapp_incoming_messages?: boolean;
+        whatsapp_incoming_messages?: boolean;
     };
 }
 

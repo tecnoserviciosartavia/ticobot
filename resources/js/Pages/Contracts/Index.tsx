@@ -17,7 +17,6 @@ import {
   Eye, 
   Users,
   Calendar,
-  DollarSign,
   Clock,
   TrendingUp,
   CheckCircle
@@ -34,6 +33,7 @@ interface ContractSummary {
     client: { id: number; name: string } | null;
     reminders_count: number;
     payments_count: number;
+    services_label?: string;
     updated_at: string | null;
 }
 
@@ -46,7 +46,7 @@ interface Paginated<T> {
 interface ContractsPageProps extends PageProps {
     contracts: Paginated<ContractSummary>;
     filters: {
-        client_query?: string;
+        search?: string;
         billing_cycle?: string;
         status?: string;
     };
@@ -58,7 +58,7 @@ export default function ContractsIndex() {
     const { props } = usePage<ContractsPageProps>();
     const { contracts, filters, flashSuccess, flashError } = props;
     
-    const [search, setSearch] = useState(filters.client_query || '');
+    const [search, setSearch] = useState(filters.search || '');
     const [billingCycleFilter, setBillingCycleFilter] = useState(filters.billing_cycle || '');
     const [statusFilter, setStatusFilter] = useState(filters.status || '');
     const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -74,8 +74,15 @@ export default function ContractsIndex() {
         return matchesSearch && matchesBillingCycle && matchesStatus;
     });
 
-    const handleDelete = (contractId: number, contractName: string) => {
-        if (confirm(`⚠️ ¿Estás seguro de que deseas eliminar el contrato "${contractName}"?\n\nEsta acción NO se puede deshacer.`)) {
+    const handleDelete = (contractId: number, contractName: string, servicesLabel?: string) => {
+        const platforms = (servicesLabel ?? '').trim();
+        const platformLine = platforms ? `\n\nPlataformas: ${platforms}` : '';
+        if (
+            confirm(
+                `⚠️ ¿Estás seguro de que deseas eliminar el contrato "${contractName}"?${platformLine}\n\n` +
+                    'Esta acción NO se puede deshacer. Si el cliente tiene teléfono, se enviará un WhatsApp de baja indicando las plataformas afectadas.',
+            )
+        ) {
             setDeletingId(contractId);
             router.delete(route('contracts.destroy', contractId), {
                 preserveScroll: true,
@@ -86,7 +93,7 @@ export default function ContractsIndex() {
 
     const applyFilters = () => {
         router.get(route('contracts.index'), {
-            client_query: search || undefined,
+            search: search || undefined,
             billing_cycle: billingCycleFilter || undefined,
             status: statusFilter || undefined,
         }, {
@@ -216,7 +223,7 @@ export default function ContractsIndex() {
                     </Card>
 
                     {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <Card className="p-6">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
@@ -225,22 +232,6 @@ export default function ContractsIndex() {
                                 <div className="ml-4">
                                     <p className="text-sm font-medium text-gray-600">Total Contratos</p>
                                     <p className="text-2xl font-bold text-gray-900">{contracts.data.length}</p>
-                                </div>
-                            </div>
-                        </Card>
-                        <Card className="p-6">
-                            <div className="flex items-center">
-                                <div className="flex-shrink-0">
-                                    <DollarSign className="h-8 w-8 text-green-600" />
-                                </div>
-                                <div className="ml-4">
-                                    <p className="text-sm font-medium text-gray-600">Valor Total</p>
-                                    <p className="text-2xl font-bold text-gray-900">
-                                        {formatCurrency(
-                                            contracts.data.reduce((sum, c) => sum + parseFloat(c.amount || '0'), 0).toString(),
-                                            'CRC'
-                                        )}
-                                    </p>
                                 </div>
                             </div>
                         </Card>
@@ -411,7 +402,7 @@ export default function ContractsIndex() {
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            onClick={() => handleDelete(contract.id, contract.name)}
+                                                            onClick={() => handleDelete(contract.id, contract.name, contract.services_label)}
                                                             disabled={deletingId === contract.id}
                                                             className="text-red-600 hover:text-red-700"
                                                         >

@@ -6,6 +6,11 @@ const config: CapacitorConfig = {
   appId: 'com.ticocast.ticobot',
   appName: 'TicoCast',
   webDir: 'public/build',
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+  },
   server: {
     url: serverUrl,
     cleartext: true,

@@ -2,11 +2,12 @@ import { Button } from '@/Components/button';
 import { Card } from '@/Components/card';
 import { Badge } from '@/Components/badge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
+import FinanceNav from '@/Components/FinanceNav';
 import { Head, router } from '@inertiajs/react';
 import { Dialog, Transition } from '@headlessui/react';
 import axios from 'axios';
 import { Fragment, useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, ArrowLeft, BarChart3, PieChart, Activity, Users, Settings, Eye } from '@/Components/icons';
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, PieChart, Activity, Users, Settings, Eye } from '@/Components/icons';
 
 interface ServiceProfit {
     id: number | null;
@@ -104,29 +105,12 @@ export default function AccountingIndicators({ selected_month, selected_month_la
     };
 
     return (
-        <ResponsiveLayout title="Indicadores">
+        <ResponsiveLayout title="Indicadores" contentWidth="full">
             <Head title="Indicadores" />
 
-            <div className="py-6">
+            <div className="space-y-5 py-5">
+                <FinanceNav active="indicators" periodLabel={selected_month_label} />
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Indicadores</h1>
-                                <p className="mt-2 text-gray-600">
-                                    Análisis de rentabilidad y métricas por plataforma y servicio.
-                                </p>
-                            </div>
-                            <div className="flex gap-3">
-                                <Button variant="outline">
-                                    <ArrowLeft className="w-4 h-4 mr-2" />
-                                    Volver
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-
                     <div className="space-y-8">
 
                         <Card className="p-6">

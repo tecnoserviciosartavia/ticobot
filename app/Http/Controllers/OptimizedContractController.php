@@ -312,7 +312,7 @@ class OptimizedContractController extends Controller
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'billing_cycle' => ['required', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
-            'next_due_date' => ['nullable', 'date'],
+            'next_due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
             'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:60'],
             'service_ids' => ['required', 'array', 'min:1'],

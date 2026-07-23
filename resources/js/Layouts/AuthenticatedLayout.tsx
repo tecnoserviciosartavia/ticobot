@@ -1,8 +1,10 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
+import PwaInstallPrompt from '@/Components/PwaInstallPrompt';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import ThemeToggle from '@/Components/ThemeToggle';
+import { FileText, Home, Menu, MessageSquare, Users, X } from '@/Components/icons';
 import { registerPushDeviceForApp } from '@/mobile/registerPushDevice';
 import { Link, usePage } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useEffect, useState } from 'react';
@@ -11,19 +13,65 @@ export default function Authenticated({
     header,
     children,
 }: PropsWithChildren<{ header?: ReactNode }>) {
-    const user = usePage().props.auth.user;
+    const page = usePage();
+    const user = page.props.auth.user;
+    const webPushPublicKey = (page.props as any)?.push?.web_public_key ?? null;
     const isAdmin = !user.profile_type || user.profile_type === 'admin';
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
+    const [pushBanner, setPushBanner] = useState<{ title: string; body: string; url: string; phone: string } | null>(null);
 
     useEffect(() => {
-        registerPushDeviceForApp();
+        const handler = (event: Event) => {
+            const detail = (event as CustomEvent<{ title: string; body: string; url: string; phone: string }>).detail;
+            if (!detail) {
+                return;
+            }
+
+            setPushBanner(detail);
+            window.clearTimeout((window as Window & { __ticobotPushTimer?: number }).__ticobotPushTimer);
+            (window as Window & { __ticobotPushTimer?: number }).__ticobotPushTimer = window.setTimeout(() => {
+                setPushBanner(null);
+            }, 7000);
+        };
+
+        window.addEventListener('ticobot-push-received', handler);
+        return () => window.removeEventListener('ticobot-push-received', handler);
     }, []);
+
+    useEffect(() => {
+        void registerPushDeviceForApp({ webPublicKey: webPushPublicKey });
+    }, [webPushPublicKey]);
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900 dark:text-gray-100">
-            <nav className="border-b border-gray-100 bg-white dark:bg-gray-800 dark:border-gray-700">
+            {pushBanner && (
+                <div className="fixed right-4 top-4 z-50 w-[min(92vw,26rem)] rounded-2xl border border-emerald-200 bg-white/95 p-4 shadow-2xl backdrop-blur dark:border-emerald-900 dark:bg-gray-900/95">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400">
+                        Nuevo mensaje
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-50">
+                        {pushBanner.title}
+                    </div>
+                    <div className="mt-1 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                        {pushBanner.body || 'Tocá para abrir el chat.'}
+                    </div>
+                    {pushBanner.url && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                window.location.assign(pushBanner.url);
+                                setPushBanner(null);
+                            }}
+                            className="mt-3 inline-flex items-center rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
+                        >
+                            Abrir chat
+                        </button>
+                    )}
+                </div>
+            )}
+            <nav className="sticky top-0 z-40 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
                 <div className="w-full px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 justify-between">
                         <div className="flex">
@@ -70,8 +118,9 @@ export default function Authenticated({
                                 </NavLink>
                                 {isAdmin && (
                                     <NavLink
-                                        href={route('accounting.index')}
+                                        href={route('finance.index')}
                                         active={
+                                            route().current('finance.*') ||
                                             route().current('accounting.*') ||
                                             route().current('payments.*') ||
                                             route().current('collections.*') ||
@@ -144,44 +193,21 @@ export default function Authenticated({
                             </div>
                         </div>
 
-                        <div className="-me-2 flex items-center sm:hidden">
+                        <div className="flex flex-1 items-center justify-between sm:hidden">
+                            <div className="ml-3 min-w-0">
+                                <p className="truncate text-base font-bold text-gray-900 dark:text-white">TicoBot</p>
+                                <p className="truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">Gestión de cobros</p>
+                            </div>
                             <button
                                 onClick={() =>
                                     setShowingNavigationDropdown(
                                         (previousState) => !previousState,
                                     )
                                 }
-                                className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none dark:hover:bg-gray-700 dark:hover:text-gray-300 dark:focus:bg-gray-700 dark:focus:text-gray-300"
+                                aria-label={showingNavigationDropdown ? 'Cerrar menú' : 'Abrir menú'}
+                                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-gray-600 transition active:bg-gray-200 dark:text-gray-200 dark:active:bg-gray-700"
                             >
-                                <svg
-                                    className="h-6 w-6"
-                                    stroke="currentColor"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        className={
-                                            !showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M4 6h16M4 12h16M4 18h16"
-                                    />
-                                    <path
-                                        className={
-                                            showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                    />
-                                </svg>
+                                {showingNavigationDropdown ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
                             </button>
                         </div>
                     </div>
@@ -190,7 +216,7 @@ export default function Authenticated({
                 <div
                     className={
                         (showingNavigationDropdown ? 'block' : 'hidden') +
-                        ' sm:hidden'
+                        ' fixed inset-x-0 top-16 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 overflow-y-auto border-t border-gray-100 bg-white shadow-2xl sm:hidden dark:border-gray-700 dark:bg-gray-800'
                     }
                 >
                     <div className="space-y-1 pb-3 pt-2">
@@ -230,8 +256,9 @@ export default function Authenticated({
                         </ResponsiveNavLink>
                         {isAdmin && (
                             <ResponsiveNavLink
-                                href={route('accounting.index')}
+                                href={route('finance.index')}
                                 active={
+                                    route().current('finance.*') ||
                                     route().current('accounting.*') ||
                                     route().current('payments.*') ||
                                     route().current('collections.*') ||
@@ -294,7 +321,28 @@ export default function Authenticated({
                 </header>
             )}
 
-            <main>{children}</main>
+            <main className="pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-0">{children}</main>
+
+            <nav aria-label="Navegación principal" className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden dark:border-gray-700 dark:bg-gray-900/95">
+                <div className="grid h-[4.5rem] grid-cols-5">
+                    {[
+                        { label: 'Inicio', href: isAdmin ? route('dashboard') : route('clients.index'), active: isAdmin ? route().current('dashboard') : route().current('clients.*'), Icon: Home },
+                        { label: 'Clientes', href: route('clients.index'), active: route().current('clients.*'), Icon: Users },
+                        { label: 'Contratos', href: route('contracts.index'), active: route().current('contracts.*'), Icon: FileText },
+                        { label: 'Chats', href: route('chats.index'), active: route().current('chats.*'), Icon: MessageSquare },
+                    ].map(({ label, href, active, Icon }) => (
+                        <Link key={label} href={href} onClick={() => setShowingNavigationDropdown(false)} className={`flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] font-semibold transition active:bg-emerald-50 dark:active:bg-emerald-950/30 ${active ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            <span className={`rounded-full px-4 py-1 ${active ? 'bg-emerald-100 dark:bg-emerald-900/50' : ''}`}><Icon className="h-5 w-5" /></span>
+                            <span className="truncate">{label}</span>
+                        </Link>
+                    ))}
+                    <button type="button" onClick={() => setShowingNavigationDropdown((open) => !open)} className={`flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] font-semibold transition active:bg-emerald-50 dark:active:bg-emerald-950/30 ${showingNavigationDropdown ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <span className={`rounded-full px-4 py-1 ${showingNavigationDropdown ? 'bg-emerald-100 dark:bg-emerald-900/50' : ''}`}><Menu className="h-5 w-5" /></span>
+                        <span>Más</span>
+                    </button>
+                </div>
+            </nav>
+            <PwaInstallPrompt />
         </div>
     );
 }

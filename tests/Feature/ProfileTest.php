@@ -109,6 +109,8 @@ class ProfileTest extends TestCase
                 'platform_cost_due' => true,
                 'conciliation_pending' => false,
                 'whatsapp_manual_pause_events' => true,
+                'whatsapp_help_requests' => true,
+                'whatsapp_incoming_messages' => true,
             ]);
 
         $response
@@ -123,5 +125,6 @@ class ProfileTest extends TestCase
         $this->assertTrue((bool) ($prefs['platform_cost_due'] ?? false));
         $this->assertFalse((bool) ($prefs['conciliation_pending'] ?? true));
         $this->assertTrue((bool) ($prefs['whatsapp_manual_pause_events'] ?? false));
+        $this->assertTrue((bool) ($prefs['whatsapp_incoming_messages'] ?? false));
     }
 }

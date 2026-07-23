@@ -21,7 +21,6 @@ const configSchema = z.object({
     .optional()
     .transform((value) => (value ? Number.parseInt(value, 10) : 20))
     .pipe(z.number().int().min(1).max(100)),
-  sessionPath: z.string().default('storage/whatsapp-session'),
   defaultCountryCode: z.string().default('506'),
   logLevel: z.string().default('info')
   ,
@@ -31,7 +30,8 @@ const configSchema = z.object({
   bankAccountsRaw: z.string().optional(),
   beneficiaryName: z.string().optional(),
   serviceName: z.string().optional(),
-  companyName: z.string().optional()
+  companyName: z.string().optional(),
+  overdueBalanceWhatsAppNotice: z.string().optional(),
 });
 
 const parsed = configSchema.parse({
@@ -40,7 +40,6 @@ const parsed = configSchema.parse({
   pollIntervalMs: process.env.BOT_POLL_INTERVAL_MS,
   lookAheadMinutes: process.env.BOT_LOOK_AHEAD_MINUTES,
   maxBatch: process.env.BOT_MAX_BATCH,
-  sessionPath: process.env.BOT_SESSION_PATH,
   defaultCountryCode: process.env.BOT_DEFAULT_COUNTRY_CODE,
   logLevel: process.env.BOT_LOG_LEVEL
   ,
@@ -50,7 +49,8 @@ const parsed = configSchema.parse({
   bankAccountsRaw: process.env.BOT_BANK_ACCOUNTS,
   beneficiaryName: process.env.BOT_BENEFICIARY_NAME,
   serviceName: process.env.BOT_SERVICE_NAME,
-  companyName: process.env.BOT_COMPANY_NAME
+  companyName: process.env.BOT_COMPANY_NAME,
+  overdueBalanceWhatsAppNotice: process.env.BOT_OVERDUE_BALANCE_WHATSAPP_NOTICE,
 });
 
 export type AppConfig = z.infer<typeof configSchema> & {
@@ -63,6 +63,7 @@ export type AppConfig = z.infer<typeof configSchema> & {
   serviceName?: string;
   companyName?: string;
   reminderTemplate?: string;
+  overdueBalanceWhatsAppNotice?: string;
 };
 
 export const config: AppConfig = {
@@ -82,7 +83,11 @@ export const config: AppConfig = {
   ,
   beneficiaryName: (parsed as any).beneficiaryName ?? '',
   serviceName: (parsed as any).serviceName ?? '',
-  companyName: (parsed as any).companyName ?? ''
-  ,
+  companyName: (parsed as any).companyName ?? '',
+  overdueBalanceWhatsAppNotice:
+    typeof parsed.overdueBalanceWhatsAppNotice === 'string' &&
+    String(parsed.overdueBalanceWhatsAppNotice).trim() !== ''
+      ? String(parsed.overdueBalanceWhatsAppNotice).trim()
+      : undefined,
   reminderTemplate: ''
 };

@@ -1,5 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* Force dark visuals for accounting sections regardless of the global theme toggle. */
 
+html,
+body,
+#app {
+    height: 100%;
+}
+
+/* Force dark visuals for accounting sections regardless of the global theme toggle. */

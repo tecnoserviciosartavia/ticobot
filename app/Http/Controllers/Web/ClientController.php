@@ -8,6 +8,7 @@ use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\Reminder;
 use App\Models\Service;
+use App\Models\WhatsappChatMessage;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -155,7 +156,7 @@ class ClientController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         $statuses = Client::query()
             ->select('status')
@@ -196,6 +197,14 @@ class ClientController extends Controller
             'statuses' => $statuses,
             'defaultStatus' => 'active',
             'services' => $services,
+            'prefill' => [
+                'name' => trim((string) $request->query('name', '')),
+                'phone' => trim((string) $request->query('phone', '')),
+                'notes' => $request->boolean('from_chat')
+                    ? 'Cliente creado desde una conversación de WhatsApp.'
+                    : '',
+                'from_chat' => $request->boolean('from_chat'),
+            ],
         ]);
     }
 
@@ -221,6 +230,15 @@ class ClientController extends Controller
             }
         }
 
+        if ($request->boolean('from_chat')) {
+            $chatPhone = WhatsappChatMessage::normalizePhone((string) $request->input('chat_phone', $client->phone));
+            if ($chatPhone !== '') {
+                return redirect()
+                    ->route('chats.show', $chatPhone)
+                    ->with('success', 'Cliente creado desde la conversación.');
+            }
+        }
+
         return redirect()->route('clients.show', $client);
     }
 
@@ -230,6 +248,7 @@ class ClientController extends Controller
 
         $contracts = Contract::query()
             ->where('client_id', $client->id)
+            ->with(['services'])
             ->withCount(['payments'])
             ->latest('updated_at')
             ->limit(5)
@@ -242,6 +261,7 @@ class ClientController extends Controller
                 'billing_cycle' => $contract->billing_cycle,
                 'next_due_date' => $contract->next_due_date?->toDateString(),
                 'payments_count' => (int) $contract->payments_count,
+                'services_label' => $contract->servicesLabelForMessaging(),
                 'updated_at' => $contract->updated_at?->toIso8601String(),
             ]);
 
@@ -694,8 +714,18 @@ class ClientController extends Controller
             // Delete all payments
             $client->payments()->delete();
 
-            // Get all contracts to delete their reminders
-            $contracts = $client->contracts()->get();
+            // Get all contracts (with services) to compute platform summary and delete reminders
+            $contracts = $client->contracts()->with('services')->get();
+            $platformLabels = [];
+            foreach ($contracts as $contract) {
+                $label = trim($contract->servicesLabelForMessaging());
+                if ($label !== '') {
+                    $platformLabels[] = $label;
+                }
+            }
+            $platformLabels = array_values(array_unique($platformLabels));
+            $platformSummary = implode('; ', $platformLabels);
+
             foreach ($contracts as $contract) {
                 // Delete reminders associated with this contract
                 $contract->reminders()->delete();
@@ -713,7 +743,10 @@ class ClientController extends Controller
             DB::commit();
 
             if (!empty($clientPhone)) {
-                $farewellMessage = "Lamentamos que no quisieras renovar con nosotros las plataformas, hemos eliminado los perfiles asignados.\n\n"
+                $platformsDetail = $platformSummary !== ''
+                    ? " Hemos eliminado los perfiles de las siguientes plataformas: {$platformSummary}."
+                    : ' Hemos eliminado los perfiles asignados.';
+                $farewellMessage = "Lamentamos que no quisieras renovar con nosotros.{$platformsDetail}\n\n"
                     . "Si desea renovar y volver a disfrutar de nuestros servicios solamente escríbenos y activamos nuevamente su perfil.";
 
                 try {
@@ -733,9 +766,13 @@ class ClientController extends Controller
                 }
             }
 
+            $successNote = ! empty(trim((string) $clientPhone))
+                ? ' Se envió mensaje de baja por WhatsApp con el detalle de las plataformas.'
+                : '';
+
             return redirect()
                 ->route('clients.index')
-                ->with('success', "Cliente '{$clientName}' y todos sus datos asociados han sido eliminados correctamente.");
+                ->with('success', "Cliente '{$clientName}' y todos sus datos asociados han sido eliminados correctamente.{$successNote}");
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Error al eliminar el cliente: ' . $e->getMessage());

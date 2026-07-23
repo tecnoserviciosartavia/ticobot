@@ -4,6 +4,7 @@ import { Badge } from '@/Components/badge';
 import Pagination from '@/Components/Pagination';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import StatusBadge from '@/Components/StatusBadge';
+import DatePickerInput from '@/Components/DatePickerInput';
 import type { PageProps } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { labelForBillingCycle, labelForChannel, labelForStatus } from '@/lib/labels';
@@ -131,6 +132,7 @@ export default function RemindersIndex() {
     const [scheduledTo, setScheduledTo] = useState(filters.scheduled_to || '');
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [retryingId, setRetryingId] = useState<number | null>(null);
+    const [sendingId, setSendingId] = useState<number | null>(null);
 
     useEffect(() => {
         setSearch(filters.client_query || '');
@@ -227,6 +229,18 @@ export default function RemindersIndex() {
             {
                 preserveScroll: true,
                 onFinish: () => setRetryingId(null),
+            },
+        );
+    };
+
+    const handleManualSend = (reminderId: number) => {
+        setSendingId(reminderId);
+        router.post(
+            route('reminders.send-manually', reminderId),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setSendingId(null),
             },
         );
     };
@@ -464,22 +478,22 @@ export default function RemindersIndex() {
                                             <Calendar className="h-3.5 w-3.5 shrink-0" />
                                             Programado desde
                                         </label>
-                                        <input
+                                        <DatePickerInput
                                             type="date"
                                             value={scheduledFrom}
                                             onChange={(e) => setScheduledFrom(e.target.value)}
-                                            className="block w-full min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="w-full min-w-0 text-sm"
                                         />
                                     </div>
                                     <div>
                                         <label className="mb-1.5 block text-xs font-medium text-gray-600">
                                             Programado hasta
                                         </label>
-                                        <input
+                                        <DatePickerInput
                                             type="date"
                                             value={scheduledTo}
                                             onChange={(e) => setScheduledTo(e.target.value)}
-                                            className="block w-full min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            className="w-full min-w-0 text-sm"
                                         />
                                     </div>
                                 </div>
@@ -680,6 +694,18 @@ export default function RemindersIndex() {
                                                                     className="shrink-0"
                                                                 >
                                                                     <RefreshCw className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+                                                            {reminder.channel === 'whatsapp' && ['pending', 'failed'].includes(reminder.status) && (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => handleManualSend(reminder.id)}
+                                                                    disabled={sendingId === reminder.id}
+                                                                    title="Enviar manualmente por WhatsApp"
+                                                                    className="shrink-0 text-emerald-700 hover:text-emerald-800"
+                                                                >
+                                                                    <Send className="h-4 w-4" />
                                                                 </Button>
                                                             )}
                                                             <Link href={route('reminders.show', reminder.id)}>

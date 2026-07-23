@@ -1,14 +1,13 @@
 import { Button } from '@/Components/button';
 import { Card } from '@/Components/card';
-import { Badge } from '@/Components/badge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { registerPushDeviceForApp } from '@/mobile/registerPushDevice';
 import type { PageProps } from '@/types';
-import WhatsAppConnectionCard, { WhatsAppStatus } from '@/Pages/Profile/Partials/WhatsAppConnectionCard';
+import UpdatePushNotificationPreferencesForm from '@/Pages/Profile/Partials/UpdatePushNotificationPreferencesForm';
 import LogsTab from '@/Pages/Settings/General/Partials/LogsTab';
 import { useRef, useState } from 'react';
-import { usePage } from '@inertiajs/react';
-import { Settings, ArrowLeft, Save, RefreshCw, Download, Upload, Eye, EyeOff } from '@/Components/icons';
+import { Settings, ArrowLeft, Save, RefreshCw, Download, Upload, Eye, EyeOff, Bell } from '@/Components/icons';
 
 type ServiceItem = {
     id: number;
@@ -27,7 +26,15 @@ type LogSource = {
 
 type Props = PageProps<{
     settings: Record<string, string>;
-    whatsapp?: WhatsAppStatus;
+    pushNotificationPreferences: {
+        daily_expected_payments: boolean;
+        overdue_payments: boolean;
+        platform_cost_due: boolean;
+        conciliation_pending: boolean;
+        whatsapp_manual_pause_events: boolean;
+        whatsapp_help_requests: boolean;
+        whatsapp_incoming_messages: boolean;
+    };
     services: ServiceItem[];
     logSources: LogSource[];
     logDefaultSource: string;
@@ -44,12 +51,16 @@ const currencySymbol = (currency: string) => {
     }
 };
 
-export default function SettingsIndex({ settings, whatsapp, services, logSources, logDefaultSource }: Props) {
+export default function SettingsIndex({ settings, services, logSources, logDefaultSource, pushNotificationPreferences }: Props) {
     const page = usePage();
     const flash = (page.props as any)?.flash ?? {};
-    const [activeTab, setActiveTab] = useState<'whatsapp' | 'general' | 'mail' | 'services' | 'logs'>(() => (whatsapp ? 'whatsapp' : 'general'));
+    const webPushPublicKey = (page.props as any)?.push?.web_public_key ?? null;
+    const [activeTab, setActiveTab] = useState<'general' | 'mail' | 'services' | 'logs' | 'notifications'>('general');
     const [testSending, setTestSending] = useState(false);
     const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [pushGuide, setPushGuide] = useState<'android' | 'ios'>('android');
+    const [pushActivationStatus, setPushActivationStatus] = useState<string | null>(null);
+    const [pushActivationBusy, setPushActivationBusy] = useState(false);
 
     const form = useForm({
         company_name: settings.company_name ?? '',
@@ -144,30 +155,78 @@ export default function SettingsIndex({ settings, whatsapp, services, logSources
                             <div>
                                 <h1 className="text-3xl font-bold text-gray-900">Configuración del sistema</h1>
                                 <p className="mt-2 text-gray-600">
-                                    Administra la configuración general, WhatsApp, correo y servicios del sistema.
+                                    Administra la configuración general, correo, notificaciones y servicios del sistema.
                                 </p>
                             </div>
                             <div className="flex gap-3">
-                                <Button variant="outline">
-                                    <ArrowLeft className="w-4 h-4 mr-2" />
-                                    Volver
-                                </Button>
+                                <Link href={route('dashboard')}>
+                                    <Button type="button" variant="outline">
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Volver
+                                    </Button>
+                                </Link>
                             </div>
                         </div>
                     </div>
 
                     <Card className="p-6">
-                        <div className="border-b border-gray-200 dark:border-gray-700 pb-6 mb-6">
+                        <div className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 dark:border-emerald-900/40 dark:bg-emerald-900/15">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0">
+                                    <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-gray-800/80 dark:text-emerald-300 dark:ring-emerald-900/40">
+                                        <Bell className="h-3.5 w-3.5" />
+                                        Push del dispositivo
+                                    </div>
+                                    <p className="mt-2 text-sm text-emerald-900/80 dark:text-emerald-100/80">
+                                        Configura Android o iPhone para que las notificaciones lleguen correctamente.
+                                    </p>
+                                </div>
+                                <Button type="button" variant="outline" onClick={() => setActiveTab('notifications')} className="gap-2 border-emerald-200 bg-white/85 dark:border-emerald-900/40 dark:bg-gray-800/85">
+                                    <Bell className="h-4 w-4" />
+                                    Ver guía
+                                </Button>
+                            </div>
+                        </div>
+
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Activar notificaciones en la PWA</p>
+                                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                                En iPhone y Android instalados, presioná este botón para suscribir el navegador y empezar a recibir avisos.
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-col items-start gap-2 sm:items-end">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                disabled={pushActivationBusy}
+                                                onClick={async () => {
+                                                    setPushActivationBusy(true);
+                                                    setPushActivationStatus(null);
+                                                    try {
+                                                        const ok = await registerPushDeviceForApp({ force: true, webPublicKey: webPushPublicKey });
+                                                        setPushActivationStatus(ok ? 'Notificaciones activadas en este navegador.' : 'No se pudieron activar las notificaciones.');
+                                                    } catch (error) {
+                                                        setPushActivationStatus('No se pudieron activar las notificaciones.');
+                                                    } finally {
+                                                        setPushActivationBusy(false);
+                                                    }
+                                                }}
+                                                className="gap-2 border-emerald-200 bg-white/85 dark:border-emerald-900/40 dark:bg-gray-800/85"
+                                            >
+                                                <Bell className="h-4 w-4" />
+                                                {pushActivationBusy ? 'Activando…' : 'Activar notificaciones'}
+                                            </Button>
+                                            {pushActivationStatus && (
+                                                <p className="max-w-xs text-right text-xs text-gray-500 dark:text-gray-400">{pushActivationStatus}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                        <div className="border-b border-gray-200 pb-6 mb-6 dark:border-gray-700">
                             <div className="flex flex-wrap gap-2">
-                                {whatsapp && (
-                                    <Button
-                                        variant={activeTab === 'whatsapp' ? 'default' : 'outline'}
-                                        size="sm"
-                                        onClick={() => setActiveTab('whatsapp')}
-                                    >
-                                        Integración WhatsApp
-                                    </Button>
-                                )}
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab('general')}
@@ -178,6 +237,17 @@ export default function SettingsIndex({ settings, whatsapp, services, logSources
                                     }`}
                                 >
                                     General
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('notifications')}
+                                    className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition ${
+                                        activeTab === 'notifications'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                    }`}
+                                >
+                                    Notificaciones
                                 </button>
                                 <button
                                     type="button"
@@ -216,16 +286,81 @@ export default function SettingsIndex({ settings, whatsapp, services, logSources
 
   
                         </div>
+                        {activeTab === 'notifications' && (
+                            <div className="space-y-6 p-6">
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-300">
+                                                <Bell className="h-3.5 w-3.5" />
+                                                Guía de notificaciones push
+                                            </div>
+                                            <h3 className="mt-3 text-base font-semibold text-gray-900 dark:text-gray-100">
+                                                Activa los avisos en Android o iPhone
+                                            </h3>
+                                            <p className="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
+                                                Si no te aparecen los avisos, revisa los permisos del dispositivo y abre la app instalada desde la pantalla de inicio.
+                                            </p>
 
-                        {activeTab === 'whatsapp' && whatsapp && (
-                            <div className="p-6">
-                                <div className="mb-4">
-                                    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Integración WhatsApp</h3>
-                                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Estado de conexión y vinculación con WhatsApp Web.</p>
+                                            <div className="mt-4 flex flex-wrap gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPushGuide('android')}
+                                                    className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                                                        pushGuide === 'android'
+                                                            ? 'bg-emerald-600 text-white'
+                                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                                    }`}
+                                                >
+                                                    Android
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPushGuide('ios')}
+                                                    className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                                                        pushGuide === 'ios'
+                                                            ? 'bg-emerald-600 text-white'
+                                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                                                    }`}
+                                                >
+                                                    iPhone
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100">
+                                            {pushGuide === 'android' ? (
+                                                <ol className="space-y-2">
+                                                    <li>1. Abre la app instalada en Android.</li>
+                                                    <li>2. Acepta el permiso de notificaciones cuando aparezca.</li>
+                                                    <li>3. Si no aparece el aviso, entra a Ajustes del sistema y habilita notificaciones para la app.</li>
+                                                </ol>
+                                            ) : (
+                                                <ol className="space-y-2">
+                                                    <li>1. Abre la app desde la pantalla de inicio de iPhone.</li>
+                                                    <li>2. Permite las notificaciones cuando iPhone lo solicite.</li>
+                                                    <li>3. Si no ves avisos, revisa Ajustes &gt; Notificaciones y actívalas para la app.</li>
+                                                </ol>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <WhatsAppConnectionCard data={whatsapp} />
+
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                        <div>
+                                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Preferencias push</h3>
+                                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Elegí qué avisos querés recibir en tu dispositivo.</p>
+                                        </div>
+                                    </div>
+                                    <div className="max-w-2xl">
+                                        <UpdatePushNotificationPreferencesForm preferences={pushNotificationPreferences} />
+                                    </div>
+                                </div>
                             </div>
                         )}
+
+
 
                         {activeTab === 'general' && (
                             <div className="p-6">
