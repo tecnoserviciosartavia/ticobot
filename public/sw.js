@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ticobot-pwa-v2';
+const CACHE_NAME = 'ticobot-pwa-v3';
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const RUNTIME_CACHE = `${CACHE_NAME}-runtime`;
 const PRECACHE_URLS = [
@@ -10,12 +10,28 @@ const PRECACHE_URLS = [
 ];
 
 function resolveNotificationUrl(data) {
-  if (!data || typeof data !== 'object') {
-    return '/chats';
-  }
+  if (!data || typeof data !== "object") return "/dashboard";
 
-  const url = typeof data.url === 'string' && data.url.trim().length > 0 ? data.url.trim() : '/chats';
-  return url.startsWith('/') ? url : '/chats';
+  const phone = typeof data.phone === "string" ? data.phone.trim() : "";
+  const fallbackUrls = {
+    whatsapp_inbound_message: phone ? `/chats/${encodeURIComponent(phone)}` : "/chats",
+    whatsapp_help_request: phone ? `/chats/${encodeURIComponent(phone)}` : "/chats",
+    payment_email_received: "/sinpe-emails?read=unread",
+    platform_cost_due: "/settings/services",
+    daily_expected_payments: "/collections",
+    reminder_failed: "/reminders?status=failed",
+  };
+  const fallback = fallbackUrls[data.type] || "/dashboard";
+  const rawUrl = typeof data.url === "string" ? data.url.trim() : "";
+  if (!rawUrl) return fallback;
+
+  try {
+    const parsed = new URL(rawUrl, self.location.origin);
+    if (parsed.origin !== self.location.origin) return fallback;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return fallback;
+  }
 }
 
 async function focusOrOpenWindow(url) {
@@ -130,7 +146,7 @@ self.addEventListener('push', (event) => {
       badge: '/pwa-maskable.svg',
       tag: typeof payload.tag === 'string' && payload.tag.trim().length > 0 ? payload.tag : 'ticobot-push',
       renotify: true,
-      data: { url },
+      data: { ...payload.data, url },
     }),
   );
 });

@@ -113,6 +113,7 @@ class NotifyPlatformPaymentsCommand extends Command
                     'type' => 'platform_cost_due',
                     'service_id' => (string) $service->id,
                     'due_date' => $dueDate,
+                    'url' => '/settings/services',
                 ]);
 
                 if (! $ok) {
@@ -252,6 +253,7 @@ class NotifyPlatformPaymentsCommand extends Command
                 'type' => 'daily_expected_payments',
                 'summary_date' => $summaryDate,
                 'count' => (string) $count,
+                'url' => '/collections',
                 'totals' => json_encode(array_map(fn ($value) => round((float) $value, 2), $totalsByCurrency), JSON_UNESCAPED_UNICODE),
             ]);
 
@@ -290,7 +292,7 @@ class NotifyPlatformPaymentsCommand extends Command
                 'summary_date' => $summaryDate,
                 'count' => (string) $count,
                 'totals' => json_encode(array_map(fn ($value) => round((float) $value, 2), $totalsByCurrency), JSON_UNESCAPED_UNICODE),
-                'url' => route('dashboard'),
+                'url' => '/collections',
             ]);
 
             if (! $ok) {

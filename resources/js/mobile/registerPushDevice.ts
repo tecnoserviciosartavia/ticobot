@@ -103,30 +103,41 @@ async function registerWebPushDevice(webPublicKey: string | null, force: boolean
 
 function extractNotificationPayload(notification: PushNotificationActionData): { title: string; body: string; url: string; phone: string } {
     const data = notification.notification?.data ?? {};
+    const phone = (data.phone ?? "").trim();
+    const explicitUrl = (data.url ?? "").trim();
+    const fallbackUrls: Record<string, string> = {
+        whatsapp_inbound_message: phone !== "" ? `/chats/${encodeURIComponent(phone)}` : "/chats",
+        whatsapp_help_request: phone !== "" ? `/chats/${encodeURIComponent(phone)}` : "/chats",
+        payment_email_received: "/sinpe-emails?read=unread",
+        platform_cost_due: "/settings/services",
+        daily_expected_payments: "/collections",
+        reminder_failed: "/reminders?status=failed",
+    };
+    let url = fallbackUrls[(data.type ?? "").trim()] ?? "/dashboard";
+
+    if (explicitUrl.startsWith("/") && !explicitUrl.startsWith("//")) {
+        url = explicitUrl;
+    } else if (explicitUrl !== "") {
+        try {
+            const parsed = new URL(explicitUrl, window.location.origin);
+            if (parsed.origin === window.location.origin) {
+                url = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+            }
+        } catch {
+            // Keep the safe destination inferred from the notification type.
+        }
+    }
+
     return {
-        title: notification.notification?.title ?? 'Nuevo mensaje',
-        body: notification.notification?.body ?? '',
-        url: (data.url ?? '').trim(),
-        phone: (data.phone ?? '').trim(),
+        title: notification.notification?.title ?? "Nueva notificación",
+        body: notification.notification?.body ?? "",
+        url,
+        phone,
     };
 }
 
-function openChatFromNotification(notification: PushNotificationActionData): void {
-    const payload = extractNotificationPayload(notification);
-
-    if (payload.url !== '') {
-        if (payload.url.startsWith('/')) {
-            router.visit(payload.url);
-            return;
-        }
-
-        window.location.assign(payload.url);
-        return;
-    }
-
-    if (payload.phone !== '') {
-        router.visit(`/chats/${encodeURIComponent(payload.phone)}`);
-    }
+function openNotificationDestination(notification: PushNotificationActionData): void {
+    router.visit(extractNotificationPayload(notification).url);
 }
 
 function dispatchForegroundPushBanner(notification: PushNotificationActionData): void {
@@ -207,7 +218,7 @@ export async function registerPushDeviceForApp(options: { force?: boolean; webPu
             });
 
             await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-                openChatFromNotification(notification);
+                openNotificationDestination(notification);
             });
 
             await PushNotifications.addListener('pushNotificationReceived', (notification) => {

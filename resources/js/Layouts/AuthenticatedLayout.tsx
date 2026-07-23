@@ -49,13 +49,13 @@ export default function Authenticated({
             {pushBanner && (
                 <div className="fixed right-4 top-4 z-50 w-[min(92vw,26rem)] rounded-2xl border border-cyan-200 bg-white/95 p-4 shadow-2xl backdrop-blur dark:border-cyan-900 dark:bg-gray-900/95">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-600 dark:text-cyan-400">
-                        Nuevo mensaje
+                        Nueva notificación
                     </div>
                     <div className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-50">
                         {pushBanner.title}
                     </div>
                     <div className="mt-1 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                        {pushBanner.body || 'Tocá para abrir el chat.'}
+                        {pushBanner.body || 'Tocá para ver el detalle.'}
                     </div>
                     {pushBanner.url && (
                         <button
@@ -66,7 +66,7 @@ export default function Authenticated({
                             }}
                             className="mt-3 inline-flex items-center rounded-full bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-500"
                         >
-                            Abrir chat
+                            Abrir
                         </button>
                     )}
                 </div>
