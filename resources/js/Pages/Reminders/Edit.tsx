@@ -24,12 +24,12 @@ interface RemindersEditProps extends PageProps<{
     channels: string[];
 }> {}
 
-const toDatetimeLocal = (value: string | null) => {
+const toDateInput = (value: string | null) => {
     if (!value) {
         return '';
     }
 
-    return value.replace(' ', 'T').slice(0, 16);
+    return value.slice(0, 10);
 };
 
 export default function RemindersEdit({ reminder, clients, channels }: RemindersEditProps) {
@@ -37,7 +37,7 @@ export default function RemindersEdit({ reminder, clients, channels }: Reminders
         client_id: String(reminder.client_id ?? ''),
         contract_id: String(reminder.contract_id ?? ''),
         channel: reminder.channel,
-        scheduled_for: toDatetimeLocal(reminder.scheduled_for),
+        scheduled_for: toDateInput(reminder.scheduled_for),
         message: reminder.message ?? '',
         amount: reminder.amount ?? '',
         due_date: reminder.due_date ?? '',

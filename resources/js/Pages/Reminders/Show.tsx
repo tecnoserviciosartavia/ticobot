@@ -1,8 +1,10 @@
 import StatusBadge from '@/Components/StatusBadge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import type { PageProps } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { labelForChannel } from '@/lib/labels';
+import { Send, RefreshCw } from '@/Components/icons';
+import { useState } from 'react';
 
 interface ReminderShowProps extends PageProps<{
     reminder: {
@@ -77,6 +79,17 @@ const formatCurrency = (amount: string, currency: string | null | undefined) => 
 };
 
 export default function RemindersShow({ reminder, messages, payments }: ReminderShowProps) {
+    const [sendingId, setSendingId] = useState<number | null>(null);
+    const canManualSend = reminder.channel === 'whatsapp' && ['pending', 'failed'].includes(reminder.status);
+
+    const handleManualSend = () => {
+        setSendingId(reminder.id);
+        router.post(route('reminders.send-manually', reminder.id), {}, {
+            preserveScroll: true,
+            onFinish: () => setSendingId(null),
+        });
+    };
+
     return (
         <ResponsiveLayout title={`Recordatorio #${reminder.id}`}>
             <Head title={`Recordatorio ${reminder.id}`} />
@@ -123,7 +136,20 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                     <section className="rounded-xl bg-white dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Detalle del mensaje</h3>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">{labelForChannel(reminder.channel)}</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{labelForChannel(reminder.channel)}</span>
+                                {canManualSend && (
+                                    <button
+                                        type="button"
+                                        onClick={handleManualSend}
+                                        disabled={sendingId === reminder.id}
+                                        className="inline-flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-cyan-900/40 dark:bg-cyan-900/20 dark:text-cyan-300"
+                                    >
+                                        <Send className="h-4 w-4" />
+                                        {sendingId === reminder.id ? 'Enviando...' : 'Enviar manualmente'}
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
                             <article>

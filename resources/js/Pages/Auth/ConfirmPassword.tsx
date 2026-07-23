@@ -61,7 +61,7 @@ export default function ConfirmPassword() {
 
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center space-x-2">
-                                    <Shield className="h-4 w-4 text-green-500" />
+                                    <Shield className="h-4 w-4 text-cyan-500" />
                                     <span className="text-xs text-gray-500">Conexión segura</span>
                                 </div>
                                 <Badge variant="outline" className="text-xs">

@@ -88,17 +88,49 @@ class ApiClient {
     });
   }
 
-  async reportWhatsappQr(qr: string): Promise<void> {
-    await this.http.post('whatsapp/qr', { qr });
+  async sendWhatsAppText(phone: string, message: string): Promise<boolean> {
+    const response = await this.http.post('meta/whatsapp/send-text', { phone, message });
+    return Boolean(response.data && response.data.ok);
   }
 
-  async markWhatsappReady(): Promise<void> {
-    await this.http.post('whatsapp/ready');
+  async sendWhatsAppMedia(phone: string, data: string, mimetype: string, filename?: string, caption?: string): Promise<boolean> {
+    const response = await this.http.post('meta/whatsapp/send-media', { phone, data, mimetype, filename, caption });
+    return Boolean(response.data && response.data.ok);
   }
 
-  async markWhatsappDisconnected(reason?: string): Promise<void> {
-    const payload = reason && reason.trim().length > 0 ? { reason } : {};
-    await this.http.post('whatsapp/disconnected', payload);
+  async sendWhatsAppTemplate(phone: string, template: string, parameters: string[], language = 'es'): Promise<boolean> {
+    const response = await this.http.post('meta/whatsapp/send-template', { phone, template, parameters, language });
+    return Boolean(response.data && response.data.ok);
+  }
+
+  async logChatOutbound(payload: {
+    phone: string;
+    body?: string | null;
+    whatsapp_message_id?: string | null;
+    sent_at?: string | null;
+    metadata?: Record<string, any>;
+  }): Promise<void> {
+    try {
+      await this.http.post('chats/outbound', payload);
+    } catch (err: any) {
+      logger.debug({ err, phone: payload.phone }, 'No se pudo registrar mensaje saliente en chat general');
+    }
+  }
+
+  async notifyHelpRequest(payload: {
+    phone: string;
+    body?: string | null;
+    whatsapp_message_id?: string | null;
+    sent_at?: string | null;
+    metadata?: Record<string, any>;
+    source?: string;
+    skip_push?: boolean;
+  }): Promise<void> {
+    try {
+      await this.http.post('chats/help-request', payload);
+    } catch (err: any) {
+      logger.debug({ err, phone: payload.phone }, 'No se pudo registrar la solicitud de ayuda');
+    }
   }
 
   async fetchBotMenu(): Promise<Array<{ keyword: string; reply_message: string; options?: any }>> {
@@ -171,6 +203,11 @@ class ApiClient {
     if (Array.isArray(body)) return body;
     if (body && Array.isArray(body.data)) return body.data;
     return [] as any[];
+  }
+
+  async resendAccessesForClient(clientId: number | string) {
+    const res = await this.http.post('clients/' + clientId + '/resend-access');
+    return res.data;
   }
 
   async getContract(id: number | string) {
@@ -329,7 +366,7 @@ class ApiClient {
     }
   }
 
-  private async requestToBackend(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, data?: any): Promise<any> {
+  private async requestToBackend(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, data?: any): Promise<any> {
     try {
       const res = await this.http.request({ method, url: path, data });
       return res.data;
@@ -410,6 +447,14 @@ class ApiClient {
     whatsapp_message_id?: string | null;
     sent_at?: string | null;
     metadata?: Record<string, any>;
+    media?: {
+      mimetype?: string | null;
+      filename?: string | null;
+      data?: string | null;
+      size?: number | null;
+      caption?: string | null;
+      kind?: string | null;
+    } | null;
   }): Promise<void> {
     try {
       await this.http.post('chats/inbound', payload);
@@ -421,9 +466,9 @@ class ApiClient {
   /**
    * Obtener mensajes de salida pendientes en la cola de la plataforma.
    */
-  async getChatOutboundQueue(): Promise<Array<{ id: number; phone: string; body: string }>> {
+  async getChatOutboundQueue(): Promise<Array<{ id: number; phone: string; body: string; media?: { mimetype?: string | null; filename?: string | null; data?: string | null; caption?: string | null } | null }>> {
     try {
-      const res = await this.http.get<{ messages: Array<{ id: number; phone: string; body: string }> }>('chats/outbound-queue');
+      const res = await this.http.get<{ messages: Array<{ id: number; phone: string; body: string; media?: { mimetype?: string | null; filename?: string | null; data?: string | null; caption?: string | null } | null }> }>('chats/outbound-queue');
       return res.data?.messages ?? [];
     } catch (err: any) {
       logger.debug({ err }, 'No se pudo obtener la cola de mensajes salientes');

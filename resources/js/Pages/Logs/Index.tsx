@@ -132,7 +132,7 @@ export default function LogsIndex({ sources, defaultSource }: LogsPageProps) {
                                     onClick={() => setAutoScroll(!autoScroll)}
                                     className={`px-3 py-1 rounded text-sm font-medium ${
                                         autoScroll
-                                            ? 'bg-green-100 text-green-800'
+                                            ? 'bg-cyan-100 text-cyan-800'
                                             : 'bg-gray-100 text-gray-800'
                                     }`}
                                 >
@@ -147,7 +147,7 @@ export default function LogsIndex({ sources, defaultSource }: LogsPageProps) {
                             </div>
                             <div
                                 ref={viewportRef}
-                                className="bg-black text-green-400 p-4 rounded font-mono text-sm overflow-auto"
+                                className="bg-black text-cyan-400 p-4 rounded font-mono text-sm overflow-auto"
                                 style={{ height: '500px' }}
                             >
                                 {loading && lines.length === 0 ? (
@@ -187,7 +187,7 @@ export default function LogsIndex({ sources, defaultSource }: LogsPageProps) {
 
                     <div
                         ref={viewportRef}
-                        className="h-[68vh] overflow-auto rounded-lg border border-gray-200 bg-black p-4 font-mono text-xs leading-5 text-green-200 dark:border-gray-700"
+                        className="h-[68vh] overflow-auto rounded-lg border border-gray-200 bg-black p-4 font-mono text-xs leading-5 text-cyan-200 dark:border-gray-700"
                     >
                         {loading && lines.length === 0 ? (
                             <div className="text-gray-300">Cargando logs...</div>

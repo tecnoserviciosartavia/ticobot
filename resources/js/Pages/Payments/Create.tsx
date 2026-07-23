@@ -1,13 +1,13 @@
 import { Button } from '@/Components/button';
 import { Card } from '@/Components/card';
-import { Badge } from '@/Components/badge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
+import DatePickerInput from '@/Components/DatePickerInput';
 import type { PageProps } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { labelForChannel } from '@/lib/labels';
 import { FormEventHandler, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { DollarSign, Plus, ArrowLeft, Calendar, User, CreditCard, AlertCircle } from '@/Components/icons';
+import { ArrowLeft } from '@/Components/icons';
 
 interface Client {
     id: number;
@@ -42,8 +42,35 @@ interface PaymentFormData {
     status: string;
     paid_at: string;
     billing_month: string;
+    months_count: string;
     grace_months: string;
     covered_months: string[];
+}
+
+function addMonthsYm(ym: string, delta: number): string {
+    const [y, m] = ym.split('-').map((v) => Number(v));
+    if (!y || !m) {
+        return ym;
+    }
+    const d = new Date(y, m - 1 + delta, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function consecutiveMonthsFromAnchor(anchor: string, count: number): string[] {
+    const n = Math.min(36, Math.max(1, count));
+    return Array.from({ length: n }, (_, i) => addMonthsYm(anchor, i));
+}
+
+function contractSupportsMonthlyCoverage(c: Contract | undefined): boolean {
+    if (!c) {
+        return false;
+    }
+    const raw = c.billing_cycle;
+    if (raw == null || raw === '') {
+        return true;
+    }
+    const cycle = String(raw).trim().toLowerCase();
+    return cycle === 'monthly' || cycle === 'mensual';
 }
 
 export default function CreatePayment({ clients, channels, prefill }: CreatePaymentPageProps) {
@@ -60,6 +87,7 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
         status: 'verified',
         paid_at: new Date().toISOString().split('T')[0],
         billing_month: new Date().toISOString().slice(0, 7),
+        months_count: '1',
         grace_months: '0',
         covered_months: [],
     });
@@ -95,24 +123,7 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
     }, [clients, clientSearch]);
 
     const selectedContract = contracts.find((c) => c.id.toString() === data.contract_id);
-    const isMonthlyContract = selectedContract?.billing_cycle === 'monthly';
-
-    const monthChoices = useMemo(() => {
-        const anchor =
-            data.billing_month && /^\d{4}-\d{2}$/.test(data.billing_month)
-                ? data.billing_month
-                : new Date().toISOString().slice(0, 7);
-        const [y, m] = anchor.split('-').map((v) => Number(v));
-        const past = 15;
-        const future = 36;
-        const start = new Date(y, (m || 1) - 1 - past, 1);
-        const out: string[] = [];
-        for (let i = 0; i <= past + future; i++) {
-            const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-            out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-        }
-        return out;
-    }, [data.billing_month]);
+    const showMonthlyCoverage = contractSupportsMonthlyCoverage(selectedContract);
 
     const formatYmLabel = (ym: string) => {
         const [y, mo] = ym.split('-').map((v) => Number(v));
@@ -121,26 +132,35 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
     };
 
     useEffect(() => {
-        setData((prev) => ({ ...prev, covered_months: [] }));
+        setData((prev) => ({ ...prev, covered_months: [], months_count: '1' }));
     }, [data.contract_id]);
 
     useEffect(() => {
-        if (!isMonthlyContract) {
-            setData((prev) => (prev.covered_months.length ? { ...prev, covered_months: [] } : prev));
+        if (!showMonthlyCoverage) {
+            setData((prev) =>
+                prev.covered_months.length || prev.months_count !== '1'
+                    ? { ...prev, covered_months: [], months_count: '1' }
+                    : prev,
+            );
         }
-    }, [isMonthlyContract]);
+    }, [showMonthlyCoverage]);
 
     useEffect(() => {
-        if (!isMonthlyContract || !data.billing_month) {
+        if (!showMonthlyCoverage || !data.billing_month || !/^\d{4}-\d{2}$/.test(data.billing_month)) {
             return;
         }
+        const n = Math.min(36, Math.max(1, parseInt(data.months_count, 10) || 1));
+        const nextCovered = consecutiveMonthsFromAnchor(data.billing_month, n);
         setData((prev) => {
-            if (prev.covered_months.length > 0) {
+            const same =
+                prev.covered_months.length === nextCovered.length &&
+                prev.covered_months.every((v, i) => v === nextCovered[i]);
+            if (same) {
                 return prev;
             }
-            return { ...prev, covered_months: [prev.billing_month] };
+            return { ...prev, covered_months: nextCovered };
         });
-    }, [isMonthlyContract, data.contract_id, data.billing_month]);
+    }, [showMonthlyCoverage, data.contract_id, data.billing_month, data.months_count]);
 
     useEffect(() => {
         const onClickOutside = (event: MouseEvent) => {
@@ -222,11 +242,11 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
             return;
         }
 
-        if (selectedContract.billing_cycle !== 'monthly' && data.billing_month !== '') {
+        if (!contractSupportsMonthlyCoverage(selectedContract) && data.billing_month !== '') {
             setData((prev) => ({ ...prev, billing_month: '' }));
         }
 
-        if (selectedContract.billing_cycle === 'monthly' && data.billing_month === '') {
+        if (contractSupportsMonthlyCoverage(selectedContract) && data.billing_month === '') {
             setData((prev) => ({ ...prev, billing_month: new Date().toISOString().slice(0, 7) }));
         }
     }, [data.contract_id, data.billing_month, selectedContract]);
@@ -235,14 +255,18 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
         e.preventDefault();
         form.transform((current) => {
             const sel = contracts.find((c) => c.id.toString() === current.contract_id);
-            const monthly = sel?.billing_cycle === 'monthly';
+            const monthly = contractSupportsMonthlyCoverage(sel);
             let covered = monthly ? [...current.covered_months] : [];
             covered = [...new Set(covered.filter((x) => /^\d{4}-\d{2}$/.test(x)))].sort();
             if (monthly && covered.length === 0 && current.billing_month) {
-                covered = [current.billing_month];
+                covered = consecutiveMonthsFromAnchor(
+                    current.billing_month,
+                    Math.min(36, Math.max(1, parseInt(current.months_count, 10) || 1)),
+                );
             }
+            const { months_count: _monthsCount, ...rest } = current;
             return {
-                ...current,
+                ...rest,
                 billing_month: monthly ? (covered[0] ?? current.billing_month) : '',
                 covered_months: monthly ? covered : [],
             };
@@ -538,7 +562,7 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
                                     value={data.reference}
                                     onChange={(e) => setData((prev) => ({ ...prev, reference: e.target.value }))}
                                     maxLength={255}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="mt-1 w-full"
                                     placeholder="Número de transacción, comprobante, etc."
                                 />
                                 {errors.reference && (
@@ -584,7 +608,7 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
                                 >
                                     Fecha de Pago
                                 </label>
-                                <input
+                                <DatePickerInput
                                     type="date"
                                     id="paid_at"
                                     name="paid_at"
@@ -599,79 +623,86 @@ export default function CreatePayment({ clients, channels, prefill }: CreatePaym
                                 )}
                             </div>
 
-                            {/* Meses cubiertos (contratos mensuales) */}
-                            {isMonthlyContract && (
-                                <div className="space-y-3">
-                                    <div>
-                                        <label
-                                            htmlFor="billing_month"
-                                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                                        >
-                                            Mes de referencia (lista de períodos)
-                                        </label>
-                                        <input
-                                            type="month"
-                                            id="billing_month"
-                                            name="billing_month"
-                                            value={data.billing_month}
-                                            onChange={(e) =>
-                                                setData((prev) => ({ ...prev, billing_month: e.target.value }))
-                                            }
-                                            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        />
-                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                            Desplaza el rango de meses disponibles. Los meses marcados abajo definen el
-                                            comprobante y el mensaje de WhatsApp.
-                                        </p>
-                                        {errors.billing_month && (
-                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                                                {errors.billing_month}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            Meses cubiertos por este pago ({data.covered_months.length} seleccionados)
-                                        </label>
-                                        <div className="mt-2 max-h-52 overflow-y-auto rounded-md border border-gray-200 dark:border-gray-600 p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                            {monthChoices.map((ym) => (
-                                                <label
-                                                    key={ym}
-                                                    className="flex items-center gap-2 text-sm cursor-pointer"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                        checked={data.covered_months.includes(ym)}
-                                                        onChange={() => {
-                                                            setData((prev) => {
-                                                                const set = new Set(prev.covered_months);
-                                                                if (set.has(ym)) {
-                                                                    set.delete(ym);
-                                                                } else {
-                                                                    set.add(ym);
-                                                                }
-                                                                const next = Array.from(set).sort();
-                                                                return {
-                                                                    ...prev,
-                                                                    covered_months: next,
-                                                                    billing_month:
-                                                                        next.length > 0 ? next[0]! : prev.billing_month,
-                                                                };
-                                                            });
-                                                        }}
-                                                    />
-                                                    <span>{formatYmLabel(ym)}</span>
-                                                </label>
-                                            ))}
+                            {/* Cobertura por meses (contrato mensual o ciclo vacío / legado) */}
+                            {data.client_id && data.contract_id && !showMonthlyCoverage && (
+                                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+                                    Este contrato no usa facturación mensual ({selectedContract?.billing_cycle ?? '—'}). La
+                                    opción de aplicar varios meses solo aplica a contratos mensuales.
+                                </p>
+                            )}
+
+                            {showMonthlyCoverage && (
+                                <div className="space-y-4 rounded-lg border border-indigo-100 bg-indigo-50/50 p-4 dark:border-indigo-900/40 dark:bg-indigo-950/30">
+                                    <p className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
+                                        Aplicar pago a varios meses
+                                    </p>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div>
+                                            <label
+                                                htmlFor="billing_month"
+                                                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                            >
+                                                Primer mes cubierto
+                                            </label>
+                                            <input
+                                                type="month"
+                                                id="billing_month"
+                                                name="billing_month"
+                                                value={data.billing_month}
+                                                onChange={(e) =>
+                                                    setData((prev) => ({ ...prev, billing_month: e.target.value }))
+                                                }
+                                                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            />
+                                            {errors.billing_month && (
+                                                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                    {errors.billing_month}
+                                                </p>
+                                            )}
                                         </div>
-                                        {errors.covered_months && (
-                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                                                {errors.covered_months}
+                                        <div>
+                                            <label
+                                                htmlFor="months_count"
+                                                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                            >
+                                                Cantidad de meses que cubre el pago
+                                            </label>
+                                            <input
+                                                type="number"
+                                                id="months_count"
+                                                name="months_count"
+                                                min={1}
+                                                max={36}
+                                                value={data.months_count}
+                                                onChange={(e) =>
+                                                    setData((prev) => ({ ...prev, months_count: e.target.value }))
+                                                }
+                                                className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            />
+                                            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                                                Ej.: 5 = desde el primer mes, cinco meses seguidos. El monto total debe
+                                                coincidir (p. ej. 5 × cuota).
                                             </p>
-                                        )}
+                                        </div>
                                     </div>
+                                    {data.covered_months.length > 0 && (
+                                        <p className="text-xs text-gray-700 dark:text-gray-300">
+                                            <span className="font-medium">Resumen:</span>{' '}
+                                            {data.covered_months.map(formatYmLabel).join(' → ')}
+                                        </p>
+                                    )}
+                                    {errors.covered_months && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.covered_months}
+                                        </p>
+                                    )}
                                 </div>
+                            )}
+
+                            {!data.contract_id && data.client_id && (
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    Elige un contrato para indicar cuántos meses cubre este pago (contratos mensuales).
+                                </p>
                             )}
 
                             {/* Grace Months */}

@@ -22,7 +22,7 @@ class ContractObserver
     private function normalizeScheduledFor(Carbon $date): Carbon
     {
         $tz = config('app.timezone');
-        $time = (string) config('reminders.send_time', '09:00');
+        $time = (string) config('reminders.send_time', '12:00');
         // Guarantee we produce a datetime in the app timezone at a stable hour.
         return $date->copy()->timezone($tz)->startOfDay()->setTimeFromTimeString($time);
     }

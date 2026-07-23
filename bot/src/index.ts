@@ -1,7 +1,7 @@
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { ReminderProcessor } from './reminder-processor.js';
-import { WhatsAppClient } from './whatsapp-client.js';
+import { MetaWhatsAppClient } from './meta-whatsapp-client.js';
 import { apiClient } from './api-client.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -10,7 +10,7 @@ import { URL } from 'url';
 import axios from 'axios';
 import { chatIdToPhoneDigits, normalizeChatIdForState, normalizeWhatsAppUserChatId } from './utils/phone.js';
 
-const whatsappClient = new WhatsAppClient();
+const whatsappClient = new MetaWhatsAppClient();
 const processor = new ReminderProcessor(whatsappClient);
 
 const parseEnvBool = (value: string | undefined, fallback: boolean): boolean => {
@@ -30,10 +30,13 @@ const runBatch = async () => {
 };
 
 async function main(): Promise<void> {
+  const botStartedAt = Date.now();
   // per-chat menu state: whether a menu was just shown and we're awaiting selection
   const menuShown = new Map<string, boolean>();
   // store last shown menu items per chat to support numeric selection
   const lastMenuItems = new Map<string, Array<any>>();
+  // reminder timer for chats that are waiting on a menu selection
+  const menuReminderTimers = new Map<string, NodeJS.Timeout>();
   // per-chat agent mode: when true the user is interacting with a human agent and the bot should pause
   const agentMode = new Map<string, boolean>();
   // Chats detectados como lead de anuncio (Click-to-WhatsApp/referral).
@@ -43,8 +46,6 @@ async function main(): Promise<void> {
   const adminNotifiedAt = new Map<string, number>();
   const AGENT_NOTIFY_THROTTLE_MS = Number(process.env.AGENT_NOTIFY_THROTTLE_MS || 30 * 60 * 1000); // default 30 minutes
   const MANUAL_REPLY_PAUSE_MS = Number(process.env.BOT_MANUAL_REPLY_PAUSE_MS || 10 * 60 * 1000);
-  const FROM_ME_SUPPRESS_AFTER_INBOUND_MS = Number(process.env.BOT_FROM_ME_SUPPRESS_AFTER_INBOUND_MS || 90 * 1000); // 90s window after inbound
-  const suppressFromMePauseUntil = new Map<string, number>();
   // awaiting receipt uploads per chat
   const awaitingReceipt = new Map<string, boolean>();
   // pending confirmation for an unsolicited media receipt: store downloaded media until user confirms
@@ -73,6 +74,21 @@ async function main(): Promise<void> {
     ...ADMIN_PHONES_RAW.map(s => s),
     ...ADMIN_PHONES_RAW.map(s => normalizeCR(s))
   ]));
+
+  const ADMIN_LIDS = Array.from(new Set(
+    (process.env.BOT_ADMIN_LIDS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ));
+
+  function isAdminIdentity(chatId: string, phoneDigits: string, normalizedPhone: string): boolean {
+    return (
+      ADMIN_PHONES.includes(phoneDigits) ||
+      ADMIN_PHONES.includes(normalizedPhone) ||
+      ADMIN_LIDS.includes(chatId)
+    );
+  }
 
   const DEFAULT_AD_LEAD_KEYWORDS = [
     'quiero mas informacion',
@@ -131,18 +147,114 @@ async function main(): Promise<void> {
   const chatTimeoutMs = new Map<string, number>();
   const chatTimers = new Map<string, NodeJS.Timeout>();
   const lastInteractionDate = new Map<string, string>();
+  const chatAliasOwner = new Map<string, string>();
+
+  function chatAliasRoot(chatId: string): string {
+    const id = String(chatId || '').trim();
+    if (!id) return id;
+    return chatAliasOwner.get(id) || id;
+  }
+
+  function linkChatAliases(...ids: string[]) {
+    const normalized = Array.from(new Set(
+      ids.map((s) => String(s || '').trim()).filter(Boolean),
+    ));
+    if (normalized.length === 0) return;
+
+    const root = chatAliasRoot(normalized[0]);
+    for (const id of normalized) {
+      chatAliasOwner.set(id, root);
+    }
+    chatAliasOwner.set(root, root);
+  }
+
+  function linkedChatIds(chatId: string): string[] {
+    const root = chatAliasRoot(chatId);
+    const ids = new Set<string>([root, String(chatId || '').trim()]);
+    for (const [alias, owner] of chatAliasOwner.entries()) {
+      if (owner === root) ids.add(alias);
+    }
+    return Array.from(ids).filter(Boolean);
+  }
+
+  function isChatInAgentMode(chatId: string): boolean {
+    return linkedChatIds(chatId).some((id) => agentMode.get(id));
+  }
+
+  function activateChatAgentMode(chatId: string) {
+    for (const id of linkedChatIds(chatId)) {
+      agentMode.set(id, true);
+    }
+  }
+
+  function deactivateChatAgentMode(chatId: string) {
+    for (const id of linkedChatIds(chatId)) {
+      agentMode.delete(id);
+    }
+  }
+
+  const clientTestMode = new Map<string, boolean>();
+
+  function isChatInClientTestMode(chatId: string): boolean {
+    return linkedChatIds(chatId).some((id) => clientTestMode.get(id));
+  }
+
+  function activateClientTestMode(chatId: string) {
+    for (const id of linkedChatIds(chatId)) {
+      clientTestMode.set(id, true);
+    }
+  }
+
+  function deactivateClientTestMode(chatId: string) {
+    for (const id of linkedChatIds(chatId)) {
+      clientTestMode.delete(id);
+    }
+  }
 
   function resetChatState(chatId: string, reason: string, options?: { clearTimer?: boolean }) {
-    menuShown.delete(chatId);
-    lastMenuItems.delete(chatId);
-    agentMode.delete(chatId);
-    awaitingReceipt.delete(chatId);
-    awaitingMonths.delete(chatId);
-    pendingConfirmReceipt.delete(chatId);
-    chatTimeoutMs.delete(chatId);
-    suppressFromMePauseUntil.delete(chatId);
-    if (options?.clearTimer) clearTimer(chatId);
+    for (const id of linkedChatIds(chatId)) {
+      menuShown.delete(id);
+      lastMenuItems.delete(id);
+      awaitingReceipt.delete(id);
+      awaitingMonths.delete(id);
+      pendingConfirmReceipt.delete(id);
+      chatTimeoutMs.delete(id);
+    }
+    deactivateChatAgentMode(chatId);
+    clearMenuReminderTimer(chatId);
+    if (options?.clearTimer) clearTimer(chatAliasRoot(chatId));
     logger.info({ chatId, reason }, 'Estado transient del chat reiniciado');
+  }
+
+  function clearMenuReminderTimer(chatId: string) {
+    const root = chatAliasRoot(chatId);
+    const timer = menuReminderTimers.get(root);
+    if (timer) {
+      clearTimeout(timer);
+      menuReminderTimers.delete(root);
+    }
+  }
+
+  function scheduleMenuReminder(chatId: string) {
+    const root = chatAliasRoot(chatId);
+    clearMenuReminderTimer(root);
+
+    const reminderTimeoutMs = 2 * 60 * 1000;
+    const timer = setTimeout(async () => {
+      menuReminderTimers.delete(root);
+
+      try {
+        const stillWaitingForMenu = linkedChatIds(root).some((id) => menuShown.get(id));
+        if (!stillWaitingForMenu) return;
+
+        await whatsappClient.sendText(chatId, 'ℹ️ Recuerda responder con una opción válida del menú para continuar.');
+        await whatsappClient.sendText(chatId, '⏳ Si no recibimos respuesta, este chat se cierra automáticamente en 10 minutos.');
+      } catch (error) {
+        logger.warn({ err: error, chatId }, 'No se pudo enviar el recordatorio de menú');
+      }
+    }, reminderTimeoutMs);
+
+    menuReminderTimers.set(root, timer);
   }
 
   function clearTimer(chatId: string) {
@@ -171,39 +283,46 @@ async function main(): Promise<void> {
     }
 
     const chatId = normalizeStateChatId(rawTarget);
-    if (!chatId || isAdminChatId(chatId)) {
-      return;
-    }
+    if (!chatId) return;
 
-    const phoneDigits = chatIdToPhoneDigits(chatId);
+    let phoneDigits = chatIdToPhoneDigits(chatId);
     if (!/^\d{8,15}$/.test(phoneDigits)) {
+      try {
+        const resolved = await whatsappClient.resolvePhoneDigitsFromChatId(chatId, message);
+        if (resolved) phoneDigits = resolved;
+      } catch (error) {
+        logger.debug({ err: error, chatId }, 'fromMe manual: no se pudo resolver teléfono del chat destino');
+      }
+    }
+
+    const cusId = normalizeWhatsAppUserChatId(phoneDigits);
+    linkChatAliases(chatId, rawTarget);
+    if (cusId) linkChatAliases(chatId, cusId);
+
+    if (!/^\d{8,15}$/.test(phoneDigits)) {
+      logger.debug({ rawTarget, chatId }, 'fromMe manual: chat destino sin teléfono válido, omitiendo pausa');
       return;
     }
 
-    const now = Date.now();
-    const suppressUntil = suppressFromMePauseUntil.get(chatId) || 0;
-    if (suppressUntil > now) {
-      logger.debug(
-        {
-          rawTarget,
-          chatId,
-          phoneDigits,
-          suppressForMs: suppressUntil - now,
-          windowMs: FROM_ME_SUPPRESS_AFTER_INBOUND_MS,
-        },
-        'Se omite pausa automática por fromMe: posible mensaje emitido por flujo interno del bot'
-      );
+    // Si el bot acaba de enviar a este teléfono (recordatorio u otro envío
+    // automático), el message_create fromMe es del propio bot —no una respuesta
+    // manual del operador—. Evita activar "modo agente" y descartar lo que el
+    // cliente responda (p. ej. comprobantes) durante la ventana de pausa.
+    if (whatsappClient.isRecentBotSendToPhone(phoneDigits)) {
+      logger.debug({ rawTarget, chatId, phoneDigits }, 'fromMe: envío automático del bot, no se activa modo agente');
       return;
     }
 
-    agentMode.set(chatId, true);
-    chatTimeoutMs.set(chatId, MANUAL_REPLY_PAUSE_MS);
-    menuShown.delete(chatId);
-    lastMenuItems.delete(chatId);
-    awaitingReceipt.delete(chatId);
-    pendingConfirmReceipt.delete(chatId);
-    awaitingMonths.delete(chatId);
-    try { touchTimer(chatId); } catch { /* ignore */ }
+    activateChatAgentMode(chatId);
+    chatTimeoutMs.set(chatAliasRoot(chatId), MANUAL_REPLY_PAUSE_MS);
+    for (const id of linkedChatIds(chatId)) {
+      menuShown.delete(id);
+      lastMenuItems.delete(id);
+      awaitingReceipt.delete(id);
+      pendingConfirmReceipt.delete(id);
+      awaitingMonths.delete(id);
+    }
+    try { touchTimer(chatAliasRoot(chatId)); } catch { /* ignore */ }
     logger.info({ rawTarget, chatId, phoneDigits, pauseMs: MANUAL_REPLY_PAUSE_MS }, 'Chat puesto en pausa temporal automática por respuesta manual del operador');
   });
 
@@ -331,6 +450,22 @@ async function main(): Promise<void> {
 
   // --- Menu resolver: intenta API -> BOT_MENU_PATH -> local cache (bot/data/menu.json)
   async function resolveMenu(): Promise<Array<any> | null> {
+    const ensureClientAccessOption = (menu: Array<any> | null): Array<any> | null => {
+      if (!Array.isArray(menu) || menu.length === 0) return menu;
+      const hasAccessOption = menu.some((item) => String(item?.keyword ?? '').trim() === '9');
+      if (hasAccessOption) return menu;
+
+      return [
+        ...menu,
+        {
+          keyword: '9',
+          reply_message: '🔄 Reenviar accesos de mis servicios\nSolicita el reenvío de tus credenciales de acceso si tu contrato está al día.',
+          options: [],
+          active: true,
+        },
+      ];
+    };
+
     // Cache en memoria para evitar tocar red/FS en cada request de menú.
     // Esto mejora mucho la latencia percibida en el primer saludo/"menu".
     const now = Date.now();
@@ -346,18 +481,19 @@ async function main(): Promise<void> {
     // 1) Try API
     try {
       const remote = await apiClient.fetchBotMenu();
-      if (Array.isArray(remote) && remote.length) {
+      const normalizedRemote = ensureClientAccessOption(remote);
+      if (Array.isArray(normalizedRemote) && normalizedRemote.length) {
         try {
           await fs.mkdir(DATA_DIR, { recursive: true });
-          await fs.writeFile(localMenuPath, JSON.stringify(remote, null, 2), { encoding: 'utf8' });
+          await fs.writeFile(localMenuPath, JSON.stringify(normalizedRemote, null, 2), { encoding: 'utf8' });
         } catch (e) {
           logger.debug({ e }, 'No se pudo persistir menú remoto en cache local');
         }
         // @ts-ignore: cache estática sobre la función
-        (resolveMenu as any)._cache = remote;
+        (resolveMenu as any)._cache = normalizedRemote;
         // @ts-ignore: cache estática sobre la función
         (resolveMenu as any)._cacheAt = Date.now();
-        return remote;
+        return normalizedRemote;
       }
     } catch (e) {
       logger.debug({ e }, 'fetchBotMenu falló');
@@ -368,12 +504,13 @@ async function main(): Promise<void> {
       try {
         const raw = await fs.readFile(config.menuPath, { encoding: 'utf8' });
         const parsed = JSON.parse(raw) as Array<any>;
-        if (Array.isArray(parsed) && parsed.length) {
+        const normalizedParsed = ensureClientAccessOption(parsed);
+        if (Array.isArray(normalizedParsed) && normalizedParsed.length) {
           // @ts-ignore: cache estática sobre la función
-          (resolveMenu as any)._cache = parsed;
+          (resolveMenu as any)._cache = normalizedParsed;
           // @ts-ignore: cache estática sobre la función
           (resolveMenu as any)._cacheAt = Date.now();
-          return parsed;
+          return normalizedParsed;
         }
       } catch (err) {
         logger.debug({ err }, 'No se pudo leer BOT_MENU_PATH');
@@ -384,12 +521,13 @@ async function main(): Promise<void> {
     try {
       const raw = await fs.readFile(localMenuPath, { encoding: 'utf8' });
       const parsed = JSON.parse(raw) as Array<any>;
-      if (Array.isArray(parsed) && parsed.length) {
+      const normalizedParsed = ensureClientAccessOption(parsed);
+      if (Array.isArray(normalizedParsed) && normalizedParsed.length) {
         // @ts-ignore: cache estática sobre la función
-        (resolveMenu as any)._cache = parsed;
+        (resolveMenu as any)._cache = normalizedParsed;
         // @ts-ignore: cache estática sobre la función
         (resolveMenu as any)._cacheAt = Date.now();
-        return parsed;
+        return normalizedParsed;
       }
     } catch {
       // ignore
@@ -446,21 +584,61 @@ whatsappClient.registerInboundHandler(async (message) => {
 
   const body = String(message.body ?? '').trim();
   // Ignorar mensajes viejos (backlog al reconectar) para evitar respuestas tardías/duplicadas.
-  // whatsapp-web.js entrega timestamp en segundos epoch; usamos una ventana configurable.
+  // Meta entrega timestamp en segundos epoch; usamos una ventana configurable.
   // EXCEPCIÓN: nunca ignorar mensajes del admin (para que adminmenu funcione siempre)
   const chatId = normalizeStateChatId(message.from);
-  const fromUser = chatIdToPhoneDigits(chatId);
-  const fromNorm = normalizeCR(fromUser);
-  const isAdminUserEarly = isAdminChatId(chatId) || fromNorm === '50672140974';
+  let fromUser = chatIdToPhoneDigits(chatId);
+  let fromNorm = normalizeCR(fromUser);
+
+  if (String(chatId).endsWith('@lid')) {
+    try {
+      const resolvedPhone = await whatsappClient.resolvePhoneDigitsFromChatId(chatId, message);
+      if (resolvedPhone) {
+        fromUser = resolvedPhone;
+        fromNorm = normalizeCR(resolvedPhone);
+        logger.debug({ chatId, fromUser, fromNorm }, 'Teléfono resuelto desde chat @lid');
+      }
+    } catch (error) {
+      logger.debug({ err: error, chatId }, 'No se pudo resolver teléfono del chat @lid');
+    }
+  }
+
+  const isRealAdmin = isAdminIdentity(chatId, fromUser, fromNorm);
+  const cusId = normalizeWhatsAppUserChatId(fromUser);
+  linkChatAliases(chatId, String(message.from || '').trim());
+  if (cusId) linkChatAliases(chatId, cusId);
+  const isAdminUserEarly = isRealAdmin && !isChatInClientTestMode(chatId);
+
+  // Registrar automáticamente las respuestas del bot que salen vía message.reply
+  // para que el panel vea el historial completo de la conversación.
+  const originalReply = typeof (message as any).reply === 'function' ? (message as any).reply.bind(message) : null;
+  if (originalReply) {
+    (message as any).reply = async (text: string) => {
+      const result = await originalReply(text);
+      if (!isAdminUserEarly) {
+        await apiClient.logChatOutbound({
+          phone: fromNorm,
+          body: text,
+          sent_at: new Date().toISOString(),
+          metadata: { from: fromNorm, chat_id: chatId, source: 'message.reply' },
+        });
+      }
+      return result;
+    };
+  }
 
   try {
     const tsRaw = Number((message as any)?.timestamp);
     if (Number.isFinite(tsRaw) && tsRaw > 0 && !isAdminUserEarly) {
       const msgTsMs = tsRaw * 1000;
       const ageMs = Date.now() - msgTsMs;
-      const maxAgeMs = Number(process.env.BOT_MAX_INBOUND_AGE_MS || 2 * 60 * 1000);
+      const startupGraceMs = Number(process.env.BOT_STARTUP_GRACE_MS || 5 * 60 * 1000);
+      const startupMaxAgeMs = Number(process.env.BOT_STARTUP_MAX_INBOUND_AGE_MS || 20 * 60 * 1000);
+      const normalMaxAgeMs = Number(process.env.BOT_MAX_INBOUND_AGE_MS || 2 * 60 * 1000);
+      const withinStartupGrace = Date.now() - botStartedAt < startupGraceMs;
+      const maxAgeMs = withinStartupGrace ? startupMaxAgeMs : normalMaxAgeMs;
       if (Number.isFinite(maxAgeMs) && maxAgeMs > 0 && ageMs > maxAgeMs) {
-        logger.info({ chatId: message.from, timestamp: tsRaw, ageMs, maxAgeMs }, 'Mensaje viejo ignorado (backlog)');
+        logger.info({ chatId: message.from, timestamp: tsRaw, ageMs, maxAgeMs, withinStartupGrace }, 'Mensaje viejo ignorado (backlog)');
         return;
       }
     }
@@ -479,14 +657,19 @@ whatsappClient.registerInboundHandler(async (message) => {
   const lcNorm = lc.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   mark('parsed');
 
-    // Establecer ventana de supresión de pausa automática: cuando recibimos un mensaje,
-    // marcamos que los próximos fromMe no deben pausar el chat (son respuestas del bot)
-    if (chatId && !isAdminUserEarly) {
-      suppressFromMePauseUntil.set(chatId, Date.now() + FROM_ME_SUPPRESS_AFTER_INBOUND_MS);
+    // Modo agente / pausa manual: ignorar mensajes salvo comandos explícitos de salida.
+    const agentModeEscape = new Set([
+      'menu', 'inicio', 'help', 'salir', 'exit', 'adminmenu', 'admin', 'menuadmin',
+      'testcliente', 'modotest', '*testcliente', '*modotest',
+      'fintest', 'salirtest', '*fintest', '*salirtest',
+    ]);
+    if (isChatInAgentMode(chatId) && !agentModeEscape.has(lc) && !agentModeEscape.has(lcNorm)) {
+      logger.info({ chatId, body: body.slice(0, 80) }, 'Mensaje ignorado: chat en modo agente');
+      return;
     }
 
     // Protección throttle para opción 5 solicitud asesor
-    if ((lc === '5' || lc === 'agente' || lc === 'asesor') && !agentMode.get(chatId)) {
+    if ((lc === '5' || lc === 'agente' || lc === 'asesor') && !isChatInAgentMode(chatId)) {
       const THROTTLE_MS = 5 * 60 * 1000; // 5 minutos
       const lastSent = adminNotifiedAt.get(chatId) || 0;
       if (Date.now() - lastSent < THROTTLE_MS) {
@@ -505,31 +688,13 @@ whatsappClient.registerInboundHandler(async (message) => {
       }
       await message.reply(agentMsg);
 
-      agentMode.set(chatId, true);
+      activateChatAgentMode(chatId);
       chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
 
       try { touchTimer(chatId); } catch { /* ignore */ }
 
       menuShown.delete(chatId);
       lastMenuItems.delete(chatId);
-
-      try {
-        const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-        const adminChatId = normalizeToChatId(adminPhone);
-
-        const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
-        const offHoursSuffix = isOutsideHours
-          ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.`
-          : '';
-
-        const notifyText = `${offHoursPrefix}Cliente ${fromUser} (${chatId}) solicita atención de un asesor (opción 5). Mensaje: "${String(body).slice(0, 200)}"${offHoursSuffix}`;
-
-        logger.info({ chatId, notifyText }, 'Enviando notificación al admin');
-
-        await whatsappClient.sendText(adminChatId, notifyText);
-      } catch (e) {
-        logger.warn({ e }, 'Falló notificación al admin sobre solicitud de asesor');
-      }
 
       return;
     }
@@ -539,11 +704,47 @@ whatsappClient.registerInboundHandler(async (message) => {
       const msgId = (message as any)?.id?._serialized || null;
       const tsRaw = Number((message as any)?.timestamp);
       const sentAt = Number.isFinite(tsRaw) && tsRaw > 0 ? new Date(tsRaw * 1000).toISOString() : null;
+      const hasMedia = !!(message as any).hasMedia;
+      let media: { mimetype?: string | null; filename?: string | null; data?: string | null; size?: number | null; caption?: string | null; kind?: string | null } | null = null;
+
+      if (hasMedia) {
+        try {
+          const downloaded = await (message as any).downloadMedia();
+          if (downloaded) {
+            const mediaData = String(downloaded.data ?? '').trim();
+            const mediaSize = mediaData ? Buffer.from(mediaData, 'base64').length : null;
+            const mimetype = String(downloaded.mimetype ?? '').trim() || null;
+            const kind = mimetype
+              ? (mimetype.startsWith('image/') ? 'image' : mimetype === 'application/pdf' ? 'document' : mimetype.startsWith('video/') ? 'video' : mimetype.startsWith('audio/') ? 'audio' : 'media')
+              : 'media';
+
+            media = {
+              mimetype,
+              filename: downloaded.filename ? String(downloaded.filename) : null,
+              data: mediaData || null,
+              size: mediaSize,
+              caption: body || null,
+              kind,
+            };
+          }
+        } catch (error) {
+          logger.debug({ err: error, chatId }, 'No se pudo descargar el media del mensaje entrante');
+        }
+      }
+
       apiClient.logChatInbound({
         phone: fromNorm,
-        body: body || null,
+        body: body || media?.caption || null,
         whatsapp_message_id: msgId,
         sent_at: sentAt,
+        metadata: {
+          from: fromNorm,
+          chat_id: chatId,
+          source: 'bot',
+          has_media: hasMedia,
+          media: media ?? undefined,
+        },
+        media,
       }).catch(() => { /* best-effort */ });
     }
     const slowMs = Number(process.env.BOT_SLOW_MESSAGE_MS || 2500);
@@ -551,6 +752,14 @@ whatsappClient.registerInboundHandler(async (message) => {
       const tSend0 = Date.now();
       try {
         await whatsappClient.sendText(chatId, text);
+        if (!isAdminUserEarly) {
+          await apiClient.logChatOutbound({
+            phone: fromNorm,
+            body: text,
+            sent_at: new Date().toISOString(),
+            metadata: { from: fromNorm, chat_id: chatId, source: 'bot' },
+          });
+        }
       } finally {
         timings.sendTextMs = (timings.sendTextMs || 0) + (Date.now() - tSend0);
         mark('sent');
@@ -572,6 +781,29 @@ whatsappClient.registerInboundHandler(async (message) => {
             'Latencia handler WhatsApp'
           );
         }
+      }
+    };
+
+    const notifyHelpRequest = async (source: string): Promise<void> => {
+      try {
+        const msgId = String((message as any)?.id?._serialized || '');
+        const tsRaw = Number((message as any)?.timestamp);
+        const sentAt = Number.isFinite(tsRaw) && tsRaw > 0 ? new Date(tsRaw * 1000).toISOString() : new Date().toISOString();
+        await apiClient.notifyHelpRequest({
+          phone: fromNorm,
+          body: body || null,
+          whatsapp_message_id: msgId || null,
+          sent_at: sentAt,
+          metadata: {
+            from: fromNorm,
+            chat_id: chatId,
+            trigger: source,
+          },
+          source,
+          skip_push: true,
+        });
+      } catch (error) {
+        logger.debug({ err: error, chatId, source }, 'No se pudo notificar la solicitud de ayuda');
       }
     };
 
@@ -644,13 +876,28 @@ whatsappClient.registerInboundHandler(async (message) => {
         return false;
       }
 
+      const menuIconByKeyword: Record<string, string> = {
+        '1': '🛍️',
+        '2': '🧑‍💻',
+        '3': '📍',
+        '4': '📡',
+        '5': '🧑‍💼',
+        '6': '🧾',
+        '7': '🧾',
+        '8': '📊',
+        '9': '🔄',
+      };
+
       const lines: string[] = [];
       lines.push('Hola! Bienvenido a nuestro 🤖 CHATBOT');
       lines.push('Somos Tecno Servicios Artavia, por favor envía el número de una de las siguientes opciones:');
+      lines.push('ℹ️ Nueva opción: la opción 9 ahora te permite solicitar el reenvío de accesos de tus servicios, si tu contrato está al día.');
       lines.push('');
       menuToUse.forEach((item) => {
         const label = (item.reply_message ?? '').split('\n')[0] || '';
-        lines.push(`${item.keyword} - ${label}`);
+        const cleanLabel = label.replace(/^[^\p{L}\p{N}]+/u, '').trim();
+        const icon = menuIconByKeyword[String(item.keyword ?? '').trim()] ?? '';
+        lines.push(icon ? `${item.keyword} - ${icon} ${cleanLabel}` : `${item.keyword} - ${cleanLabel}`);
       });
       lines.push('');
       lines.push('⏳ Este chat se finalizará automáticamente si no recibimos respuesta en 10 minutos.');
@@ -660,6 +907,7 @@ whatsappClient.registerInboundHandler(async (message) => {
       await message.reply(lines.join('\n'));
       menuShown.set(chatId, true);
       lastMenuItems.set(chatId, menuToUse);
+      scheduleMenuReminder(chatId);
       return true;
     };
 
@@ -728,9 +976,44 @@ whatsappClient.registerInboundHandler(async (message) => {
       return { isAdLead: false };
     };
 
+    const TEST_ENTER_CMDS = new Set(['testcliente', 'modotest', '*testcliente', '*modotest']);
+    const TEST_EXIT_CMDS = new Set(['fintest', 'salirtest', '*fintest', '*salirtest']);
+
+    if (isRealAdmin && TEST_EXIT_CMDS.has(lc)) {
+      if (!isChatInClientTestMode(chatId)) {
+        await send('No estás en modo prueba cliente.');
+        return;
+      }
+      deactivateClientTestMode(chatId);
+      resetChatState(chatId, 'client_test_exit', { clearTimer: true });
+      await send('✅ Modo prueba cliente finalizado.\n\nEscribe *adminmenu* para el panel admin o *testcliente* para volver a probar.');
+      return;
+    }
+
+    if (isRealAdmin && TEST_ENTER_CMDS.has(lc)) {
+      activateClientTestMode(chatId);
+      resetChatState(chatId, 'client_test_enter', { clearTimer: true });
+      await send([
+        '🧪 *Modo prueba cliente activado*',
+        '',
+        'El bot te tratará como un cliente normal (sigues siendo admin).',
+        '',
+        '• *menu* — probar menú y opciones',
+        '• Responde manualmente desde WhatsApp Web del negocio → el bot debe pausarse',
+        '• *fintest* — salir del modo prueba',
+        '• *adminmenu* — también sale del modo prueba',
+      ].join('\n'));
+      await showMainMenu();
+      return;
+    }
+
     // Atajo: si un admin escribe adminmenu, responder inmediatamente.
     // Esto evita esperas por checks de backend (paused/settings) cuando estamos en modo polling fallback.
-    if (isAdminUserEarly && (lc === 'adminmenu' || lc === 'admin' || lc === 'menuadmin')) {
+    if (isRealAdmin && (lc === 'adminmenu' || lc === 'admin' || lc === 'menuadmin')) {
+      if (isChatInClientTestMode(chatId)) {
+        deactivateClientTestMode(chatId);
+        resetChatState(chatId, 'client_test_exit_for_adminmenu', { clearTimer: true });
+      }
       const adminMenuText = [
         '🔧 *MENÚ ADMIN* 🔧',
         '',
@@ -762,6 +1045,9 @@ whatsappClient.registerInboundHandler(async (message) => {
         '1️⃣9️⃣ Cambiar horario de atención',
         '2️⃣0️⃣ Pausar / reanudar bot',
         '',
+        '🧪 *testcliente* — simular cliente (probar pausa manual)',
+        '🧪 *fintest* — salir del modo prueba',
+        '',
         '📋 Escribe *help para ver comandos de texto',
         '❌ Escribe salir para cancelar',
       ].join('\n');
@@ -779,7 +1065,7 @@ whatsappClient.registerInboundHandler(async (message) => {
         adLeadChats.set(chatId, { detectedAt: Date.now(), evidence: String(adSignal.evidence || 'unknown') });
       }
 
-      if (adLeadChats.has(chatId) && !agentMode.get(chatId)) {
+      if (adLeadChats.has(chatId) && !isChatInAgentMode(chatId)) {
         const isOutsideHours = !_isWithinBusinessHours();
         let agentMsg = '';
         if (isOutsideHours) {
@@ -790,33 +1076,12 @@ whatsappClient.registerInboundHandler(async (message) => {
 
         await message.reply(agentMsg);
 
-        agentMode.set(chatId, true);
+        activateChatAgentMode(chatId);
         chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
         try { touchTimer(chatId); } catch { /* ignore */ }
         menuShown.delete(chatId);
         lastMenuItems.delete(chatId);
         logger.info({ chatId, adEvidence: adLeadChats.get(chatId)?.evidence }, 'Chat puesto en modo agente por origen anuncio');
-
-        try {
-          const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-          const adminChatId = normalizeToChatId(adminPhone);
-          const now = Date.now();
-          const lastNotified = adminNotifiedAt.get(chatId) || 0;
-          if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
-            const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
-            const offHoursSuffix = isOutsideHours
-              ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.`
-              : '';
-            const notifyText = `${offHoursPrefix}Cliente ${fromUser} (${chatId}) solicita atención de un asesor (lead de anuncio). Mensaje: "${String(body).slice(0, 200)}"${offHoursSuffix}`;
-            await whatsappClient.sendText(adminChatId, notifyText);
-            adminNotifiedAt.set(chatId, now);
-            logger.info({ adminChatId, chatId, outsideHours: isOutsideHours }, 'Admin notificado sobre lead de anuncio');
-          } else {
-            logger.debug({ chatId, lastNotified, throttleMs: AGENT_NOTIFY_THROTTLE_MS }, 'Omitida notificación admin por throttle (lead de anuncio)');
-          }
-        } catch (e: any) {
-          logger.warn({ e }, 'No se pudo notificar al admin sobre lead de anuncio');
-        }
 
         return;
       }
@@ -852,7 +1117,7 @@ whatsappClient.registerInboundHandler(async (message) => {
     // Importante: cuando el chat está en modo agente, NO reiniciamos el timer
     // con mensajes entrantes del cliente para que la pausa expire realmente.
     try {
-      if (!agentMode.get(chatId)) {
+      if (!isChatInAgentMode(chatId)) {
         touchTimer(chatId);
       }
     } catch (e) {
@@ -871,7 +1136,7 @@ whatsappClient.registerInboundHandler(async (message) => {
   // Business hours check: admins and ongoing processes always bypass
   // Regular users can now use the menu and automatic options 24/7, but agent requests notify about off-hours
   try {
-    const isInActiveProcess = awaitingReceipt.get(chatId) || pendingConfirmReceipt.has(chatId) || awaitingMonths.has(chatId) || agentMode.get(chatId) || menuShown.get(chatId);
+    const isInActiveProcess = awaitingReceipt.get(chatId) || pendingConfirmReceipt.has(chatId) || awaitingMonths.has(chatId) || isChatInAgentMode(chatId) || menuShown.get(chatId);
     const isMediaUpload = !!(message as any).hasMedia;
     logger.warn({ chatId, lc, isAdminUserEarly, isInActiveProcess, isMediaUpload, withinHours: _isWithinBusinessHours() }, 'DEBUG horario: punto de verificación de horario alcanzado');
     // No bloquear mensajes generales por horario: menú y opciones automáticas 24/7.
@@ -932,7 +1197,7 @@ whatsappClient.registerInboundHandler(async (message) => {
   // Caso especial: si el usuario envía "6" junto con el adjunto, activamos el flujo y lo procesamos.
   try {
     const hasMedia = !!(message as any).hasMedia;
-    if (hasMedia && !isAdminUserEarly && !agentMode.get(chatId) && !awaitingReceipt.get(chatId)) {
+    if (hasMedia && !isAdminUserEarly && !isChatInAgentMode(chatId) && !awaitingReceipt.get(chatId)) {
       if (lc === '6') {
         awaitingReceipt.set(chatId, true);
         chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
@@ -1036,23 +1301,6 @@ whatsappClient.registerInboundHandler(async (message) => {
           await message.reply('Gracias. ¿Cuántos meses estás pagando con este comprobante? Responde con un número, por ejemplo: 1');
 
           // notify admin and forward media (include backend payment id if available)
-          try {
-            const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-            const adminChatId = normalizeToChatId(adminPhone);
-            if (adminChatId) {
-              const notifyText = backendPaymentId
-                ? `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id} | backend payment: ${backendPaymentId}`
-                : `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id}`;
-              await whatsappClient.sendText(adminChatId, notifyText);
-              await whatsappClient.sendMedia(adminChatId, media.data, media.mimetype, fname);
-              logger.info({ adminChatId, chatId, file: saved.filepath, backendPaymentId }, 'Enviado comprobante al admin');
-            }
-          } catch (e: any) {
-            logger.warn({ e }, 'Fallo notificando admin sobre comprobante recibido');
-          }
-
-          awaitingReceipt.delete(chatId);
-          await message.reply('✅ Recibimos tu comprobante. Un asesor lo revisará y te contactará si es necesario.');
           return;
         } else {
           await message.reply('Por favor adjunta una foto o PDF del comprobante. Si no deseas continuar escribe "salir".');
@@ -1066,7 +1314,7 @@ whatsappClient.registerInboundHandler(async (message) => {
       }
     }
 
-  const isAdminUser = isAdminChatId(chatId) || fromNorm === '50672140974';
+  const isAdminUser = isAdminUserEarly;
 
     // Si hay un asistente admin en curso y el mensaje NO empieza con '*', procesarlo
     if (isAdminUser && adminFlows.has(chatId) && !lc.startsWith('*')) {
@@ -1900,22 +2148,6 @@ whatsappClient.registerInboundHandler(async (message) => {
         await message.reply('Gracias. ¿Cuántos meses estás pagando con este comprobante? Responde con un número, por ejemplo: 1');
 
         // notify admin
-        try {
-          const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-          const adminChatId = normalizeToChatId(adminPhone);
-          if (adminChatId) {
-            const notifyText = backendPaymentId
-              ? `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id} | backend payment: ${backendPaymentId}`
-              : `Nuevo comprobante de ${fromUser} (${chatId}). ID interno: ${saved.id}`;
-            await whatsappClient.sendText(adminChatId, notifyText);
-            await whatsappClient.sendMedia(adminChatId, pending.data, pending.mimetype, pending.filename);
-            logger.info({ adminChatId, chatId, file: saved.filepath, backendPaymentId }, 'Enviado comprobante al admin (confirmación)');
-          }
-        } catch (e: any) {
-          logger.warn({ e }, 'Fallo notificando admin sobre comprobante recibido (confirmación)');
-        }
-
-        pendingConfirmReceipt.delete(chatId);
         return;
       } catch (e: any) {
         pendingConfirmReceipt.delete(chatId);
@@ -2017,20 +2249,6 @@ whatsappClient.registerInboundHandler(async (message) => {
           }
 
           // notify admin with details
-          try {
-            const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-            const adminChatId = normalizeToChatId(adminPhone);
-            if (adminChatId) {
-              const txt = `El cliente ${fromUser} (${chatId}) indicó que paga ${asNum} mes(es) para el comprobante ${payload.receiptId}` + (payload.backendReceiptId ? ` (backend receipt ${payload.backendReceiptId})` : '');
-              await whatsappClient.sendText(adminChatId, txt);
-              logger.info({ adminChatId, chatId, months: asNum, receiptId: payload.receiptId }, 'Admin notificado: meses aplicados al comprobante');
-            }
-          } catch (e: any) {
-            logger.warn({ e }, 'No se pudo notificar al admin sobre meses aplicados');
-          }
-
-          awaitingMonths.delete(chatId);
-          await message.reply(`✅ Gracias. He registrado que pagas ${asNum} mes(es). Un asesor validará y conciliará el pago.`);
           return;
         } catch (e: any) {
           // Log detailed error info (include axios response payload when available)
@@ -2079,24 +2297,13 @@ whatsappClient.registerInboundHandler(async (message) => {
                 };
                 const retryRes = await apiClient.createPayment(paymentPayloadRetry);
                 await updateReceiptEntry(payload.receiptId, { status: 'applied', backend_apply_result: retryRes, backend_payment_id: retryRes && (retryRes.id || retryRes.payment_id) ? (retryRes.id ?? retryRes.payment_id) : null, monthly_amount: monthlyAmount, total_amount: amountRetry });
-                // notify admin about successful retry
-                try {
-                  const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-                  const adminChatId = normalizeToChatId(adminPhone);
-                  if (adminChatId) {
-                    const txt = `Reintento exitoso: aplicados ${asNum} mes(es) para el comprobante ${payload.receiptId} del cliente ${fromUser} (${chatId}).`;
-                    await whatsappClient.sendText(adminChatId, txt);
-                  }
-                } catch (e2: any) {
-                  logger.debug({ e2 }, 'No se pudo notificar al admin tras reintento exitoso');
-                }
-              } catch (e2: any) {
-                logger.warn({ e2, chatId }, 'Reintento fallido aplicando meses');
-                try { await updateReceiptEntry(payload.receiptId, { status: 'apply_failed', apply_error_retry: String(e2 && e2.message ? e2.message : e2) }); } catch { /* ignore */ }
+                logger.info({ chatId, receiptId: payload.receiptId }, 'Reintento de aplicación de meses completado');
+              } catch (retryError: any) {
+                logger.warn({ retryError, chatId, receiptId: payload.receiptId }, 'Falló el reintento de aplicación de meses');
               }
             }, retryDelayMs);
-          } catch (ee) {
-            logger.debug({ ee }, 'No se pudo programar reintento');
+          } catch (scheduleError: any) {
+            logger.warn({ scheduleError, chatId }, 'No se pudo programar el reintento de aplicación de meses');
           }
 
           return;
@@ -2437,13 +2644,15 @@ whatsappClient.registerInboundHandler(async (message) => {
     }
 
     // Procesar comandos admin simples (prefijo '*')
-    if (isAdminUser && lc.startsWith('*')) {
+    if (isRealAdmin && lc.startsWith('*')) {
       const cmd = lc.slice(1).trim();
       if (cmd === 'help' || cmd === 'ayuda') {
         const helpText = [
           '🔧 *Comandos admin disponibles:*',
           '',
           '*adminmenu* — menú interactivo admin',
+          '*testcliente* — simular cliente (probar pausa manual)',
+          '*fintest* — salir del modo prueba cliente',
           '*ping* — healthcheck',
           '*status* — estado del bot',
           '*cancelar* — cancelar asistente admin',
@@ -2469,6 +2678,30 @@ whatsappClient.registerInboundHandler(async (message) => {
         } else {
           await message.reply('No hay asistente admin en curso.');
         }
+        return;
+      }
+      if (cmd === 'testcliente' || cmd === 'modotest') {
+        activateClientTestMode(chatId);
+        resetChatState(chatId, 'client_test_enter', { clearTimer: true });
+        await message.reply([
+          '🧪 *Modo prueba cliente activado*',
+          '',
+          'El bot te tratará como un cliente normal (sigues siendo admin).',
+          '',
+          '• Escribe *menu* para probar el flujo',
+          '• Responde manualmente desde WhatsApp Web del negocio para probar la pausa',
+          '• Escribe *fintest* para salir',
+        ].join('\n'));
+        return;
+      }
+      if (cmd === 'fintest' || cmd === 'salirtest') {
+        if (!isChatInClientTestMode(chatId)) {
+          await message.reply('No estás en modo prueba cliente.');
+          return;
+        }
+        deactivateClientTestMode(chatId);
+        resetChatState(chatId, 'client_test_exit', { clearTimer: true });
+        await message.reply('✅ Modo prueba cliente finalizado.\n\nEscribe *adminmenu* para volver al panel admin.');
         return;
       }
       if (cmd === 'ping') { await message.reply('pong'); return; }
@@ -2734,7 +2967,7 @@ whatsappClient.registerInboundHandler(async (message) => {
 
     // Handle explicit exit command: clear any pending menu or agent mode
     if (lc === 'salir' || lc === 'exit') {
-      const wasAgent = !!agentMode.get(chatId);
+      const wasAgent = !!isChatInAgentMode(chatId);
       resetChatState(chatId, 'explicit_exit', { clearTimer: true });
       if (wasAgent) {
         await message.reply('Has salido del menú. Si deseas volver a ver las opciones escribe "menu".');
@@ -2771,34 +3004,16 @@ whatsappClient.registerInboundHandler(async (message) => {
         await message.reply('Perfecto, te estoy conectando con un asesor. Un miembro de nuestro equipo te atenderá en breve. Por favor espera un momento.');
       }
       
+      await notifyHelpRequest('agent_keyword');
+
       // Activate agent mode
-      agentMode.set(chatId, true);
+      activateChatAgentMode(chatId);
       chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
       try { touchTimer(chatId); } catch { /* ignore */ }
       menuShown.delete(chatId);
       lastMenuItems.delete(chatId);
       logger.info({ chatId, trigger: lc }, 'Chat puesto en modo agente (palabra clave)');
 
-      // Notify admin
-      try {
-        const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-        const adminChatId = normalizeToChatId(adminPhone);
-        const now = Date.now();
-        const lastNotified = adminNotifiedAt.get(chatId) || 0;
-        if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
-          const isOutsideHours = !_isWithinBusinessHours();
-          const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
-          const offHoursSuffix = isOutsideHours ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.` : '';
-          const notifyText = `${offHoursPrefix}🔔 Cliente ${fromUser} (${chatId}) solicitó hablar con un agente.\n\nÚltimo mensaje: "${String(body).slice(0, 200)}"${offHoursSuffix}\n\nPor favor responde directamente a este chat para atender al cliente.`;
-          await whatsappClient.sendText(adminChatId, notifyText);
-          adminNotifiedAt.set(chatId, now);
-          logger.info({ adminChatId, chatId, outsideHours: isOutsideHours }, 'Admin notificado sobre solicitud de agente (palabra clave)');
-        } else {
-          logger.debug({ chatId, lastNotified }, 'Omitida notificación admin por throttle (palabra clave)');
-        }
-      } catch (e: any) {
-        logger.warn({ e }, 'No se pudo notificar al admin sobre solicitud de agente (palabra clave)');
-      }
       return;
     }
 
@@ -2835,6 +3050,7 @@ whatsappClient.registerInboundHandler(async (message) => {
             // store submenu entries for the chat (expect letter like a/b/c)
             lastMenuItems.set(chatId, matched.submenu.map((s: any) => ({ ...s, key: (s.key || s.key_text || '').toString().toLowerCase(), text: s.text || s.reply_message || '' })));
             menuShown.set(chatId, true);
+            scheduleMenuReminder(chatId);
             return;
           }
 
@@ -2863,34 +3079,15 @@ whatsappClient.registerInboundHandler(async (message) => {
             }
             
             await message.reply(agentMsg);
+            await notifyHelpRequest('menu_option_5');
 
             // Activate agent mode and notify admin just like the generic agent transfer flow
-            agentMode.set(chatId, true);
+            activateChatAgentMode(chatId);
             chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
             try { touchTimer(chatId); } catch { /* ignore */ }
             menuShown.delete(chatId);
             lastMenuItems.delete(chatId);
             logger.info({ chatId }, 'Chat puesto en modo agente (opción 5)');
-
-            try {
-              const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-              const adminChatId = normalizeToChatId(adminPhone);
-              const now = Date.now();
-              const lastNotified = adminNotifiedAt.get(chatId) || 0;
-              if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
-                const isOutsideHours = !_isWithinBusinessHours();
-                const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
-                const offHoursSuffix = isOutsideHours ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.` : '';
-                const notifyText = `${offHoursPrefix}Cliente ${fromUser} (${chatId}) solicita atención de un asesor (opción 5). Mensaje: "${String(body).slice(0,200)}"${offHoursSuffix}`;
-                await whatsappClient.sendText(adminChatId, notifyText);
-                adminNotifiedAt.set(chatId, now);
-                logger.info({ adminChatId, chatId, outsideHours: isOutsideHours }, 'Admin notificado sobre solicitud de agente (opción 5)');
-              } else {
-                logger.debug({ chatId, lastNotified, throttleMs: AGENT_NOTIFY_THROTTLE_MS }, 'Omitida notificación admin por throttle (opción 5)');
-              }
-            } catch (e: any) {
-              logger.warn({ e }, 'No se pudo notificar al admin sobre la solicitud de agente (opción 5)');
-            }
 
             return;
           }
@@ -3025,6 +3222,37 @@ whatsappClient.registerInboundHandler(async (message) => {
             }
           }
 
+          // Special case: option 9 - resend access for current contracts
+          const isOptionNine = (typeof asNum === 'number' && asNum === 9)
+            || (matched.keyword && String(matched.keyword).trim() === '9')
+            || (matched.key && String(matched.key).trim() === '9');
+
+          if (isOptionNine) {
+            try {
+              await message.reply('🔄 Revisando tus contratos, un momento por favor...');
+
+              const client = await apiClient.findCustomerByPhone(fromUser);
+              if (!client || !client.id) {
+                await message.reply('❌ No encontramos tu información en nuestro sistema. Por favor contacta con un asesor escribiendo "agente".');
+                menuShown.delete(chatId);
+                lastMenuItems.delete(chatId);
+                return;
+              }
+
+              await apiClient.resendAccessesForClient(client.id);
+            } catch (error: any) {
+              logger.error({ err: error, chatId }, 'Error reenviando accesos del cliente');
+              const backendMessage = (error && error.response && error.response.data && error.response.data.message)
+                ? error.response.data.message
+                : (error && error.message ? error.message : 'No pude reenviar los accesos en este momento.');
+              await message.reply('❌ ' + backendMessage);
+            }
+
+            menuShown.delete(chatId);
+            lastMenuItems.delete(chatId);
+            return;
+          }
+
           await message.reply(replyText);
           const lower = String(replyText || '').toLowerCase();
 
@@ -3044,7 +3272,7 @@ whatsappClient.registerInboundHandler(async (message) => {
           // Heurística para detectar transferencia a agente (si el reply contiene palabras clave)
           const isAgentTransfer = /transfer|asesor|agente|asesores|te vamos a transferir|transferir|transferencia/i.test(lower);
           if (isAgentTransfer) {
-            agentMode.set(chatId, true);
+            activateChatAgentMode(chatId);
             // set a longer timeout so agent mode will expire after agent timeout
             chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
             try { touchTimer(chatId); } catch (e) { logger.debug({ e }, 'touchTimer fallo al activar agentMode'); }
@@ -3052,27 +3280,7 @@ whatsappClient.registerInboundHandler(async (message) => {
             menuShown.delete(chatId);
             lastMenuItems.delete(chatId);
             logger.info({ chatId }, 'Chat puesto en modo agente');
-
-            // Notify admin (first configured admin phone) that a client awaits an agent, with throttle
-            try {
-              const adminPhone = Array.isArray(ADMIN_PHONES) && ADMIN_PHONES.length ? ADMIN_PHONES[0] : '50672140974';
-              const adminChatId = normalizeToChatId(adminPhone);
-              const now = Date.now();
-              const lastNotified = adminNotifiedAt.get(chatId) || 0;
-              if (adminChatId && (now - lastNotified > AGENT_NOTIFY_THROTTLE_MS)) {
-                const isOutsideHours = !_isWithinBusinessHours();
-                const offHoursPrefix = isOutsideHours ? '⚠️ FUERA DE HORARIO - ' : '';
-                const offHoursSuffix = isOutsideHours ? `\n\n⏰ Nota: Esta solicitud se realizó FUERA del horario de atención (${formatBusinessHours()}). El cliente será atendido cuando inicien las operaciones.` : '';
-                const notifyText = `${offHoursPrefix}Cliente ${fromUser} (${chatId}) solicita atención de un asesor. Mensaje: "${String(body).slice(0, 200)}"${offHoursSuffix}`;
-                await whatsappClient.sendText(adminChatId, notifyText);
-                adminNotifiedAt.set(chatId, now);
-                logger.info({ adminChatId, chatId, outsideHours: isOutsideHours }, 'Admin notificado sobre solicitud de agente');
-              } else {
-                logger.debug({ chatId, lastNotified, throttleMs: AGENT_NOTIFY_THROTTLE_MS }, 'Omitida notificación admin por throttle');
-              }
-            } catch (e: any) {
-              logger.warn({ e }, 'No se pudo notificar al admin sobre la solicitud de agente');
-            }
+            await notifyHelpRequest('transfer_heuristic');
 
             return;
           }
@@ -3083,10 +3291,8 @@ whatsappClient.registerInboundHandler(async (message) => {
           return;
         }
 
-        // not a valid option while menu active: reply and clear shown state so next message will show menu again
+        // not a valid option while menu active: reply but keep the menu open so the timeout reminder can still fire
         await send('No reconozco esa opción. Por favor elige un número del menú o escribe "menu" para volver a ver las opciones o "salir" para finalizar.');
-        menuShown.delete(chatId);
-        lastMenuItems.delete(chatId);
         return;
       } catch (error) {
         logger.error({ err: error }, 'Error manejando opción de menú');
@@ -3101,7 +3307,7 @@ whatsappClient.registerInboundHandler(async (message) => {
     try {
       // Si el chat quedó en modo agente, NO mostrar menú automáticamente.
       // La salida de modo agente debe ser explícita (menu/inicio/help/salir) o por timeout.
-      if (agentMode.get(chatId)) {
+      if (isChatInAgentMode(chatId)) {
         logger.info({ chatId }, 'Mensaje ignorado: chat en modo agente');
         return;
       }
@@ -3348,10 +3554,29 @@ whatsappClient.registerInboundHandler(async (message) => {
           remoteAddress === '::1' ||
           remoteAddress === '::ffff:127.0.0.1';
 
-        const u = new URL(req.url || '/', `http://${req.headers.host}`);
+        const pathname = (() => {
+          const raw = req.url || '/';
+          try {
+            if (/^https?:\/\//i.test(raw)) {
+              const seg = new URL(raw).pathname;
+              return seg.length > 1 && seg.endsWith('/') ? seg.slice(0, -1) : seg || '/';
+            }
+          } catch {
+            /**/
+          }
+          const seg = (raw.split('?')[0] || '/').trim() || '/';
+          return seg.length > 1 && seg.endsWith('/') ? seg.slice(0, -1) : seg;
+        })();
+
+        // Comprobación rápida: mismo host/puerto que BOT_WEBHOOK_URL — si esto da 404, el proceso NO es esta versión del bot.
+        if (pathname === '/webhook/broadcast_promo' && req.method === 'GET') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, feature: 'broadcast_promo', hint: 'POST with JSON body to send' }));
+          return;
+        }
 
         // --- Debug endpoints (solo localhost) ---
-        if (req.method === 'GET' && u.pathname === '/debug/state') {
+        if (req.method === 'GET' && pathname === '/debug/state') {
           if (!isLocal) {
             res.writeHead(403, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, error: 'forbidden' }));
@@ -3364,7 +3589,7 @@ whatsappClient.registerInboundHandler(async (message) => {
           return;
         }
 
-        if (req.method === 'GET' && u.pathname === '/debug/chats') {
+        if (req.method === 'GET' && pathname === '/debug/chats') {
           if (!isLocal) {
             res.writeHead(403, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, error: 'forbidden' }));
@@ -3377,7 +3602,7 @@ whatsappClient.registerInboundHandler(async (message) => {
           return;
         }
 
-        if (req.method === 'POST' && u.pathname === '/debug/ping_admin') {
+        if (req.method === 'POST' && pathname === '/debug/ping_admin') {
           if (!isLocal) {
             res.writeHead(403, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, error: 'forbidden' }));
@@ -3399,7 +3624,7 @@ whatsappClient.registerInboundHandler(async (message) => {
           return;
         }
 
-        if (req.method === 'POST' && u.pathname === '/webhook/receipt_reconciled') {
+        if (req.method === 'POST' && pathname === '/webhook/receipt_reconciled') {
           let raw = '';
           for await (const chunk of req) raw += chunk;
           const payload = raw ? JSON.parse(raw) : {};
@@ -3504,7 +3729,7 @@ whatsappClient.registerInboundHandler(async (message) => {
         }
 
         // Endpoint para enviar PDF directamente a un cliente (para pagos manuales)
-        if (req.method === 'POST' && u.pathname === '/webhook/send_pdf') {
+        if (req.method === 'POST' && pathname === '/webhook/send_pdf') {
           let raw = '';
           for await (const chunk of req) raw += chunk;
           const payload = raw ? JSON.parse(raw) : {};
@@ -3573,8 +3798,77 @@ whatsappClient.registerInboundHandler(async (message) => {
           }
         }
 
+        // Envío masivo tipo marketing: lista de teléfonos + texto y/o imagen (base64 sin prefijo data URL)
+        if (req.method === 'POST' && pathname === '/webhook/broadcast_promo') {
+          let raw = '';
+          for await (const chunk of req) raw += chunk;
+          const payload = raw ? JSON.parse(raw) : {};
+          const phonesRaw = payload.phones;
+          const message = String(payload.message ?? '').trim();
+          const imageBase64 = payload.image_base64
+            ? String(payload.image_base64).replace(/^data:[^;]+;base64,/, '').trim()
+            : '';
+          let imageMimetype = String(payload.image_mimetype ?? payload.mime_type ?? '').trim();
+          const delayMs = Math.min(15000, Math.max(400, Number(payload.delay_ms ?? 2000) || 2000));
+
+          if (!Array.isArray(phonesRaw) || phonesRaw.length === 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'phones array required' }));
+            return;
+          }
+
+          if (!imageBase64 && !message) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'message or image_base64 required' }));
+            return;
+          }
+
+          if (imageBase64 && !imageMimetype) {
+            imageMimetype = 'image/jpeg';
+          }
+
+          const MAX_RECIPIENTS = 500;
+          const phones = phonesRaw.slice(0, MAX_RECIPIENTS).map((p: unknown) => String(p).trim()).filter(Boolean);
+
+          const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+          let sent = 0;
+          let failed = 0;
+          const errors: string[] = [];
+
+          for (const phone of phones) {
+            try {
+              const chatId = normalizeToChatId(phone);
+              if (!chatId) {
+                failed++;
+                errors.push(`${phone}: invalid phone/chat id`);
+                await sleep(delayMs);
+                continue;
+              }
+              if (imageBase64 && imageMimetype) {
+                await whatsappClient.sendMarketingImage(chatId, imageBase64, imageMimetype, message || undefined, 'promo.jpg');
+              } else if (message) {
+                await whatsappClient.sendText(chatId, message);
+              }
+              sent++;
+            } catch (e: unknown) {
+              failed++;
+              const msg = String(e && typeof e === 'object' && 'message' in e ? (e as { message?: string }).message : e);
+              errors.push(`${phone}: ${msg}`);
+              logger.warn({ e, phone }, 'broadcast_promo: fallo por destinatario');
+            }
+            await sleep(delayMs);
+          }
+
+          logger.info({ sent, failed, total: phones.length }, 'broadcast_promo completado');
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, sent, failed, total: phones.length, errors_sample: errors.slice(0, 40) }));
+          return;
+        }
+
         // Endpoint para enviar texto directo a un número (usado por backend para avisos admin)
-        if (req.method === 'POST' && u.pathname === '/webhook/send_text') {
+        if (req.method === 'POST' && pathname === '/webhook/send_text') {
           let raw = '';
           for await (const chunk of req) raw += chunk;
           const payload = raw ? JSON.parse(raw) : {};
@@ -3604,6 +3898,42 @@ whatsappClient.registerInboundHandler(async (message) => {
             const status = msg.toLowerCase().includes('not ready') ? 503 : 500;
             res.writeHead(status, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: false, error: msg }));
+            return;
+          }
+        }
+
+        if (req.method === 'POST' && pathname === '/webhook/meta_inbound') {
+          let raw = '';
+          for await (const chunk of req) raw += chunk;
+          const payload = raw ? JSON.parse(raw) : {};
+          const from = String(payload.from ?? payload.phone ?? '').trim();
+          const body = String(payload.body ?? payload.message ?? '').trim();
+          const timestamp = Number(payload.timestamp ?? payload.sent_at ?? 0) || undefined;
+          const messageId = String(payload.id ?? payload.message_id ?? payload.whatsapp_message_id ?? '');
+
+          if (!from) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'from required' }));
+            return;
+          }
+
+          try {
+            await whatsappClient.injectInboundMessage({
+              id: messageId || undefined,
+              from,
+              body,
+              timestamp,
+              type: String(payload.type ?? 'text'),
+              hasMedia: Boolean(payload.hasMedia),
+              meta: payload.meta ?? payload.raw ?? null,
+            });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+            return;
+          } catch (e: any) {
+            logger.warn({ e, from }, 'meta_inbound: error procesando mensaje entrante');
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: String(e && e.message ? e.message : e) }));
             return;
           }
         }
@@ -3724,7 +4054,17 @@ whatsappClient.registerInboundHandler(async (message) => {
       const queued = await apiClient.getChatOutboundQueue();
       for (const msg of queued) {
         try {
-          const result = await whatsappClient.sendText(msg.phone, msg.body);
+          if (msg.media?.data && msg.media?.mimetype) {
+            await whatsappClient.sendMarketingImage(
+              msg.phone,
+              msg.media.data,
+              msg.media.mimetype,
+              msg.media.caption || msg.body || undefined,
+              msg.media.filename || 'archivo',
+            );
+          } else {
+            await whatsappClient.sendText(msg.phone, msg.body);
+          }
           await apiClient.updateChatMessageStatus(msg.id, 'sent', null);
           logger.info({ phone: msg.phone, msgId: msg.id }, 'Mensaje de plataforma enviado');
         } catch (err: any) {
@@ -3764,7 +4104,7 @@ whatsappClient.registerInboundHandler(async (message) => {
 
 main().catch((error) => {
   logger.fatal({ err: error }, 'El bot de WhatsApp se detuvo por un error inesperado');
-  // Try to shutdown WhatsApp client to avoid leaving Chromium processes running
+  // Cerrar limpiamente el transporte de Meta Cloud API.
   void (async () => {
     try {
       await whatsappClient.shutdown();

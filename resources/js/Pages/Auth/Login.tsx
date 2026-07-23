@@ -47,13 +47,13 @@ export default function Login({
 
                     {/* Status Message */}
                     {status && (
-                        <div className="rounded-md bg-green-50 p-4">
+                        <div className="rounded-md bg-cyan-50 p-4">
                             <div className="flex">
                                 <div className="flex-shrink-0">
-                                    <CheckCircle className="h-5 w-5 text-green-400" />
+                                    <CheckCircle className="h-5 w-5 text-cyan-400" />
                                 </div>
                                 <div className="ml-3">
-                                    <p className="text-sm font-medium text-green-800">
+                                    <p className="text-sm font-medium text-cyan-800">
                                         {status}
                                     </p>
                                 </div>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Contract;
 use App\Models\Service;
+use App\Models\ServiceAccount;
 use App\Models\Payment;
 use App\Models\Reminder;
 use App\Services\WhatsAppNotificationService;
@@ -27,7 +28,7 @@ class ContractController extends Controller
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'billing_cycle' => ['required', 'string', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
-            'next_due_date' => ['required', 'date'],
+            'next_due_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'notes' => ['nullable', 'string'],
             'status' => ['nullable', 'string', Rule::in(['active', 'paused', 'cancelled'])],
@@ -96,7 +97,7 @@ class ContractController extends Controller
     public function createForClient(Client $client): Response
     {
         $services = $this->mapServices(
-            Service::query()->where('is_active', true)->orderBy('name')->get(),
+            Service::query()->where('is_active', true)->with('accounts')->orderBy('name')->get(),
             $this->serviceUsageCounts()
         );
 
@@ -116,7 +117,7 @@ class ContractController extends Controller
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'billing_cycle' => ['required', 'string', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
-            'next_due_date' => ['required', 'date'],
+            'next_due_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'notes' => ['nullable', 'string'],
             'status' => ['nullable', 'string', Rule::in(['active', 'paused', 'cancelled'])],
@@ -179,17 +180,20 @@ class ContractController extends Controller
 
     public function index(Request $request): Response
     {
-        $clientQuery = trim((string) $request->query('client_query', ''));
+        $search = trim((string) $request->query('search', ''));
         $billingCycle = trim((string) $request->query('billing_cycle', ''));
         $status = trim((string) $request->query('status', ''));
 
         $query = Contract::query()
-            ->with(['client:id,name'])
+            ->with(['client:id,name', 'services'])
             ->withCount(['reminders', 'payments']);
 
-        if ($clientQuery !== '') {
-            $query->whereHas('client', function ($q) use ($clientQuery) {
-                $q->where('name', 'like', "%{$clientQuery}%");
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhereHas('client', function ($clientQuery) use ($search) {
+                        $clientQuery->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -216,6 +220,7 @@ class ContractController extends Controller
                 'client' => $contract->client?->only(['id', 'name']),
                 'reminders_count' => $contract->reminders_count,
                 'payments_count' => $contract->payments_count,
+                'services_label' => $contract->servicesLabelForMessaging(),
                 'updated_at' => $contract->updated_at?->toIso8601String(),
             ]);
 
@@ -236,8 +241,7 @@ class ContractController extends Controller
         return Inertia::render('Contracts/Index', [
             'contracts' => $contracts,
             'filters' => [
-                'client_query' => $clientQuery !== '' ? $clientQuery : null,
-                'client_id' => null,
+                'search' => $search !== '' ? $search : null,
                 'billing_cycle' => $billingCycle !== '' ? $billingCycle : null,
                 'status' => $status !== '' ? $status : null,
             ],
@@ -254,7 +258,7 @@ class ContractController extends Controller
             ->get();
 
         $services = $this->mapServices(
-            Service::query()->where('is_active', true)->orderBy('name')->get(),
+            Service::query()->where('is_active', true)->with('accounts')->orderBy('name')->get(),
             $this->serviceUsageCounts()
         );
 
@@ -463,9 +467,21 @@ class ContractController extends Controller
         $serviceIds = $data['service_ids'] ?? [];
         $serviceQuantities = $data['service_quantities'] ?? [];
         $servicePins = $data['service_pins'] ?? [];
+        $serviceAccountIds = $data['service_account_ids'] ?? [];
         unset($data['service_ids']);
         unset($data['service_quantities']);
         unset($data['service_pins']);
+        unset($data['service_account_ids']);
+
+        $serviceAccountMap = collect($serviceAccountIds)
+            ->mapWithKeys(fn ($v, $k) => [(int) $k => (int) $v])
+            ->filter()
+            ->all();
+
+        $serviceAccounts = ServiceAccount::query()
+            ->whereIn('id', array_values($serviceAccountMap))
+            ->get()
+            ->keyBy('id');
 
         // Calcular monto por suma de servicios (misma moneda en UI por ahora)
         $qty = collect($serviceQuantities)
@@ -485,15 +501,23 @@ class ContractController extends Controller
 
         $contract = Contract::create($data);
 
-        // Guardar pivot con quantity.
+        // Guardar pivot con quantity y la subcuenta seleccionada.
         $syncData = [];
         foreach ($serviceIds as $sid) {
             $sid = (int) $sid;
             if (! $sid) continue;
             $service = $services->get($sid);
+            $selectedAccountId = $serviceAccountMap[$sid] ?? null;
+            if ($selectedAccountId !== null) {
+                $account = $serviceAccounts->get($selectedAccountId);
+                if (! $account || $account->service_id !== $sid) {
+                    $selectedAccountId = null;
+                }
+            }
             $syncData[$sid] = [
                 'quantity' => (int) ($qty[$sid] ?? 1),
                 'pin_override' => $this->resolveAccessPin($service?->name, $contract->client?->phone, $servicePins[$sid] ?? null, $service?->pin),
+                'service_account_id' => $selectedAccountId,
             ];
         }
         $contract->services()->sync($syncData);
@@ -538,6 +562,12 @@ class ContractController extends Controller
                 'conciliation_status' => $payment->conciliation?->status,
             ]);
 
+        $serviceAccountIds = $contract->services->pluck('pivot.service_account_id')->filter()->unique()->values()->all();
+        $serviceAccounts = ServiceAccount::query()
+            ->whereIn('id', $serviceAccountIds)
+            ->get()
+            ->keyBy('id');
+
         return Inertia::render('Contracts/Show', [
             'contract' => [
                 'id' => $contract->id,
@@ -555,7 +585,9 @@ class ContractController extends Controller
                         'name' => $s->name,
                         'price' => (string) $s->price,
                         'currency' => $s->currency,
-                        'account_email' => $s->account_email,
+                        'service_account_id' => $s->pivot?->service_account_id,
+                        'service_account_identifier' => $serviceAccounts->get($s->pivot?->service_account_id)?->identifier ?? null,
+                        'account_email' => $serviceAccounts->get($s->pivot?->service_account_id)?->identifier ?? $s->account_email,
                         'password' => $s->password,
                         'pin' => $s->pivot?->pin_override ?? $this->resolveAccessPin($s->name, $contract->client?->phone, null, $s->pin),
                         'quantity' => (int) ($s->pivot?->quantity ?? 1),
@@ -581,7 +613,7 @@ class ContractController extends Controller
             ->get();
 
         $services = $this->mapServices(
-            Service::query()->where('is_active', true)->orderBy('name')->get(),
+            Service::query()->where('is_active', true)->with('accounts')->orderBy('name')->get(),
             $this->serviceUsageCounts($contract->id)
         );
 
@@ -593,6 +625,11 @@ class ContractController extends Controller
         $selectedServicePins = $contract->services()
             ->pluck('contract_service.pin_override', 'services.id')
             ->map(fn ($v) => $v !== null ? (string) $v : '')
+            ->toArray();
+
+        $selectedServiceAccountIds = $contract->services()
+            ->pluck('contract_service.service_account_id', 'services.id')
+            ->map(fn ($v) => $v !== null ? (int) $v : null)
             ->toArray();
 
         return Inertia::render('Contracts/Edit', [
@@ -612,6 +649,7 @@ class ContractController extends Controller
                 'service_ids' => $selectedServiceIds,
                 'service_quantities' => $selectedServiceQuantities,
                 'service_pins' => $selectedServicePins,
+                'service_account_ids' => $selectedServiceAccountIds,
             ],
             'clients' => $clients,
             'services' => $services,
@@ -625,9 +663,21 @@ class ContractController extends Controller
         $serviceIds = $data['service_ids'] ?? [];
         $serviceQuantities = $data['service_quantities'] ?? [];
         $servicePins = $data['service_pins'] ?? [];
+        $serviceAccountIds = $data['service_account_ids'] ?? [];
         unset($data['service_ids']);
         unset($data['service_quantities']);
         unset($data['service_pins']);
+        unset($data['service_account_ids']);
+
+        $serviceAccountMap = collect($serviceAccountIds)
+            ->mapWithKeys(fn ($v, $k) => [(int) $k => (int) $v])
+            ->filter()
+            ->all();
+
+        $serviceAccounts = ServiceAccount::query()
+            ->whereIn('id', array_values($serviceAccountMap))
+            ->get()
+            ->keyBy('id');
 
         $qty = collect($serviceQuantities)
             ->mapWithKeys(fn ($v, $k) => [(int) $k => max(1, (int) $v)]);
@@ -646,9 +696,17 @@ class ContractController extends Controller
             $sid = (int) $sid;
             if (! $sid) continue;
             $service = $services->get($sid);
+            $selectedAccountId = $serviceAccountMap[$sid] ?? null;
+            if ($selectedAccountId !== null) {
+                $account = $serviceAccounts->get($selectedAccountId);
+                if (! $account || $account->service_id !== $sid) {
+                    $selectedAccountId = null;
+                }
+            }
             $syncData[$sid] = [
                 'quantity' => (int) ($qty[$sid] ?? 1),
                 'pin_override' => $this->resolveAccessPin($service?->name, $contract->client?->phone, $servicePins[$sid] ?? null, $service?->pin),
+                'service_account_id' => $selectedAccountId,
             ];
         }
         $contract->services()->sync($syncData);
@@ -659,6 +717,10 @@ class ContractController extends Controller
     public function destroy(Request $request, Contract $contract): RedirectResponse
     {
         $clientId = $contract->client_id;
+
+        $contract->load(['client', 'services']);
+        $clientPhone = trim((string) ($contract->client?->phone ?? ''));
+        $platformsLabel = trim($contract->servicesLabelForMessaging());
 
         if ($contract->payments()->exists()) {
             return redirect()
@@ -675,15 +737,39 @@ class ContractController extends Controller
             $contract->delete();
         });
 
+        if ($clientPhone !== '') {
+            $platformsDetail = $platformsLabel !== ''
+                ? " Hemos eliminado los perfiles correspondientes a: {$platformsLabel}."
+                : ' Hemos eliminado los perfiles asignados de este contrato.';
+            $farewellMessage = "Lamentamos que no quisieras renovar con nosotros.{$platformsDetail}\n\n"
+                . "Si desea renovar y volver a disfrutar de nuestros servicios solamente escríbenos y activamos nuevamente su perfil.";
+
+            try {
+                $sent = app(WhatsAppNotificationService::class)->sendTextMessage($clientPhone, $farewellMessage);
+                if (! $sent) {
+                    \Log::warning('Mensaje de baja por eliminación de contrato no enviado por WhatsApp (respuesta false)', [
+                        'contract_id' => $contract->id,
+                        'client_phone' => $clientPhone,
+                    ]);
+                }
+            } catch (\Throwable $sendError) {
+                \Log::warning('No se pudo enviar mensaje de baja por eliminación de contrato por WhatsApp', [
+                    'contract_id' => $contract->id,
+                    'client_phone' => $clientPhone,
+                    'error' => $sendError->getMessage(),
+                ]);
+            }
+        }
+
         if ($clientId) {
             return redirect()
                 ->route('clients.show', $clientId)
-                ->with('success', 'Contrato eliminado.');
+                ->with('success', 'Contrato eliminado. Si el cliente tenía teléfono registrado, se le notificó por WhatsApp.');
         }
 
         return redirect()
             ->route('contracts.index')
-            ->with('success', 'Contrato eliminado.');
+            ->with('success', 'Contrato eliminado. Si el cliente tenía teléfono registrado, se le notificó por WhatsApp.');
     }
 
     private function validatedData(Request $request, ?Contract $contract = null): array
@@ -695,7 +781,7 @@ class ContractController extends Controller
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'billing_cycle' => ['required', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'status' => ['required', Rule::in(['active', 'paused', 'cancelled'])],
-            'next_due_date' => ['nullable', 'date'],
+            'next_due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
             'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:60'],
             'service_ids' => ['required', 'array', 'min:1'],
@@ -705,6 +791,8 @@ class ContractController extends Controller
             'service_quantities.*' => ['nullable', 'integer', 'min:1'],
             'service_pins' => ['nullable', 'array'],
             'service_pins.*' => ['nullable', 'string', 'max:32'],
+            'service_account_ids' => ['nullable', 'array'],
+            'service_account_ids.*' => ['nullable', 'integer', Rule::exists('service_accounts', 'id')],
         ]);
 
         $discount = (float) ($data['discount_amount'] ?? 0);
@@ -722,6 +810,7 @@ class ContractController extends Controller
             'service_ids' => $data['service_ids'],
             'service_quantities' => $data['service_quantities'] ?? [],
             'service_pins' => $data['service_pins'] ?? [],
+            'service_account_ids' => $data['service_account_ids'] ?? [],
         ];
     }
 
@@ -780,16 +869,22 @@ class ContractController extends Controller
         return $out;
     }
 
-    public function resendAccess(Contract $contract): RedirectResponse
+    public function resendAccess(Request $request, Contract $contract): RedirectResponse
     {
-        $sent = $this->sendAccessMessages($contract, app(WhatsAppNotificationService::class));
+        $data = $request->validate([
+            'service_id' => ['nullable', 'integer', 'exists:services,id'],
+        ]);
+
+        $sent = $this->sendAccessMessages($contract, app(WhatsAppNotificationService::class), $data['service_id'] ?? null);
+
         if ($sent > 0) {
             return redirect()->back()->with('success', "Accesos reenviados ({$sent} mensaje(s) enviado(s)).");
         }
+
         return redirect()->back()->with('error', 'No se pudieron enviar los accesos. Verifique que el cliente tenga teléfono y los servicios tengan credenciales configuradas.');
     }
 
-    private function sendAccessMessages(Contract $contract, WhatsAppNotificationService $whatsApp): int
+    private function sendAccessMessages(Contract $contract, WhatsAppNotificationService $whatsApp, ?int $serviceId = null): int
     {
         $contract->loadMissing(['client:id,name,phone', 'services:id,name,account_email,password,pin']);
 
@@ -798,13 +893,19 @@ class ContractController extends Controller
             return 0;
         }
 
-        $servicesData = $contract->services
+        $services = $contract->services;
+        if ($serviceId !== null) {
+            $services = $services->filter(fn (Service $service) => $service->id === $serviceId);
+        }
+
+        $servicesData = $services
             ->map(fn (Service $s) => [
                 'name' => $s->name,
                 'account_email' => $s->account_email,
                 'password' => $s->password,
                 'pin' => $s->pivot?->pin_override ?? $this->resolveAccessPin($s->name, $phone, null, $s->pin),
             ])
+            ->values()
             ->all();
 
         return $whatsApp->sendPlatformAccessMessages($phone, $servicesData);
@@ -877,7 +978,14 @@ class ContractController extends Controller
             'account_email' => $s->account_email,
             'max_profiles' => $s->max_profiles,
             'profiles_used' => (int) ($usageCounts[$s->id] ?? 0),
+            'accounts' => $s->accounts
+                ->where('is_active', true)
+                ->map(fn ($account) => [
+                'id' => $account->id,
+                'name' => $account->name,
+                'identifier' => $account->identifier,
+                'is_active' => (bool) $account->is_active,
+                ])->values()->all(),
         ])->values()->all();
     }
 }
-

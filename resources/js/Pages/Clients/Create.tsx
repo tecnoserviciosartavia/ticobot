@@ -11,16 +11,19 @@ interface CreateClientPageProps extends PageProps {
     statuses: string[];
     defaultStatus: string;
     services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
+    prefill?: { name?: string; phone?: string; notes?: string; from_chat?: boolean };
 }
 
-export default function CreateClient({ statuses, defaultStatus, services }: CreateClientPageProps) {
+export default function CreateClient({ statuses, defaultStatus, services, prefill }: CreateClientPageProps) {
     const form = useForm({
-        name: '',
+        name: prefill?.name ?? '',
         email: '',
-        phone: '',
+        phone: prefill?.phone ?? '',
         status: defaultStatus ?? 'active',
-        notes: '',
+        notes: prefill?.notes ?? '',
         contract_id: '',
+        from_chat: Boolean(prefill?.from_chat),
+        chat_phone: prefill?.phone ?? '',
     });
 
     const [contractModalOpen, setContractModalOpen] = useState(false);

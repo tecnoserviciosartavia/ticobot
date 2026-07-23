@@ -1,9 +1,13 @@
 import pRetry, { FailedAttemptError } from 'p-retry';
 import { apiClient } from './api-client.js';
 import { logger } from './logger.js';
-import { WhatsAppClient } from './whatsapp-client.js';
+import { MetaWhatsAppClient } from './meta-whatsapp-client.js';
 import { ReminderMessagePayload, ReminderRecord } from './types.js';
 import { config } from './config.js';
+
+/** Aviso fijo cuando aún no hay un pago verificado ligado al recordatorio / cobro pendiente */
+const DEFAULT_OVERDUE_BALANCE_NOTICE =
+  '⚠️ Buen día, le recordamos el saldo vencido en su cuenta de lo contrario se eliminará cualquier perfil contratado con nosotros.';
 
 const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   const payload = reminder.payload ?? {};
@@ -96,7 +100,6 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   const companyName = String((config as any).companyName ?? '').trim() || 'Empresa';
   
   // Prioridad de fecha: payload.due_date -> reminder.scheduled_for -> contract.next_due_date.
-  // Evita que reenvíos (5 PM) usen next_due_date ya movida al mes siguiente.
   const formatDateForDisplay = (rawDate: unknown): string => {
     const raw = String(rawDate ?? '').trim();
     if (!raw) return '';
@@ -190,6 +193,17 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
     });
   }
 
+  // Mensaje institucional: aplica en recordatorios de cobro donde aún no hay pago conciliado/verificado.
+  lines.push('');
+  lines.push(
+    (
+      typeof config.overdueBalanceWhatsAppNotice === 'string' &&
+      config.overdueBalanceWhatsAppNotice.trim() !== ''
+        ? config.overdueBalanceWhatsAppNotice
+        : DEFAULT_OVERDUE_BALANCE_NOTICE
+    ).trim()
+  );
+
   return {
     content: lines.join('\n'),
     attachments: []
@@ -197,9 +211,7 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
 };
 
 export class ReminderProcessor {
-  private lastResendCheck: Date | null = null;
-
-  constructor(private readonly whatsapp: WhatsAppClient) {}
+  constructor(private readonly whatsapp: MetaWhatsAppClient) {}
 
   async runBatch(): Promise<void> {
     // Primero procesar recordatorios pendientes normales
@@ -213,8 +225,6 @@ export class ReminderProcessor {
       }
     }
 
-    // Después de las 5 PM, reenviar recordatorios del día que no han sido conciliados
-    await this.checkAndResendUnpaidReminders();
   }
 
   private async processReminder(reminder: ReminderRecord): Promise<void> {
@@ -287,74 +297,4 @@ export class ReminderProcessor {
     await this.whatsapp.sendReminder(reminder, messagePayload);
   }
 
-  /**
-   * Verifica si es después de las 5 PM y reenvía recordatorios del día que no han sido conciliados
-   */
-  private async checkAndResendUnpaidReminders(): Promise<void> {
-    const now = new Date();
-    const hour = now.getHours();
-    
-    // Solo ejecutar después de las 5 PM (17:00)
-    if (hour < 17) {
-      return;
-    }
-
-    // Solo ejecutar una vez al día (evitar múltiples ejecuciones)
-    if (this.lastResendCheck) {
-      const lastCheckDate = this.lastResendCheck.toDateString();
-      const currentDate = now.toDateString();
-      if (lastCheckDate === currentDate) {
-        return; // Ya se ejecutó hoy
-      }
-    }
-
-    try {
-      logger.info('Verificando recordatorios del día sin conciliar para reenvío...');
-
-      // Obtener recordatorios enviados hoy que no tienen pagos conciliados
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
-      const sentReminders = await apiClient.fetchSentRemindersWithoutPayment(
-        todayStart.toISOString(),
-        todayEnd.toISOString()
-      );
-
-      if (!sentReminders.length) {
-        logger.debug('No hay recordatorios del día sin conciliar.');
-        this.lastResendCheck = now;
-        return;
-      }
-
-      logger.info({ count: sentReminders.length }, 'Reenviando recordatorios sin conciliar del día');
-
-      for (const reminder of sentReminders) {
-        try {
-          // Modificar el mensaje para indicar que es un recordatorio adicional
-          const originalPayload = reminder.payload ?? {};
-          const resendPayload = {
-            ...originalPayload,
-            message: '⚠️ RECORDATORIO ADICIONAL ⚠️\n\nNo hemos recibido su comprobante de pago del día de hoy.\n\n' + (originalPayload.message || '')
-          };
-          
-          const reminderWithResendMessage = { ...reminder, payload: resendPayload };
-          const messagePayload = buildMessage(reminderWithResendMessage);
-          
-          await this.whatsapp.sendReminder(reminder, messagePayload);
-          await apiClient.markResent(reminder.id);
-          logger.info({ reminderId: reminder.id }, 'Recordatorio reenviado exitosamente');
-          
-          // Pequeña pausa entre mensajes para no saturar
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        } catch (error) {
-          logger.error({ err: error, reminderId: reminder.id }, 'Error reenviando recordatorio');
-        }
-      }
-
-      this.lastResendCheck = now;
-      logger.info('Proceso de reenvío completado');
-    } catch (error) {
-      logger.error({ err: error }, 'Error en verificación de recordatorios sin conciliar');
-    }
-  }
 }

@@ -2,11 +2,12 @@ import { Button } from '@/Components/button';
 import { Card } from '@/Components/card';
 import { Badge } from '@/Components/badge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
+import FinanceNav from '@/Components/FinanceNav';
 import { Head, router } from '@inertiajs/react';
 import { Dialog, Transition } from '@headlessui/react';
 import axios from 'axios';
 import { Fragment, useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, ArrowLeft, BarChart3, PieChart, Activity, Users, Settings, Eye } from '@/Components/icons';
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, PieChart, Activity, Users, Settings, Eye } from '@/Components/icons';
 
 interface ServiceProfit {
     id: number | null;
@@ -104,29 +105,12 @@ export default function AccountingIndicators({ selected_month, selected_month_la
     };
 
     return (
-        <ResponsiveLayout title="Indicadores">
+        <ResponsiveLayout title="Indicadores" contentWidth="full">
             <Head title="Indicadores" />
 
-            <div className="py-6">
+            <div className="space-y-5 py-5">
+                <FinanceNav active="indicators" periodLabel={selected_month_label} />
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Indicadores</h1>
-                                <p className="mt-2 text-gray-600">
-                                    Análisis de rentabilidad y métricas por plataforma y servicio.
-                                </p>
-                            </div>
-                            <div className="flex gap-3">
-                                <Button variant="outline">
-                                    <ArrowLeft className="w-4 h-4 mr-2" />
-                                    Volver
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-
                     <div className="space-y-8">
 
                         <Card className="p-6">
@@ -165,7 +149,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                 <div className="text-lg font-bold text-gray-800 dark:text-gray-100">Pagos de {selected_month_label}: CRC {formatMoney(totalPeriodPayments)}</div>
                                 <div className="text-sm text-gray-600 dark:text-gray-300">Costo del período: CRC {formatMoney(totalPeriodCost)}</div>
                             </div>
-                            <div className={`text-2xl font-bold ${totalPeriodMargin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                            <div className={`text-2xl font-bold ${totalPeriodMargin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                 Margen total: CRC {formatMoney(totalPeriodMargin)}
                             </div>
                         </div>
@@ -188,7 +172,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                     )}
                                     <div className="mt-1 text-lg font-bold text-gray-800 dark:text-gray-100">Pagos de {selected_month_label}: CRC {formatMoney(service.revenue || 0)}</div>
                                     <div className="text-sm text-gray-600 dark:text-gray-300">Costo del período: CRC {formatMoney(service.cost || 0)}</div>
-                                    <div className={`text-sm font-semibold ${gain >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    <div className={`text-sm font-semibold ${gain >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                         Margen: CRC {formatMoney(gain)}
                                     </div>
                                 </button>
@@ -276,7 +260,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                                         </div>
                                                         <div>
                                                             <div className="text-gray-500 dark:text-gray-400">Margen</div>
-                                                            <div className={`font-mono font-semibold ${row.margin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                                            <div className={`font-mono font-semibold ${row.margin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                                                 {details.service.currency} {formatMoney(row.margin)}
                                                             </div>
                                                         </div>
@@ -300,7 +284,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                                     </div>
                                                     <div>
                                                         <div className="text-gray-500 dark:text-gray-400">Margen</div>
-                                                        <div className={`font-mono font-semibold ${details.summary.total_margin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                                        <div className={`font-mono font-semibold ${details.summary.total_margin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                                             {details.service.currency} {formatMoney(details.summary.total_margin)}
                                                         </div>
                                                     </div>
@@ -335,7 +319,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                                             <td className="px-3 py-2 text-right">{row.payments_count}</td>
                                                             <td className="px-3 py-2 text-right font-mono text-gray-900 dark:text-gray-100">{details.service.currency} {formatMoney(row.revenue)}</td>
                                                             <td className="px-3 py-2 text-right font-mono text-gray-900 dark:text-gray-100">{details.service.currency} {formatMoney(row.cost)}</td>
-                                                            <td className={`px-3 py-2 text-right font-mono font-semibold ${row.margin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                                            <td className={`px-3 py-2 text-right font-mono font-semibold ${row.margin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                                                 {details.service.currency} {formatMoney(row.margin)}
                                                             </td>
                                                         </tr>
@@ -347,7 +331,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                                         <td className="px-3 py-2 text-right font-semibold">{details.summary.payments_count}</td>
                                                         <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900 dark:text-gray-100">{details.service.currency} {formatMoney(details.summary.total_revenue)}</td>
                                                         <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900 dark:text-gray-100">{details.service.currency} {formatMoney(details.summary.total_cost)}</td>
-                                                        <td className={`px-3 py-2 text-right font-mono font-semibold ${details.summary.total_margin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                                        <td className={`px-3 py-2 text-right font-mono font-semibold ${details.summary.total_margin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                                             {details.service.currency} {formatMoney(details.summary.total_margin)}
                                                         </td>
                                                     </tr>

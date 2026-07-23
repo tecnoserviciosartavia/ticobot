@@ -9,7 +9,10 @@ type PushPreferences = {
     overdue_payments: boolean;
     platform_cost_due: boolean;
     conciliation_pending: boolean;
+    payment_email_received: boolean;
     whatsapp_manual_pause_events: boolean;
+    whatsapp_help_requests: boolean;
+    whatsapp_incoming_messages: boolean;
 };
 
 export default function UpdatePushNotificationPreferencesForm({
@@ -24,7 +27,10 @@ export default function UpdatePushNotificationPreferencesForm({
         overdue_payments: !!preferences.overdue_payments,
         platform_cost_due: !!preferences.platform_cost_due,
         conciliation_pending: !!preferences.conciliation_pending,
+        payment_email_received: !!preferences.payment_email_received,
         whatsapp_manual_pause_events: !!preferences.whatsapp_manual_pause_events,
+        whatsapp_help_requests: !!preferences.whatsapp_help_requests,
+        whatsapp_incoming_messages: !!preferences.whatsapp_incoming_messages,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -113,6 +119,23 @@ export default function UpdatePushNotificationPreferencesForm({
                             Recordatorios para revisar pagos sin conciliar.
                         </span>
                     </span>
+                <label className="flex items-start gap-3 rounded-md border border-gray-200 p-3 dark:border-gray-700">
+                    <input
+                        type="checkbox"
+                        className="mt-1 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                        checked={data.payment_email_received}
+                        onChange={(e) => setData("payment_email_received", e.target.checked)}
+                    />
+                    <span>
+                        <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Correos de pago recibidos
+                        </span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">
+                            Avisa cuando llega un nuevo correo SINPE, con remitente, monto y referencia.
+                        </span>
+                    </span>
+                </label>
+
                 </label>
 
                 <label className="flex items-start gap-3 rounded-md border border-gray-200 dark:border-gray-700 p-3">
@@ -128,6 +151,40 @@ export default function UpdatePushNotificationPreferencesForm({
                         </span>
                         <span className="block text-xs text-gray-500 dark:text-gray-400">
                             Notifica cuando el bot entra o sale de pausa por atención manual.
+                        </span>
+                    </span>
+                </label>
+
+                <label className="flex items-start gap-3 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+                    <input
+                        type="checkbox"
+                        className="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        checked={data.whatsapp_help_requests}
+                        onChange={(e) => setData('whatsapp_help_requests', e.target.checked)}
+                    />
+                    <span>
+                        <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Solicitudes de ayuda de WhatsApp
+                        </span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">
+                            Notifica cuando un cliente escribe pidiendo asistencia o agente.
+                        </span>
+                    </span>
+                </label>
+
+                <label className="flex items-start gap-3 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+                    <input
+                        type="checkbox"
+                        className="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        checked={data.whatsapp_incoming_messages}
+                        onChange={(e) => setData('whatsapp_incoming_messages', e.target.checked)}
+                    />
+                    <span>
+                        <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Mensajes entrantes de WhatsApp
+                        </span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">
+                            Notifica cada mensaje nuevo que llegue a la app para que puedas responderlo al instante.
                         </span>
                     </span>
                 </label>

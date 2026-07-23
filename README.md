@@ -13,7 +13,7 @@ Sistema automatizado de recordatorios de pagos vía WhatsApp para gestión de cl
 
 - ✅ **Gestión de Clientes y Contratos**: CRUD completo con React/Inertia
 - ✅ **Recordatorios Automáticos**: Sistema de recordatorios programables con plantillas personalizables
-- ✅ **Integración WhatsApp**: Bot automatizado con whatsapp-web.js
+- ✅ **Integración WhatsApp**: Bot automatizado con la API oficial de WhatsApp Cloud de Meta
 - ✅ **Gestión de Pagos**: Control de pagos, recibos y conciliaciones automáticas
 - ✅ **Interfaz Moderna**: UI responsiva con React, TypeScript y Tailwind CSS
 - ✅ **Sistema de Colas**: Procesamiento asíncrono con Laravel Queue
@@ -118,8 +118,7 @@ La pantalla de **Configuración del sistema** ahora incluye una pestaña **Logs*
 
 ### Bot WhatsApp
 - **TypeScript** con **Node.js** — Runtime del bot (directorio `bot/`)
-- **whatsapp-web.js** - Cliente WhatsApp no oficial
-- **Puppeteer** - Headless browser para WhatsApp Web
+- **WhatsApp Cloud API** - Integración oficial de Meta, sin navegador automatizado
 - **Axios** - Cliente HTTP para API Laravel
 
 ### Base de Datos
@@ -378,7 +377,7 @@ pm2 save
 Notas:
 - En este entorno productivo el proceso operativo principal del bot es `ticobot`.
 - `pm2 status` lista *todos* los procesos del usuario (por ejemplo `ticobot`, `ticobot_2` u otros procesos históricos).
-- El bot usa `BOT_SESSION_PATH` (por defecto `storage/whatsapp-session`). Evita correr dos bots apuntando a la misma ruta de sesión.
+- El bot usa credenciales de Meta Cloud API y no mantiene sesiones locales de navegador.
 - No pegues tokens reales en documentación; usa valores de ejemplo.
 
 ### Estabilidad reciente del bot WhatsApp
@@ -388,11 +387,11 @@ Se aplicaron varios ajustes para reducir silencios del bot y mejorar la operaci�
 - Soporte operativo para chats tipo `@lid` en recepción, manteniendo fallback para envíos.
 - Promoción de estado `CONNECTED` a listo cuando `ready` no llega pero el cliente ya es usable.
 - Fallback de envío para intentar múltiples targets cuando WhatsApp Web no resuelve el chat a la primera.
-- Cleanup de sesión endurecido para evitar warnings falsos al cerrar Chromium/Puppeteer.
+- El cierre del bot libera únicamente el transporte HTTP de Meta Cloud API.
 
 Importante:
 
-- Aun con estos cambios, `whatsapp-web.js` y Puppeteer siguen siendo una dependencia frágil ante cambios de WhatsApp Web.
+- La integración depende de la disponibilidad y versiones soportadas por Meta Graph API.
 - Si el bot deja de responder, la primera revisión recomendada es **Configuración → Logs** con fuente `PM2 bot output` y filtro `Solo WhatsApp entrante`.
 
 ### Paso 5: Configurar Servidor Web
@@ -1348,7 +1347,7 @@ ls -la bot/storage/
 ```bash
 # Limpiar sesión de WhatsApp
 cd bot
-rm -rf .wwebjs_cache .wwebjs_auth storage/*
+php artisan optimize:clear
 
 # Dar permisos
 chmod -R 755 storage
@@ -1631,8 +1630,7 @@ Para consultas de licenciamiento: contacto@tecnoserviciosartavia.com
 - [Inertia.js](https://inertiajs.com) - Adaptador moderno Laravel-React
 - [Tailwind CSS](https://tailwindcss.com) - Framework CSS
 - [Vite](https://vitejs.dev) - Build tool
-- [whatsapp-web.js](https://wwebjs.dev) - Cliente WhatsApp
-- [Puppeteer](https://pptr.dev) - Headless browser
+- [WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api/) - API oficial de Meta
 
 ---
 

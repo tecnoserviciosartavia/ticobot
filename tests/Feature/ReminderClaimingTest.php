@@ -59,6 +59,39 @@ class ReminderClaimingTest extends TestCase
         $this->assertNotNull($duplicate->acknowledged_at);
     }
 
+    public function test_client_receives_only_one_reminder_per_due_date_across_contracts(): void
+    {
+        config()->set('app.timezone', 'America/Costa_Rica');
+
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+        $client = Client::factory()->create();
+        $firstContract = Contract::factory()->create([
+            'client_id' => $client->id,
+            'next_due_date' => '2026-03-19',
+            'billing_cycle' => 'monthly',
+        ]);
+        $secondContract = Contract::factory()->create([
+            'client_id' => $client->id,
+            'next_due_date' => '2026-03-19',
+            'billing_cycle' => 'monthly',
+        ]);
+
+        $first = Reminder::query()->where('contract_id', $firstContract->id)->firstOrFail();
+        $second = Reminder::query()->where('contract_id', $secondContract->id)->firstOrFail();
+        $second->forceFill([
+            'scheduled_for' => Carbon::parse('2026-03-19 15:00:00', 'America/Costa_Rica'),
+        ])->save();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/reminders/'.$first->id.'/claim')
+            ->assertOk()
+            ->assertJsonPath('claimed', true)
+            ->assertJsonPath('duplicates_cancelled', 1);
+
+        $this->assertSame('duplicate', $second->fresh()->status);
+    }
+
     public function test_sent_without_payment_endpoint_ignores_reminders_already_resent_today(): void
     {
         config()->set('app.timezone', 'America/Costa_Rica');

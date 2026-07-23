@@ -136,14 +136,18 @@ class ConciliationPdfService
             }
         }
 
-        $currentMonth = $baseMonth->copy()->locale('es')->translatedFormat('F');
+        $currentMonth = mb_convert_case($baseMonth->copy()->locale('es')->isoFormat('MMMM'), MB_CASE_TITLE, 'UTF-8');
 
         if ($months === 1) {
             return "Pago de {$currentMonth}";
         }
 
         if ($months === 2) {
-            $nextMonth = $baseMonth->copy()->addMonth()->locale('es')->translatedFormat('F');
+            $nextMonth = mb_convert_case(
+                $baseMonth->copy()->addMonth()->locale('es')->isoFormat('MMMM'),
+                MB_CASE_TITLE,
+                'UTF-8',
+            );
 
             return "Pago de {$currentMonth} y {$nextMonth}";
         }
@@ -193,7 +197,7 @@ class ConciliationPdfService
         foreach ($yMs as $ym) {
             try {
                 $d = Carbon::createFromFormat('Y-m-d', $ym . '-01', $tz);
-                $parts[] = mb_convert_case($d->locale('es')->translatedFormat('MMMM yyyy'), MB_CASE_TITLE, 'UTF-8');
+                $parts[] = mb_convert_case($d->locale('es')->isoFormat('MMMM YYYY'), MB_CASE_TITLE, 'UTF-8');
             } catch (\Throwable) {
                 $parts[] = $ym;
             }

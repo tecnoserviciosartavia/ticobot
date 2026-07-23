@@ -8,7 +8,7 @@ const classForStatus = (status: string) => {
     const normalized = status.toLowerCase();
 
     if (['active', 'verified', 'approved', 'paid', 'acknowledged', 'sent'].includes(normalized)) {
-        return 'bg-emerald-100 text-emerald-800 ring-emerald-500/40';
+        return 'bg-cyan-100 text-cyan-800 ring-cyan-500/40';
     }
 
     if (['inactive'].includes(normalized)) {

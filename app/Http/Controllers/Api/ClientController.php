@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Services\ContractNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -111,6 +112,18 @@ class ClientController extends Controller
         $client->update($data);
 
         return response()->json($client->fresh());
+    }
+
+    /**
+     * Resend access credentials for the client's current contracts.
+     */
+    public function resendAccess(Client $client): JsonResponse
+    {
+        $result = app(ContractNotificationService::class)->resendAccessMessagesForClient($client);
+
+        $status = ! empty($result['success']) ? 200 : 422;
+
+        return response()->json($result, $status);
     }
 
     /**

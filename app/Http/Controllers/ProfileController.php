@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
-use App\Support\WhatsAppStatus;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +23,11 @@ class ProfileController extends Controller
             'overdue_payments' => true,
             'platform_cost_due' => true,
             'conciliation_pending' => true,
+            'payment_email_received' => true,
             'whatsapp_manual_pause_events' => false,
+            'whatsapp_help_requests' => true,
+            'whatsapp_incoming_messages' => true,
+            'whatsapp_incoming_messages' => true,
         ];
     }
 
@@ -53,7 +56,6 @@ class ProfileController extends Controller
         return Inertia::render('Profile/Edit', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
-            'whatsapp' => WhatsAppStatus::snapshot(),
             'pushNotificationPreferences' => $this->normalizePushNotificationPreferences(
                 $request->user()->push_notification_preferences
             ),

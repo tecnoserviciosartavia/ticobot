@@ -15,42 +15,81 @@ class DashboardController extends Controller
 {
     public function __invoke(Request $request): Response
     {
-        $period = $request->get('period', '30d');
+        $period = $request->get('period', 'month');
         $today = Carbon::today();
 
         // Calculate date range based on period
         $startDate = match($period) {
-            '7d' => $today->copy()->subDays(7),
-            '30d' => $today->copy()->subDays(30),
-            '90d' => $today->copy()->subDays(90),
+            '7d' => $today->copy()->subDays(6),
+            'month' => $today->copy()->startOfMonth(),
+            '30d' => $today->copy()->subDays(29),
+            '90d' => $today->copy()->subDays(89),
             '1y' => $today->copy()->subYear(),
-            default => $today->copy()->subDays(30),
+            default => $today->copy()->startOfMonth(),
         };
 
-        // Calculate current period stats
-        $currentContracts = Contract::where('created_at', '>=', $startDate)->count();
-        $currentActiveContracts = Contract::whereHas('client')->where('created_at', '>=', $startDate)->count();
-        $currentRevenue = Payment::where('status', 'verified')->where('created_at', '>=', $startDate)->sum('amount') ?: 0;
-        $currentPendingPayments = Payment::where('status', '!=', 'verified')->where('created_at', '>=', $startDate)->count();
-        $currentVerifiedPayments = Payment::where('status', 'verified')->where('created_at', '>=', $startDate)->count();
-        $currentTotalPayments = Payment::where('created_at', '>=', $startDate)->count();
+        $endDate = $today->copy()->endOfDay();
 
-        // Calculate previous period stats for comparison
+        // Calculate previous period bounds for comparison.
         $previousStartDate = match($period) {
-            '7d' => $startDate->copy()->subDays(7),
-            '30d' => $startDate->copy()->subDays(30),
-            '90d' => $startDate->copy()->subDays(90),
-            '1y' => $startDate->copy()->subYear(),
-            default => $startDate->copy()->subDays(30),
+            "7d" => $startDate->copy()->subDays(7),
+            "month" => $startDate->copy()->subMonthNoOverflow()->startOfMonth(),
+            "30d" => $startDate->copy()->subDays(30),
+            "90d" => $startDate->copy()->subDays(90),
+            "1y" => $startDate->copy()->subYear(),
+            default => $startDate->copy()->subMonthNoOverflow()->startOfMonth(),
         };
-        $previousEndDate = $startDate->copy()->subDay();
+        $previousEndDate = $previousStartDate->copy()->addSeconds((int) $startDate->diffInSeconds($endDate));
+        $previousBoundary = $startDate->copy()->subSecond();
+        if ($previousEndDate->greaterThan($previousBoundary)) {
+            $previousEndDate = $previousBoundary;
+        }
 
-        $previousContracts = Contract::whereBetween('created_at', [$previousStartDate, $previousEndDate])->count();
-        $previousActiveContracts = Contract::whereHas('client')->whereBetween('created_at', [$previousStartDate, $previousEndDate])->count();
-        $previousRevenue = Payment::where('status', 'verified')->whereBetween('created_at', [$previousStartDate, $previousEndDate])->sum('amount') ?: 0;
-        $previousPendingPayments = Payment::where('status', '!=', 'verified')->whereBetween('created_at', [$previousStartDate, $previousEndDate])->count();
-        $previousVerifiedPayments = Payment::where('status', 'verified')->whereBetween('created_at', [$previousStartDate, $previousEndDate])->count();
-        $previousTotalPayments = Payment::whereBetween('created_at', [$previousStartDate, $previousEndDate])->count();
+        // Payments belong to a period by paid_at; legacy rows without paid_at fall back to created_at.
+        $paymentsInPeriod = static function (Carbon $from, Carbon $to) {
+            return Payment::query()->where(function ($query) use ($from, $to) {
+                $query->whereBetween("paid_at", [$from->toDateString(), $to->toDateString()])
+                    ->orWhere(function ($fallback) use ($from, $to) {
+                        $fallback->whereNull("paid_at")->whereBetween("created_at", [$from, $to]);
+                    });
+            });
+        };
+
+        $currentPayments = $paymentsInPeriod($startDate, $endDate);
+        $previousPayments = $paymentsInPeriod($previousStartDate, $previousEndDate);
+
+        $currentContracts = Contract::whereBetween("created_at", [$startDate, $endDate])->count();
+        $currentActiveContracts = Contract::where("status", "active")->whereHas("client")->whereBetween("created_at", [$startDate, $endDate])->count();
+        $currentRevenue = (float) (clone $currentPayments)->where("status", "verified")->where("currency", "CRC")->sum("amount");
+        $currentPendingPayments = (clone $currentPayments)->whereIn("status", ["pending", "unverified", "in_review"])->count();
+        $currentVerifiedPayments = (clone $currentPayments)->where("status", "verified")->count();
+        $currentFailedPayments = (clone $currentPayments)->where("status", "rejected")->count();
+        $currentTotalPayments = (clone $currentPayments)->count();
+
+        $previousContracts = Contract::whereBetween("created_at", [$previousStartDate, $previousEndDate])->count();
+        $previousActiveContracts = Contract::where("status", "active")->whereHas("client")->whereBetween("created_at", [$previousStartDate, $previousEndDate])->count();
+        $previousRevenue = (float) (clone $previousPayments)->where("status", "verified")->where("currency", "CRC")->sum("amount");
+        $previousPendingPayments = (clone $previousPayments)->whereIn("status", ["pending", "unverified", "in_review"])->count();
+        $previousVerifiedPayments = (clone $previousPayments)->where("status", "verified")->count();
+        $previousTotalPayments = (clone $previousPayments)->count();
+
+        $verifiedPayments = (clone $currentPayments)->where("status", "verified");
+
+        $paymentsByCurrency = (clone $verifiedPayments)
+            ->selectRaw("COALESCE(currency, 'CRC') as currency, SUM(amount) as total")
+            ->groupBy('currency')
+            ->pluck('total', 'currency')
+            ->map(fn ($amount) => round((float) $amount, 2))
+            ->all();
+
+        $serviceProfits = app(AccountingController::class)->calculateServiceProfits($startDate, $today->copy()->endOfDay());
+        $costsByCurrency = [];
+        $profitByCurrency = [];
+        foreach ($serviceProfits as $serviceProfit) {
+            $currency = (string) ($serviceProfit['currency'] ?? 'CRC');
+            $costsByCurrency[$currency] = round(($costsByCurrency[$currency] ?? 0) + (float) $serviceProfit['cost'], 2);
+            $profitByCurrency[$currency] = round(($profitByCurrency[$currency] ?? 0) + (float) $serviceProfit['net'], 2);
+        }
 
         // Calculate percentage changes
         $contractsChange = $previousContracts > 0 ? (($currentContracts - $previousContracts) / $previousContracts) * 100 : 0;
@@ -73,16 +112,16 @@ class DashboardController extends Controller
             'recentActivity' => $this->getRecentActivity($startDate),
             'paymentStats' => [
                 'verified' => $currentVerifiedPayments,
-                'unverified' => $currentTotalPayments - $currentVerifiedPayments,
+                "unverified" => $currentPendingPayments,
                 'total' => $currentTotalPayments,
-                'failed' => 0, // Can be calculated based on failed reminders
+                "failed" => $currentFailedPayments,
             ],
             'reminderStats' => [
-                'sent' => Reminder::where('status', 'sent')->where('created_at', '>=', $startDate)->count(),
-                'pending' => Reminder::whereIn('status', ['pending', 'queued'])->where('created_at', '>=', $startDate)->count(),
-                'failed' => Reminder::where('status', 'failed')->where('created_at', '>=', $startDate)->count(),
+                "sent" => Reminder::where("status", "sent")->whereBetween("sent_at", [$startDate, $endDate])->count(),
+                "pending" => Reminder::whereIn("status", ["pending", "queued"])->whereBetween("scheduled_for", [$startDate, $endDate])->count(),
+                "failed" => Reminder::where("status", "failed")->whereBetween("scheduled_for", [$startDate, $endDate])->count(),
             ],
-            'revenueByMonth' => $this->getRevenueByMonth($startDate),
+            'revenueByMonth' => $this->getRevenueByMonth($startDate, $endDate),
             'period' => $period,
             'changes' => [
                 'contracts' => round($contractsChange, 1),
@@ -93,6 +132,28 @@ class DashboardController extends Controller
             ],
             'recentSentReminders' => $this->getRecentSentReminders($startDate),
             'upcomingCollections' => $this->getUpcomingCollectionsSnapshot(7),
+            'financialSummary' => [
+                'payments_received' => $paymentsByCurrency,
+                'verified_count' => (clone $verifiedPayments)->count(),
+                'platform_costs' => $costsByCurrency,
+                'real_profit' => $profitByCurrency,
+                'top_services' => array_slice($serviceProfits, 0, 5),
+            ],
+            'recentVerifiedPayments' => (clone $verifiedPayments)
+                ->with(['client:id,name', 'contract:id,name'])
+                ->orderByRaw('COALESCE(paid_at, created_at) DESC')
+                ->limit(8)
+                ->get()
+                ->map(fn (Payment $payment) => [
+                    'id' => $payment->id,
+                    'client_name' => $payment->client?->name,
+                    'contract_name' => $payment->contract?->name,
+                    'amount' => (float) $payment->amount,
+                    'currency' => $payment->currency ?: 'CRC',
+                    'paid_at' => ($payment->paid_at ?? $payment->created_at)?->toIso8601String(),
+                ])
+                ->values()
+                ->all(),
         ];
 
         return Inertia::render('Dashboard', [
@@ -137,19 +198,25 @@ class DashboardController extends Controller
             ->toArray();
     }
 
-    private function getRevenueByMonth(Carbon $startDate): array
+    private function getRevenueByMonth(Carbon $startDate, Carbon $endDate): array
     {
         return Payment::query()
-            ->where('status', 'verified')
-            ->where('created_at', '>=', $startDate)
-            ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(amount) as revenue, COUNT(*) as contracts')
-            ->groupBy('month')
-            ->orderBy('month')
+            ->where("status", "verified")
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween("paid_at", [$startDate->toDateString(), $endDate->toDateString()])
+                    ->orWhere(function ($fallback) use ($startDate, $endDate) {
+                        $fallback->whereNull("paid_at")->whereBetween("created_at", [$startDate, $endDate]);
+                    });
+            })
+            ->selectRaw("DATE_FORMAT(COALESCE(paid_at, created_at), '%Y-%m') as month, COALESCE(currency, 'CRC') as currency, SUM(amount) as revenue, COUNT(*) as payments")
+            ->groupBy("month", "currency")
+            ->orderBy("month")
             ->get()
             ->map(fn ($item) => [
-                'month' => Carbon::createFromFormat('Y-m', $item->month)->format('M Y'),
-                'revenue' => (float) $item->revenue,
-                'contracts' => (int) $item->contracts,
+                "month" => Carbon::createFromFormat("Y-m", $item->month)->locale("es")->translatedFormat("M Y"),
+                "currency" => (string) $item->currency,
+                "revenue" => (float) $item->revenue,
+                "contracts" => (int) $item->payments,
             ])
             ->toArray();
     }
@@ -204,14 +271,25 @@ class DashboardController extends Controller
         }
         $soonEnd = $today->copy()->addDays($days);
 
-        $hasPaymentForMonth = function (int $clientId, Carbon $dueDate): bool {
+        $hasPaymentForMonth = function (Contract $contract, Carbon $dueDate): bool {
             $monthStart = $dueDate->copy()->startOfMonth();
             $monthEnd = $dueDate->copy()->endOfMonth();
 
             return Payment::query()
-                ->where('client_id', $clientId)
-                ->where('amount', '>', 0)
-                ->whereBetween('created_at', [$monthStart, $monthEnd])
+                ->where("status", "verified")
+                ->where("amount", ">", 0)
+                ->where(function ($query) use ($contract) {
+                    $query->where("contract_id", $contract->id)
+                        ->orWhere(function ($legacy) use ($contract) {
+                            $legacy->whereNull("contract_id")->where("client_id", $contract->client_id);
+                        });
+                })
+                ->where(function ($query) use ($monthStart, $monthEnd) {
+                    $query->whereBetween("paid_at", [$monthStart->toDateString(), $monthEnd->toDateString()])
+                        ->orWhere(function ($fallback) use ($monthStart, $monthEnd) {
+                            $fallback->whereNull("paid_at")->whereBetween("created_at", [$monthStart, $monthEnd]);
+                        });
+                })
                 ->exists();
         };
 
@@ -237,7 +315,7 @@ class DashboardController extends Controller
         $mapRow = function (Contract $c) use ($hasPaymentForMonth): array {
             $due = $c->next_due_date ? Carbon::parse($c->next_due_date) : null;
             $client = $c->client;
-            $paid = ($client && $due) ? $hasPaymentForMonth((int) $client->id, $due) : false;
+            $paid = ($client && $due) ? $hasPaymentForMonth($c, $due) : false;
 
             return [
                 'amount' => (float) $c->amount,

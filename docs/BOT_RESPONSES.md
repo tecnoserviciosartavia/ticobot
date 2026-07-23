@@ -39,7 +39,7 @@ Este documento resume el comportamiento operativo actual del bot de WhatsApp lue
 
 - El bot ahora considera chats `@lid` en recepción porque varios mensajes reales llegan con ese identificador.
 - Para envío, el bot intenta fallback a `@c.us` y otras resoluciones cuando WhatsApp Web falla al ubicar el chat.
-- Aun así, esta parte depende del comportamiento de `whatsapp-web.js` y puede presentar fallos intermitentes externos al código de negocio.
+- Esta parte se procesa mediante la API oficial de WhatsApp Cloud de Meta.
 
 ### 8. Monitoreo recomendado
 

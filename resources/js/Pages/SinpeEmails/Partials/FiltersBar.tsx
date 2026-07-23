@@ -1,8 +1,9 @@
+import { Search } from '@/Components/icons';
 import { FormEvent } from 'react';
 
 interface FiltersBarProps {
-    data: { status: string; read: string };
-    setData: (key: 'status' | 'read', value: string) => void;
+    data: { status: string; read: string; search: string };
+    setData: (key: 'status' | 'read' | 'search', value: string) => void;
     submit: (event: FormEvent) => void;
     resetFilters: () => void;
     handleSync: () => void;
@@ -43,6 +44,22 @@ export default function FiltersBar({
                 </button>
             </div>
             <form onSubmit={submit} className={`${showMobileFilters ? 'flex' : 'hidden'} flex-col gap-4 lg:flex lg:flex-row lg:flex-wrap lg:items-end`}>
+                <div className="w-full lg:min-w-[220px] lg:flex-1 lg:max-w-md">
+                    <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Buscar
+                    </label>
+                    <div className="relative mt-1">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <input
+                            id="search"
+                            type="search"
+                            value={data.search}
+                            onChange={(e) => setData('search', e.target.value)}
+                            placeholder="Origen, motivo, referencia, cliente…"
+                            className="w-full rounded-md border-gray-300 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                        />
+                    </div>
+                </div>
                 <div className="w-full sm:w-auto">
                     <label htmlFor="read" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Bandeja

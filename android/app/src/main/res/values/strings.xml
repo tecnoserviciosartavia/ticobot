@@ -4,4 +4,5 @@
     <string name="title_activity_main">TicoCast</string>
     <string name="package_name">com.ticocast.ticobot</string>
     <string name="custom_url_scheme">com.ticocast.ticobot</string>
+    <string name="default_notification_channel_id">ticobot-chat-messages</string>
 </resources>

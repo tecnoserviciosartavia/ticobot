@@ -109,7 +109,7 @@ export default function ReminderChart({ data, title = 'Estado de Recordatorios',
       // Acknowledged bar
       const acknowledgedHeight = (item.acknowledged / maxValue) * height;
       const acknowledgedY = failedY - acknowledgedHeight;
-      ctx.fillStyle = '#10b981';
+      ctx.fillStyle = '#06b6d4';
       ctx.fillRect(x + barWidth * 3, acknowledgedY, barWidth, acknowledgedHeight);
 
       // X-axis labels
@@ -125,7 +125,7 @@ export default function ReminderChart({ data, title = 'Estado de Recordatorios',
       { color: '#3b82f6', label: 'Enviados' },
       { color: '#f59e0b', label: 'Pendientes' },
       { color: '#ef4444', label: 'Fallidos' },
-      { color: '#10b981', label: 'Confirmados' },
+      { color: '#06b6d4', label: 'Confirmados' },
     ];
 
     legends.forEach((legend, index) => {
@@ -163,7 +163,7 @@ export default function ReminderChart({ data, title = 'Estado de Recordatorios',
       { key: 'sent', color: '#3b82f6', label: 'Enviados' },
       { key: 'pending', color: '#f59e0b', label: 'Pendientes' },
       { key: 'failed', color: '#ef4444', label: 'Fallidos' },
-      { key: 'acknowledged', color: '#10b981', label: 'Confirmados' },
+      { key: 'acknowledged', color: '#06b6d4', label: 'Confirmados' },
     ];
 
     statuses.forEach(status => {
@@ -225,7 +225,7 @@ export default function ReminderChart({ data, title = 'Estado de Recordatorios',
       { value: totals.sent, color: '#3b82f6', label: 'Enviados' },
       { value: totals.pending, color: '#f59e0b', label: 'Pendientes' },
       { value: totals.failed, color: '#ef4444', label: 'Fallidos' },
-      { value: totals.acknowledged, color: '#10b981', label: 'Confirmados' },
+      { value: totals.acknowledged, color: '#06b6d4', label: 'Confirmados' },
     ];
 
     let currentAngle = -Math.PI / 2;
@@ -287,7 +287,7 @@ export default function ReminderChart({ data, title = 'Estado de Recordatorios',
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         <div className="flex items-center space-x-4">
-          <Badge variant="success" className="bg-green-100 text-green-800">
+          <Badge variant="success" className="bg-cyan-100 text-cyan-800">
             {successRate}% éxito
           </Badge>
           <select 
@@ -308,7 +308,7 @@ export default function ReminderChart({ data, title = 'Estado de Recordatorios',
           <p className="text-sm text-gray-600">Enviados</p>
         </div>
         <div className="text-center">
-          <p className="text-2xl font-bold text-green-600">{totals.acknowledged}</p>
+          <p className="text-2xl font-bold text-cyan-600">{totals.acknowledged}</p>
           <p className="text-sm text-gray-600">Confirmados</p>
         </div>
         <div className="text-center">

@@ -40,6 +40,13 @@ return [
         'service_account_path' => env('FCM_SERVICE_ACCOUNT_PATH', storage_path('app/firebase-service-account.json')),
     ],
 
+
+    'webpush' => [
+        'subject' => env('PUSH_VAPID_SUBJECT', 'mailto:admin@example.com'),
+        'public_key' => env('PUSH_VAPID_PUBLIC_KEY', ''),
+        'private_key' => env('PUSH_VAPID_PRIVATE_KEY', ''),
+    ],
+
     'whatsapp' => [
         'token' => env('WHATSAPP_TOKEN'),
         'phone_id' => env('WHATSAPP_PHONE_ID'),

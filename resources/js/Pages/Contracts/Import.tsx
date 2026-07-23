@@ -77,7 +77,7 @@ export default function ContractsImport(_props: PageProps) {
                             </div>
 
                             {message && (
-                                <div className="rounded-md bg-green-50 p-4 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                <div className="rounded-md bg-cyan-50 p-4 text-sm text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300">
                                     {message}
                                 </div>
                             )}

@@ -142,7 +142,7 @@ export function AnimatedStatCard({
 
   const colorClasses: Record<string, string> = {
     blue: 'bg-blue-500/10 text-blue-600 border-blue-200',
-    green: 'bg-green-500/10 text-green-600 border-green-200',
+    cyan: 'bg-cyan-500/10 text-cyan-600 border-cyan-200',
     yellow: 'bg-yellow-500/10 text-yellow-600 border-yellow-200',
     red: 'bg-red-500/10 text-red-600 border-red-200',
     purple: 'bg-purple-500/10 text-purple-600 border-purple-200',
@@ -158,7 +158,7 @@ export function AnimatedStatCard({
           <p className="text-2xl font-bold text-gray-900">{displayValue}</p>
           {change !== undefined && (
             <div className={`flex items-center mt-1 text-sm ${
-              change >= 0 ? 'text-green-600' : 'text-red-600'
+              change >= 0 ? 'text-cyan-600' : 'text-red-600'
             }`}>
               <span className="inline-block mr-1">
                 {trend === 'up' ? '↗' : '↘'}
@@ -247,7 +247,7 @@ export function PulseBadge({ children, variant = 'default' }: {
 
   const variantClasses = {
     default: 'bg-blue-100 text-blue-800',
-    success: 'bg-green-100 text-green-800',
+    success: 'bg-cyan-100 text-cyan-800',
     warning: 'bg-yellow-100 text-yellow-800',
     error: 'bg-red-100 text-red-800',
   };

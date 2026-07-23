@@ -2,10 +2,18 @@ import { Button } from '@/Components/button';
 import { Card } from '@/Components/card';
 import { Badge } from '@/Components/badge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import type { PageProps } from '@/types';
 import { Settings, ArrowLeft, Plus, Edit, Trash2, DollarSign, Users, Eye, EyeOff, Save } from '@/Components/icons';
+
+type ServiceAccountItem = {
+    id: number;
+    name?: string | null;
+    identifier: string;
+    password?: string | null;
+    is_active: boolean;
+};
 
 type ServiceItem = {
     id: number;
@@ -21,6 +29,7 @@ type ServiceItem = {
     currency: 'CRC' | 'USD';
     is_active: boolean;
     updated_at?: string | null;
+    accounts?: ServiceAccountItem[];
 };
 
 type Props = PageProps<{ services: ServiceItem[] }>;
@@ -34,6 +43,14 @@ const currencySymbol = (currency: string) => {
         default:
             return currency;
     }
+};
+
+const formatDate = (value?: string | null) => {
+    if (!value) return '—';
+    return new Date(value).toLocaleString('es-CR', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    });
 };
 
 export default function ServicesSettingsIndex({ services = [] }: Props) {
@@ -61,6 +78,14 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
         pin: '',
         max_profiles: '',
         currency: 'CRC' as 'CRC' | 'USD',
+        is_active: true,
+    });
+
+    const accountForm = useForm({
+        service_id: '',
+        name: '',
+        identifier: '',
+        password: '',
         is_active: true,
     });
 
@@ -125,10 +150,12 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                 </p>
                             </div>
                             <div className="flex gap-3">
-                                <Button variant="outline">
-                                    <ArrowLeft className="w-4 h-4 mr-2" />
-                                    Volver
-                                </Button>
+                                <Link href={route('settings.index')}>
+                                    <Button type="button" variant="outline">
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Volver
+                                    </Button>
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -283,26 +310,29 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                         </div>
 
                         <div className="mt-4 overflow-x-auto pb-2">
-                            <table className="min-w-[1280px] divide-y divide-gray-200 dark:divide-gray-700">
+                            <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead>
-                                        <tr className="text-left text-sm text-gray-600 dark:text-gray-300">
+                                    <tr className="text-left text-sm text-gray-600 dark:text-gray-300">
                                         <th className="py-2 pr-4 min-w-[180px]">Nombre</th>
-                                        <th className="py-2 pr-4 min-w-[90px]">Cobro cliente</th>
-                                        <th className="py-2 pr-4 min-w-[90px]">Costo fijo</th>
-                                            <th className="py-2 pr-4 min-w-[90px]">Pago costo</th>
-                                        <th className="py-2 pr-4 min-w-[220px]">Correo de cuenta</th>
-                                        <th className="py-2 pr-4 min-w-[170px]">Contraseña</th>
-                                        <th className="py-2 pr-4 min-w-[120px]">PIN base</th>
-                                        <th className="py-2 pr-4 min-w-[90px]">Perfiles</th>
+                                        <th className="py-2 pr-4 min-w-[90px]">Activo</th>
+                                        <th className="py-2 pr-4 min-w-[100px]">Cobro cliente</th>
+                                        <th className="py-2 pr-4 min-w-[100px]">Costo fijo</th>
+                                        <th className="py-2 pr-4 min-w-[90px]">Pago costo</th>
+                                        <th className="py-2 pr-4 min-w-[100px]">Máx perfiles</th>
+                                        <th className="py-2 pr-4 min-w-[110px]">Perfiles usados</th>
                                         <th className="py-2 pr-4 min-w-[90px]">Moneda</th>
-                                        <th className="py-2 pr-4 min-w-[70px]">Activo</th>
+                                        <th className="py-2 pr-4 min-w-[110px]">Subcuentas</th>
+                                        <th className="py-2 pr-4 min-w-[220px]">Correo</th>
+                                        <th className="py-2 pr-4 min-w-[180px]">Contraseña</th>
+                                        <th className="py-2 pr-4 min-w-[120px]">PIN base</th>
+                                        <th className="py-2 pr-4 min-w-[140px]">Actualizado</th>
                                         <th className="py-2 min-w-[160px]">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {services.length === 0 ? (
                                         <tr>
-                                            <td colSpan={11} className="py-6 text-sm text-gray-500">
+                                            <td colSpan={13} className="py-6 text-sm text-gray-500">
                                                 No hay servicios.
                                             </td>
                                         </tr>
@@ -328,6 +358,21 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                                     <td className="py-2 pr-4">
                                                         {isEditing ? (
                                                             <input
+                                                                type="checkbox"
+                                                                checked={!!editForm.data.is_active}
+                                                                onChange={(e) => editForm.setData('is_active', e.target.checked)}
+                                                            />
+                                                        ) : (
+                                                            s.is_active ? (
+                                                                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-800">Sí</span>
+                                                            ) : (
+                                                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">No</span>
+                                                            )
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 pr-4">
+                                                        {isEditing ? (
+                                                            <input
                                                                 type="number"
                                                                 min="0"
                                                                 step="0.01"
@@ -336,29 +381,29 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                                                 className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                                                             />
                                                         ) : (
-                                                            s.price
+                                                            `${currencySymbol(s.currency)}${s.price}`
                                                         )}
                                                         {isEditing && editForm.errors.price && (
                                                             <div className="mt-1 text-xs text-red-600">{editForm.errors.price}</div>
                                                         )}
                                                     </td>
-                                                        <td className="py-2 pr-4">
-                                                            {isEditing ? (
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    value={editForm.data.cost}
-                                                                    onChange={(e) => editForm.setData('cost', e.target.value)}
-                                                                    className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                                                />
-                                                            ) : (
-                                                                s.cost ?? '0'
-                                                            )}
-                                                            {isEditing && editForm.errors.cost && (
-                                                                <div className="mt-1 text-xs text-red-600">{editForm.errors.cost}</div>
-                                                            )}
-                                                        </td>
+                                                    <td className="py-2 pr-4">
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                value={editForm.data.cost}
+                                                                onChange={(e) => editForm.setData('cost', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                            />
+                                                        ) : (
+                                                            `${currencySymbol(s.currency)}${s.cost ?? '0'}`
+                                                        )}
+                                                        {isEditing && editForm.errors.cost && (
+                                                            <div className="mt-1 text-xs text-red-600">{editForm.errors.cost}</div>
+                                                        )}
+                                                    </td>
                                                     <td className="py-2 pr-4">
                                                         {isEditing ? (
                                                             <input
@@ -374,6 +419,63 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                                         )}
                                                         {isEditing && editForm.errors.payment_day && (
                                                             <div className="mt-1 text-xs text-red-600">{editForm.errors.payment_day}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 pr-4">
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                value={editForm.data.max_profiles as any}
+                                                                onChange={(e) => editForm.setData('max_profiles', e.target.value)}
+                                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                                placeholder="—"
+                                                            />
+                                                        ) : (
+                                                            s.max_profiles != null ? s.max_profiles : 'Ilimitado'
+                                                        )}
+                                                        {isEditing && editForm.errors.max_profiles && (
+                                                            <div className="mt-1 text-xs text-red-600">{editForm.errors.max_profiles}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 pr-4">
+                                                        {isEditing ? (
+                                                            <span className="text-xs text-gray-500">Solo lectura</span>
+                                                        ) : (
+                                                            <span className={`text-xs font-semibold ${
+                                                                s.max_profiles != null && (s.profiles_used ?? 0) >= s.max_profiles ? 'text-red-600' :
+                                                                s.max_profiles != null && (s.profiles_used ?? 0) >= (s.max_profiles * 0.8) ? 'text-yellow-600' :
+                                                                'text-cyan-700'
+                                                            }`}>
+                                                                {(s.profiles_used ?? 0)}/{s.max_profiles ?? '∞'}
+                                                            </span>
+                                                        )}
+                                                        {isEditing && editForm.errors.max_profiles && (
+                                                            <div className="mt-1 text-xs text-red-600">{editForm.errors.max_profiles}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 pr-4">
+                                                        {isEditing ? (
+                                                            <select
+                                                                value={editForm.data.currency}
+                                                                onChange={(e) => editForm.setData('currency', e.target.value as any)}
+                                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                            >
+                                                                <option value="CRC">CRC</option>
+                                                                <option value="USD">USD</option>
+                                                            </select>
+                                                        ) : (
+                                                            s.currency
+                                                        )}
+                                                        {isEditing && editForm.errors.currency && (
+                                                            <div className="mt-1 text-xs text-red-600">{editForm.errors.currency}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 pr-4">
+                                                        {s.accounts?.length ? (
+                                                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{s.accounts.length}</span>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-500">0</span>
                                                         )}
                                                     </td>
                                                     <td className="py-2 pr-4">
@@ -416,7 +518,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                                                 type="text"
                                                                 value={editForm.data.pin}
                                                                 onChange={(e) => editForm.setData('pin', e.target.value)}
-                                                                className="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                                                                 placeholder="PIN"
                                                             />
                                                         ) : (
@@ -427,57 +529,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                                         )}
                                                     </td>
                                                     <td className="py-2 pr-4">
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={editForm.data.max_profiles as any}
-                                                                onChange={(e) => editForm.setData('max_profiles', e.target.value)}
-                                                                className="w-20 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                                                placeholder="—"
-                                                            />
-                                                        ) : (
-                                                            s.max_profiles != null ? (
-                                                                <span className={`text-xs font-semibold ${
-                                                                    (s.profiles_used ?? 0) >= s.max_profiles ? 'text-red-600' :
-                                                                    (s.profiles_used ?? 0) >= s.max_profiles * 0.8 ? 'text-yellow-600' :
-                                                                    'text-green-700'
-                                                                }`}>
-                                                                    {s.profiles_used ?? 0}/{s.max_profiles}
-                                                                </span>
-                                                            ) : '—'
-                                                        )}
-                                                        {isEditing && editForm.errors.max_profiles && (
-                                                            <div className="mt-1 text-xs text-red-600">{editForm.errors.max_profiles}</div>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-2 pr-4">
-                                                        {isEditing ? (
-                                                            <select
-                                                                value={editForm.data.currency}
-                                                                onChange={(e) => editForm.setData('currency', e.target.value as any)}
-                                                                className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                                            >
-                                                                <option value="CRC">CRC</option>
-                                                                <option value="USD">USD</option>
-                                                            </select>
-                                                        ) : (
-                                                            currencySymbol(s.currency)
-                                                        )}
-                                                        {isEditing && editForm.errors.currency && (
-                                                            <div className="mt-1 text-xs text-red-600">{editForm.errors.currency}</div>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-2 pr-4">
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={!!editForm.data.is_active}
-                                                                onChange={(e) => editForm.setData('is_active', e.target.checked)}
-                                                            />
-                                                        ) : (
-                                                            s.is_active ? 'Sí' : 'No'
-                                                        )}
+                                                        {formatDate(s.updated_at)}
                                                     </td>
                                                     <td className="py-2">
                                                         {isEditing ? (
@@ -517,6 +569,139 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                                 </tr>
                                             );
                                         })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+
+                    <Card className="p-6">
+                        <div className="flex items-baseline justify-between">
+                            <h3 className="text-lg font-semibold">Subcuentas por servicio</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Crea subcuentas o correos secundarios para cada servicio.</p>
+                        </div>
+
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                accountForm.post(route('settings.services.accounts.store'), {
+                                    preserveScroll: true,
+                                    onSuccess: () => accountForm.reset('identifier', 'password'),
+                                });
+                            }}
+                            className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4 items-end"
+                        >
+                            <div>
+                                <label className="block text-sm font-medium">Servicio</label>
+                                <select
+                                    value={accountForm.data.service_id}
+                                    onChange={(e) => accountForm.setData('service_id', e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    required
+                                >
+                                    <option value="">Selecciona un servicio</option>
+                                    {services.map((service) => (
+                                        <option key={service.id} value={service.id}>
+                                            {service.name}{service.account_email ? ` — ${service.account_email}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                {accountForm.errors.service_id && <div className="mt-1 text-sm text-red-600">{accountForm.errors.service_id}</div>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">Correo / identificador</label>
+                                <input
+                                    type="text"
+                                    value={accountForm.data.identifier}
+                                    onChange={(e) => accountForm.setData('identifier', e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    placeholder="correo@cliente.com"
+                                    required
+                                />
+                                {accountForm.errors.identifier && <div className="mt-1 text-sm text-red-600">{accountForm.errors.identifier}</div>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">Contraseña</label>
+                                <input
+                                    type="text"
+                                    value={accountForm.data.password}
+                                    onChange={(e) => accountForm.setData('password', e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    placeholder="Contraseña de la subcuenta"
+                                />
+                                {accountForm.errors.password && <div className="mt-1 text-sm text-red-600">{accountForm.errors.password}</div>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">Nombre (opcional)</label>
+                                <input
+                                    type="text"
+                                    value={accountForm.data.name}
+                                    onChange={(e) => accountForm.setData('name', e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                    placeholder="Ej: Usuario principal"
+                                />
+                                {accountForm.errors.name && <div className="mt-1 text-sm text-red-600">{accountForm.errors.name}</div>}
+                            </div>
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={!!accountForm.data.is_active}
+                                    onChange={(e) => accountForm.setData('is_active', e.target.checked)}
+                                />
+                                Activo
+                            </label>
+
+                            <div className="md:col-span-4 flex justify-end">
+                                <button
+                                    type="submit"
+                                    disabled={accountForm.processing}
+                                    className="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-white font-semibold hover:bg-indigo-500 disabled:opacity-60"
+                                >
+                                    Agregar subcuenta
+                                </button>
+                            </div>
+                        </form>
+
+                        <div className="mt-6 overflow-x-auto pb-2">
+                            <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead>
+                                    <tr className="text-left text-sm text-gray-600 dark:text-gray-300">
+                                        <th className="py-2 pr-4">Servicio</th>
+                                        <th className="py-2 pr-4">Identificador</th>
+                                        <th className="py-2 pr-4">Contraseña</th>
+                                        <th className="py-2 pr-4">Nombre</th>
+                                        <th className="py-2 pr-4">Activo</th>
+                                        <th className="py-2">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    {services.flatMap((service) => (service.accounts ?? [])
+                                        .map((account) => (
+                                            <tr key={account.id} className="text-sm">
+                                                <td className="py-2 pr-4">{service.name}</td>
+                                                <td className="py-2 pr-4"><span className="text-indigo-600">{account.identifier}</span></td>
+                                                <td className="py-2 pr-4">{account.password ? '••••••••' : '—'}</td>
+                                                <td className="py-2 pr-4">{account.name ?? '—'}</td>
+                                                <td className="py-2 pr-4">
+                                                    {account.is_active ? (
+                                                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-800">Sí</span>
+                                                    ) : (
+                                                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">No</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            if (!confirm('¿Eliminar esta subcuenta?')) return;
+                                                            router.delete(route('settings.services.accounts.destroy', account.id), { preserveScroll: true });
+                                                        }}
+                                                        className="rounded-md bg-red-50 px-3 py-1 text-red-700 hover:bg-red-100"
+                                                    >
+                                                        Eliminar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
                                     )}
                                 </tbody>
                             </table>

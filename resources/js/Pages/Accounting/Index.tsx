@@ -2,7 +2,7 @@ import { Button } from '@/Components/button';
 import { Card } from '@/Components/card';
 import { Badge } from '@/Components/badge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { DollarSign, TrendingUp, TrendingDown, Calendar, ArrowLeft, BarChart3, PieChart, Activity } from '@/Components/icons';
 
 interface StatusCurrencyRow {
@@ -81,10 +81,12 @@ export default function AccountingIndex({
                 </p>
               </div>
               <div className="flex gap-3">
-                <Button variant="outline">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Volver
-                </Button>
+                <Link href={route('dashboard')}>
+                  <Button type="button" variant="outline">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Volver
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
@@ -92,7 +94,7 @@ export default function AccountingIndex({
           <div className="space-y-8">
           {/* Tarjetas resumen - Mes actual */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryCard title="Monto conciliado" value={`CRC ${formatMoney(conciliatedAmount)}`} subtitle={`${totals.verified?.count || 0} pagos conciliados (mes actual)`} color="bg-green-50 dark:bg-green-900/20" />
+            <SummaryCard title="Monto conciliado" value={`CRC ${formatMoney(conciliatedAmount)}`} subtitle={`${totals.verified?.count || 0} pagos conciliados (mes actual)`} color="bg-cyan-50 dark:bg-cyan-900/20" />
             <SummaryCard title="Monto pendiente" value={`CRC ${formatMoney(pendingFromContracts)}`} subtitle="(total contratos activos - monto conciliado)" color="bg-yellow-50 dark:bg-yellow-900/20" />
             <SummaryCard title="Meses registrados" value={total_months.toString()} subtitle={`Mes actual (metadata 'months')`} color="bg-indigo-50 dark:bg-indigo-900/20" />
             <SummaryCard title="% conciliado" value={`${conciliation_rate.toFixed(2)}%`} subtitle="(monto conciliado / total contratos activos)" color="bg-blue-50 dark:bg-blue-900/20" />
@@ -263,7 +265,7 @@ export default function AccountingIndex({
                   <div key={d.date} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-3 text-sm dark:border-gray-700">
                     <div className="font-medium text-gray-900 dark:text-gray-100">{d.date}</div>
                     <div className="text-right">
-                      <div className="font-mono text-green-700">{formatMoney(d.verified_amount)}</div>
+                      <div className="font-mono text-cyan-700">{formatMoney(d.verified_amount)}</div>
                       <div className="font-mono text-yellow-700">{formatMoney(d.pending_amount)}</div>
                     </div>
                   </div>
@@ -282,7 +284,7 @@ export default function AccountingIndex({
                     {daily.map(d => (
                       <tr key={d.date} className="last:border-b-0">
                         <td className="px-2 py-1">{d.date}</td>
-                        <td className="px-2 py-1 text-right font-mono text-green-700">{formatMoney(d.verified_amount)}</td>
+                        <td className="px-2 py-1 text-right font-mono text-cyan-700">{formatMoney(d.verified_amount)}</td>
                         <td className="px-2 py-1 text-right font-mono text-yellow-700">{formatMoney(d.pending_amount)}</td>
                       </tr>
                     ))}
@@ -311,7 +313,7 @@ export default function AccountingIndex({
                             </div>
                             <div>
                               <div className="text-gray-500 dark:text-gray-400">Pagado</div>
-                              <div className="font-mono text-green-700">{formatMoney(m.paid_total[currency] || 0)}</div>
+                              <div className="font-mono text-cyan-700">{formatMoney(m.paid_total[currency] || 0)}</div>
                             </div>
                             <div>
                               <div className="text-gray-500 dark:text-gray-400">Diferencia</div>
@@ -319,7 +321,7 @@ export default function AccountingIndex({
                             </div>
                             <div>
                               <div className="text-gray-500 dark:text-gray-400">Ganancia</div>
-                              <div className="font-mono font-semibold text-green-700">{formatMoney((m.net_by_currency && m.net_by_currency[currency]) || 0)}</div>
+                              <div className="font-mono font-semibold text-cyan-700">{formatMoney((m.net_by_currency && m.net_by_currency[currency]) || 0)}</div>
                             </div>
                           </div>
                         </div>
@@ -351,13 +353,13 @@ export default function AccountingIndex({
                         <td className="px-3 py-2 text-right font-mono text-blue-700">
                           {currency} {formatMoney(m.contracts_total[currency] || 0)}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono text-green-700">
+                        <td className="px-3 py-2 text-right font-mono text-cyan-700">
                           {currency} {formatMoney(m.paid_total[currency] || 0)}
                         </td>
                         <td className="px-3 py-2 text-right font-mono font-semibold text-orange-700">
                           {currency} {formatMoney(m.pending_total[currency] || 0)}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold text-green-700">
+                        <td className="px-3 py-2 text-right font-mono font-semibold text-cyan-700">
                           {currency} {formatMoney((m.net_by_currency && m.net_by_currency[currency]) || 0)}
                         </td>
                       </tr>

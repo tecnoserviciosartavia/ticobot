@@ -131,8 +131,8 @@ export default function ReportsIndex({ snapshot, generated_at }: ReportsPageProp
 
             <div className="w-full max-w-none min-w-0 py-6">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Reportes</h1>
-                    <p className="mt-2 max-w-3xl text-gray-600">
+                    <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Reportes</h1>
+                    <p className="mt-2 max-w-3xl text-slate-600 dark:text-slate-300">
                         Centro para métricas del mes y enlaces rápidos a cada módulo con datos exportables o tablas
                         detalladas. Resumen al {generated_at}.
                     </p>
@@ -140,31 +140,31 @@ export default function ReportsIndex({ snapshot, generated_at }: ReportsPageProp
 
                 <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
                     <Card className="border-l-4 border-l-blue-500 p-4">
-                        <div className="text-xs font-medium uppercase text-gray-500">Clientes</div>
-                        <div className="mt-1 text-2xl font-bold text-gray-900">{s.clients_total}</div>
+                        <div className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Clientes</div>
+                        <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{s.clients_total}</div>
                     </Card>
                     <Card className="border-l-4 border-l-indigo-500 p-4">
-                        <div className="text-xs font-medium uppercase text-gray-500">Contratos</div>
-                        <div className="mt-1 text-2xl font-bold text-gray-900">{s.contracts_with_client}</div>
+                        <div className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Contratos</div>
+                        <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{s.contracts_with_client}</div>
                     </Card>
-                    <Card className="border-l-4 border-l-green-500 p-4 sm:col-span-2">
-                        <div className="text-xs font-medium uppercase text-gray-500">Ingresos verificados (mes)</div>
-                        <div className="mt-1 text-lg font-bold text-gray-900">{formatMoneyCrs(s.payments_verified_month_crc)}</div>
+                    <Card className="border-l-4 border-l-cyan-500 p-4 sm:col-span-2">
+                        <div className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Ingresos verificados (mes)</div>
+                        <div className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{formatMoneyCrs(s.payments_verified_month_crc)}</div>
                         {s.payments_verified_month_usd > 0 && (
-                            <div className="mt-0.5 text-sm text-gray-600">{formatMoneyUsd(s.payments_verified_month_usd)}</div>
+                            <div className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">{formatMoneyUsd(s.payments_verified_month_usd)}</div>
                         )}
                     </Card>
                     <Card className="border-l-4 border-l-amber-500 p-4">
-                        <div className="text-xs font-medium uppercase text-gray-500">Pagos no verificados</div>
-                        <div className="mt-1 text-2xl font-bold text-gray-900">{s.payments_unverified_open}</div>
+                        <div className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Pagos no verificados</div>
+                        <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{s.payments_unverified_open}</div>
                     </Card>
                     <Card className="border-l-4 border-l-purple-500 p-4">
-                        <div className="text-xs font-medium uppercase text-gray-500">Recordatorios enviados (mes)</div>
-                        <div className="mt-1 text-2xl font-bold text-gray-900">{s.reminders_sent_month}</div>
+                        <div className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Recordatorios enviados (mes)</div>
+                        <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{s.reminders_sent_month}</div>
                     </Card>
                 </div>
 
-                <h2 className="mb-4 text-lg font-semibold text-gray-900">Ir al detalle</h2>
+                <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-slate-100">Ir al detalle</h2>
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {destinations.map((item) => {
                         const Icon = item.icon;
@@ -172,12 +172,12 @@ export default function ReportsIndex({ snapshot, generated_at }: ReportsPageProp
                             <Link key={item.href} href={route(item.href)}>
                                 <Card className="h-full p-5 transition-shadow hover:shadow-md">
                                     <div className="flex gap-4">
-                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
                                             <Icon className="h-5 w-5" />
                                         </div>
                                         <div className="min-w-0">
-                                            <div className="font-medium text-gray-900">{item.title}</div>
-                                            <p className="mt-1 text-sm text-gray-500">{item.description}</p>
+                                            <div className="font-medium text-slate-900 dark:text-slate-100">{item.title}</div>
+                                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{item.description}</p>
                                         </div>
                                     </div>
                                 </Card>
@@ -186,7 +186,7 @@ export default function ReportsIndex({ snapshot, generated_at }: ReportsPageProp
                     })}
                 </div>
 
-                <p className="mt-10 text-xs text-gray-400">
+                <p className="mt-10 text-xs text-slate-400 dark:text-slate-500">
                     Para datos históricos por período use el Dashboard (selector 7 / 30 / 90 días) o exporte CSV desde ahí.
                 </p>
             </div>

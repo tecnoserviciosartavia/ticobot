@@ -26,9 +26,11 @@ interface DashboardStats {
   };
   revenueByMonth: Array<{
     month: string;
+    currency: string;
     revenue: number;
     contracts: number;
   }>;
+  period?: string;
   recentSentReminders?: Array<{
     id: number;
     client_name: string | null;
@@ -45,6 +47,21 @@ interface DashboardStats {
     due_soon: { count: number; by_currency: Record<string, number> };
     total_by_currency: Record<string, number>;
   };
+  financialSummary?: {
+    payments_received: Record<string, number>;
+    verified_count: number;
+    platform_costs: Record<string, number>;
+    real_profit: Record<string, number>;
+    top_services: Array<{ id: number | null; name: string; currency: string; revenue: number; cost: number; net: number }>;
+  };
+  recentVerifiedPayments?: Array<{
+    id: number;
+    client_name: string | null;
+    contract_name: string | null;
+    amount: number;
+    currency: string;
+    paid_at: string | null;
+  }>;
 }
 
 type DashboardPageProps = PageProps<{
@@ -73,11 +90,15 @@ type DashboardPageProps = PageProps<{
         };
         revenueByMonth: Array<{
             month: string;
+            currency: string;
             revenue: number;
             contracts: number;
         }>;
+        period?: string;
         recentSentReminders?: DashboardStats['recentSentReminders'];
         upcomingCollections?: DashboardStats['upcomingCollections'];
+        financialSummary?: DashboardStats['financialSummary'];
+        recentVerifiedPayments?: DashboardStats['recentVerifiedPayments'];
     };
 }>;
 
@@ -104,6 +125,9 @@ export default function Dashboard({ stats }: DashboardPageProps) {
         revenueByMonth: stats?.revenueByMonth || [],
         recentSentReminders: stats?.recentSentReminders ?? [],
         upcomingCollections: stats?.upcomingCollections,
+        financialSummary: stats?.financialSummary,
+        recentVerifiedPayments: stats?.recentVerifiedPayments ?? [],
+        period: stats?.period || 'month',
     };
     
     return <ModernDashboard stats={safeStats} />;

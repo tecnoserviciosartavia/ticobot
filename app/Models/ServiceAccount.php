@@ -13,6 +13,7 @@ class ServiceAccount extends Model
         'service_id',
         'name',
         'identifier',
+        'password',
         'metadata',
         'is_active',
     ];

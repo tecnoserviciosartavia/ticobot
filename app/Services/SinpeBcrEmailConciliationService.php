@@ -13,7 +13,10 @@ use Illuminate\Support\Facades\Log;
 
 class SinpeBcrEmailConciliationService
 {
-    public function __construct(private readonly SinpeBcrEmailParser $parser)
+    public function __construct(
+        private readonly SinpeBcrEmailParser $parser,
+        private readonly PushNotificationService $push,
+    )
     {
     }
 
@@ -537,25 +540,47 @@ class SinpeBcrEmailConciliationService
         ?int $paymentId,
         ?string $notes
     ): void {
-        DB::table('sinpe_email_transactions')->insertOrIgnore([
-            'reference' => (string) ($parsed['reference'] ?? ''),
-            'origin_phone' => (string) ($parsed['origin_phone'] ?? ''),
-            'origin_name' => (string) ($parsed['origin_name'] ?? ''),
-            'motive' => (string) ($parsed['motive'] ?? ''),
-            'amount' => (float) ($parsed['amount'] ?? 0),
-            'performed_at' => $parsed['performed_at'] ?? null,
-            'message_uid' => $messageUid,
-            'mail_subject' => $mailSubject,
-            'is_read' => $isRead,
-            'status' => $status,
-            'matched_client_id' => $clientId,
-            'matched_contract_id' => $contractId,
-            'payment_id' => $paymentId,
-            'notes' => $notes,
-            'raw_excerpt' => (string) ($parsed['raw_excerpt'] ?? ''),
-            'created_at' => now(),
-            'updated_at' => now(),
+        $inserted = DB::table("sinpe_email_transactions")->insertOrIgnore([
+            "reference" => (string) ($parsed["reference"] ?? ""),
+            "origin_phone" => (string) ($parsed["origin_phone"] ?? ""),
+            "origin_name" => (string) ($parsed["origin_name"] ?? ""),
+            "motive" => (string) ($parsed["motive"] ?? ""),
+            "amount" => (float) ($parsed["amount"] ?? 0),
+            "performed_at" => $parsed["performed_at"] ?? null,
+            "message_uid" => $messageUid,
+            "mail_subject" => $mailSubject,
+            "is_read" => $isRead,
+            "status" => $status,
+            "matched_client_id" => $clientId,
+            "matched_contract_id" => $contractId,
+            "payment_id" => $paymentId,
+            "notes" => $notes,
+            "raw_excerpt" => (string) ($parsed["raw_excerpt"] ?? ""),
+            "created_at" => now(),
+            "updated_at" => now(),
         ]);
+
+        if ($inserted < 1) {
+            return;
+        }
+
+        $reference = (string) ($parsed["reference"] ?? "");
+        $origin = trim((string) ($parsed["origin_name"] ?? "")) ?: "Remitente sin identificar";
+        $amount = number_format((float) ($parsed["amount"] ?? 0), 2, ".", ",");
+
+        $this->push->sendToActiveUsersWithPreference(
+            "payment_email_received",
+            "Nuevo correo de pago recibido",
+            "{$origin} · CRC {$amount} · Ref. {$reference}",
+            [
+                "type" => "payment_email_received",
+                "reference" => $reference,
+                "amount" => (string) ($parsed["amount"] ?? 0),
+                "origin_name" => $origin,
+                "url" => "/sinpe-emails?read=unread",
+                "tag" => "payment-email-{$reference}",
+            ],
+        );
     }
 
     private function decodePart(string $raw, int $encoding): string

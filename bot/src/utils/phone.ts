@@ -29,6 +29,8 @@ export const normalizeChatIdForState = (rawChatId?: string | null): string => {
   const raw = String(rawChatId || '').trim();
   if (!raw) return raw;
   if (raw.endsWith('@broadcast') || raw.endsWith('@g.us')) return raw;
+  // WhatsApp multi-device puede entregar chats @lid; hay que responder al mismo ID.
+  if (raw.endsWith('@lid')) return raw;
 
   return normalizeWhatsAppUserChatId(raw) || raw;
 };

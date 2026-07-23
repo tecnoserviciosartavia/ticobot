@@ -1,5 +1,6 @@
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, router } from '@inertiajs/react';
+import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
 
 type Row = {
@@ -34,6 +35,8 @@ export default function CollectionsIndex() {
   const [days, setDays] = useState(7);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sendingContractId, setSendingContractId] = useState<number | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const fetchOverview = async (d: number) => {
     setLoading(true);
@@ -71,6 +74,23 @@ export default function CollectionsIndex() {
   const fmtMoney = (amount: number, currency: string) => {
     if (currency === 'USD') return `$${amount.toFixed(2)}`;
     return `₡${Number(amount || 0).toLocaleString('es-CR')}`;
+  };
+
+  const sendPaymentNotice = async (row: Row) => {
+    const clientName = row.client?.name || 'este cliente';
+    if (!window.confirm(`¿Enviar manualmente el aviso de pago pendiente a ${clientName}?`)) return;
+
+    setSendingContractId(row.contract.id);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await axios.post(`/web-api/collections/${row.contract.id}/send-payment-notice`);
+      setSuccess(response.data?.message || 'Aviso enviado manualmente por WhatsApp.');
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'No se pudo enviar el aviso de pago.');
+    } finally {
+      setSendingContractId(null);
+    }
   };
 
   const all = useMemo(() => {
@@ -133,6 +153,11 @@ export default function CollectionsIndex() {
                   {error}
                 </div>
               )}
+              {success && (
+                <div className="mt-3 rounded bg-cyan-50 p-3 text-sm text-cyan-700 dark:bg-cyan-900/20 dark:text-cyan-300">
+                  {success}
+                </div>
+              )}
             </div>
 
             {loading ? (
@@ -157,6 +182,14 @@ export default function CollectionsIndex() {
                           <div>Contrato: {row.contract.name || `#${row.contract.id}`}</div>
                           <div>Vence: {row.contract.next_due_date || '—'}</div>
                         </div>
+                        <button
+                          type="button"
+                          disabled={!row.client?.phone || sendingContractId === row.contract.id}
+                          onClick={() => sendPaymentNotice(row)}
+                          className="mt-4 w-full rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {sendingContractId === row.contract.id ? 'Enviando…' : 'Enviar aviso de pago'}
+                        </button>
                       </div>
                     ))
                   )}
@@ -172,12 +205,13 @@ export default function CollectionsIndex() {
                         <th className="px-3 py-2 text-left">Contrato</th>
                         <th className="px-3 py-2 text-left">Vence</th>
                         <th className="px-3 py-2 text-right">Monto</th>
+                        <th className="px-3 py-2 text-right">Acción</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {all.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-3 py-6 text-center text-gray-500 dark:text-gray-400">No hay deudas según la regla actual.</td>
+                          <td colSpan={7} className="px-3 py-6 text-center text-gray-500 dark:text-gray-400">No hay deudas según la regla actual.</td>
                         </tr>
                       ) : (
                         all.map(({ bucket, row }) => (
@@ -190,6 +224,17 @@ export default function CollectionsIndex() {
                             <td className="px-3 py-2">{row.contract.name || `#${row.contract.id}`}</td>
                             <td className="whitespace-nowrap px-3 py-2">{row.contract.next_due_date || '—'}</td>
                             <td className="px-3 py-2 text-right font-mono text-gray-900 dark:text-gray-100">{fmtMoney(row.contract.amount, row.contract.currency)}</td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right">
+                              <button
+                                type="button"
+                                disabled={!row.client?.phone || sendingContractId === row.contract.id}
+                                onClick={() => sendPaymentNotice(row)}
+                                title={!row.client?.phone ? 'El cliente no tiene teléfono registrado' : undefined}
+                                className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {sendingContractId === row.contract.id ? 'Enviando…' : 'Enviar aviso'}
+                              </button>
+                            </td>
                           </tr>
                         ))
                       )}
@@ -205,5 +250,4 @@ export default function CollectionsIndex() {
     </ResponsiveLayout>
   );
 }
-
 

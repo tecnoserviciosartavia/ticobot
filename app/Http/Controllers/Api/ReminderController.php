@@ -66,7 +66,7 @@ class ReminderController extends Controller
             'contract_id' => ['required', 'exists:contracts,id'],
             'client_id' => ['required', 'exists:clients,id'],
             'channel' => ['required', 'string', 'max:50'],
-            'scheduled_for' => ['required', 'date'],
+            'scheduled_for' => ['required', 'date', 'after_or_equal:2000-01-01'],
             'monthly' => ['nullable', 'boolean'],
             'status' => ['nullable', 'string', 'max:50'],
             'payload' => ['nullable', 'array'],
@@ -186,7 +186,7 @@ class ReminderController extends Controller
     {
         $data = $request->validate([
             'channel' => ['sometimes', 'required', 'string', 'max:50'],
-            'scheduled_for' => ['sometimes', 'required', 'date'],
+            'scheduled_for' => ['sometimes', 'required', 'date', 'after_or_equal:2000-01-01'],
             'status' => ['sometimes', 'required', 'string', 'max:50'],
             'payload' => ['nullable', 'array'],
             'response_payload' => ['nullable', 'array'],
@@ -301,8 +301,29 @@ class ReminderController extends Controller
     public function claim(Reminder $reminder): JsonResponse
     {
         $claimedAt = Carbon::now(config('app.timezone'));
-        $scheduledForRaw = $reminder->getRawOriginal('scheduled_for');
+        $dueDate = $reminder->scheduled_for
+            ? $reminder->scheduled_for->copy()->timezone(config('app.timezone'))->toDateString()
+            : null;
         $nextAttempts = min(((int) ($reminder->attempts ?? 0)) + 1, 100);
+
+        // Un cliente recibe como máximo un recordatorio por fecha de vencimiento,
+        // aunque existan varios registros, contratos u horas para ese mismo día.
+        if ($dueDate && Reminder::query()
+            ->where('client_id', $reminder->client_id)
+            ->whereDate('scheduled_for', $dueDate)
+            ->where('status', 'sent')
+            ->whereKeyNot($reminder->id)
+            ->exists()) {
+            $reminder->forceFill([
+                'status' => 'duplicate',
+                'acknowledged_at' => $claimedAt,
+            ])->save();
+
+            return response()->json([
+                'claimed' => false,
+                'reason' => 'client_due_date_already_sent',
+            ], 409);
+        }
 
         $claimed = Reminder::query()
             ->whereKey($reminder->id)
@@ -322,14 +343,11 @@ class ReminderController extends Controller
 
         $duplicateQuery = Reminder::query()
             ->where('client_id', $reminder->client_id)
-            ->where('scheduled_for', $scheduledForRaw)
             ->whereIn('status', ['pending', 'queued'])
             ->whereKeyNot($reminder->id);
 
-        if ($reminder->contract_id) {
-            $duplicateQuery->where('contract_id', $reminder->contract_id);
-        } else {
-            $duplicateQuery->whereNull('contract_id');
+        if ($dueDate) {
+            $duplicateQuery->whereDate('scheduled_for', $dueDate);
         }
 
         $duplicatesCancelled = $duplicateQuery->update([

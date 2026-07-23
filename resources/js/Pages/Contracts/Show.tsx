@@ -122,8 +122,8 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                     <div className="mb-8">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900">{contract.name}</h1>
-                                <p className="mt-2 text-gray-600">
+                                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{contract.name}</h1>
+                                <p className="mt-2 text-slate-600 dark:text-slate-300">
                                     Detalles del contrato y seguimiento de recordatorios y pagos vinculados.
                                 </p>
                             </div>
@@ -137,7 +137,7 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                 <Button 
                                     variant="outline" 
                                     onClick={() => router.post(route('contracts.resend-access', contract.id))}
-                                    className="text-green-700 border-green-300 hover:bg-green-50"
+                                    className="text-cyan-700 border-cyan-300 hover:bg-cyan-50"
                                 >
                                     <AlertCircle className="w-4 h-4 mr-2" />
                                     Reenviar Acceso
@@ -149,42 +149,42 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                     {/* Contract Details */}
                     <div className="grid gap-6 lg:grid-cols-2">
                         <Card className="p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Información del Contrato</h3>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Información del Contrato</h3>
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3">
-                                    <User className="w-5 h-5 text-gray-400" />
+                                    <User className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                                     <div>
-                                        <p className="text-sm text-gray-500">Cliente</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Cliente</p>
                                         <p className="font-medium">{contract.client?.name || 'Cliente eliminado'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <DollarSign className="w-5 h-5 text-gray-400" />
+                                    <DollarSign className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                                     <div>
-                                        <p className="text-sm text-gray-500">Monto</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Monto</p>
                                         <p className="font-medium">{formatCurrency(contract.amount, contract.currency)}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <Clock className="w-5 h-5 text-gray-400" />
+                                    <Clock className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                                     <div>
-                                        <p className="text-sm text-gray-500">Ciclo de facturación</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Ciclo de facturación</p>
                                         <p className="font-medium">{labelForBillingCycle(contract.billing_cycle)}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <AlertCircle className="w-5 h-5 text-gray-400" />
+                                    <AlertCircle className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                                     <div>
-                                        <p className="text-sm text-gray-500">Estado del contrato</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Estado del contrato</p>
                                         <p className="font-medium">
                                             <StatusBadge status={contract.status ?? 'active'} />
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <Calendar className="w-5 h-5 text-gray-400" />
+                                    <Calendar className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                                     <div>
-                                        <p className="text-sm text-gray-500">Próximo vencimiento</p>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">Próximo vencimiento</p>
                                         <p className="font-medium">{formatDate(contract.next_due_date)}</p>
                                     </div>
                                 </div>
@@ -192,7 +192,7 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                         </Card>
 
                         <Card className="p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Acciones</h3>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Acciones</h3>
                             <div className="space-y-3">
                                 <Link href={route('contracts.edit', contract.id)}>
                                     <Button className="w-full">
@@ -233,17 +233,27 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                     {/* Services */}
                     {contract.services && contract.services.length > 0 && (
                         <Card className="p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Servicios Asociados</h3>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Servicios Asociados</h3>
                             <div className="space-y-3">
-                                {contract.services.map((service) => (
-                                    <div key={service.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                        {contract.services.map((service) => (
+                                    <div key={service.id} className="flex flex-col gap-3 p-3 border rounded-lg sm:flex-row sm:items-center sm:justify-between">
                                         <div>
                                             <p className="font-medium">{service.name}</p>
-                                            <p className="text-sm text-gray-500">{formatCurrency(service.price, service.currency)}</p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">{formatCurrency(service.price, service.currency)}</p>
                                         </div>
-                                        <Badge variant="secondary">
-                                            {service.quantity || 1}x
-                                        </Badge>
+                                        <div className="flex flex-col gap-2 sm:items-end sm:justify-end">
+                                            <Badge variant="secondary">
+                                                {service.quantity || 1}x
+                                            </Badge>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => router.post(route('contracts.resend-access', contract.id), { service_id: service.id })}
+                                                className="text-cyan-700 border-cyan-300 hover:bg-cyan-50"
+                                            >
+                                                Reenviar acceso
+                                            </Button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Client;
 use App\Models\Contract;
+use Carbon\Carbon;
 use App\Services\WhatsAppNotificationService;
 
 class ContractNotificationService
@@ -48,18 +50,76 @@ class ContractNotificationService
      */
     public function resendAccessMessages(Contract $contract): array
     {
+        if (! $this->isContractCurrent($contract)) {
+            return [
+                'success' => false,
+                'message' => 'No se reenviaron los accesos porque el contrato no está al día.',
+                'sent' => 0,
+            ];
+        }
+
         $sent = $this->sendAccessMessages($contract);
 
         if ($sent > 0) {
             return [
                 'success' => true,
-                'message' => "Accesos reenviados ({$sent} mensaje(s) enviado(s))."
+                'message' => "Accesos reenviados ({$sent} mensaje(s) enviado(s)).",
+                'sent' => $sent,
             ];
         }
 
         return [
             'success' => false,
-            'message' => 'No se pudieron enviar los accesos. Verifique que el cliente tenga teléfono y los servicios tengan credenciales configuradas.'
+            'message' => 'No se pudieron enviar los accesos. Verifique que el cliente tenga teléfono y los servicios tengan credenciales configuradas.',
+            'sent' => 0,
+        ];
+    }
+
+    /**
+     * Resend access credentials for all current contracts of a client.
+     */
+    public function resendAccessMessagesForClient(Client $client): array
+    {
+        $contracts = $client->contracts()
+            ->with(['client:id,name,phone', 'services:id,name,account_email,password,pin'])
+            ->get();
+
+        $eligibleContracts = $contracts->filter(fn (Contract $contract) => $this->isContractCurrent($contract));
+
+        if ($eligibleContracts->isEmpty()) {
+            return [
+                'success' => false,
+                'message' => 'No se reenviaron los accesos porque el cliente no tiene contratos al día.',
+                'sent_contracts' => 0,
+                'sent_messages' => 0,
+            ];
+        }
+
+        $sentContracts = 0;
+        $sentMessages = 0;
+
+        foreach ($eligibleContracts as $contract) {
+            $result = $this->resendAccessMessages($contract);
+            if (! empty($result['success'])) {
+                $sentContracts++;
+                $sentMessages += (int) ($result['sent'] ?? 0);
+            }
+        }
+
+        if ($sentMessages > 0) {
+            return [
+                'success' => true,
+                'message' => "Accesos reenviados para {$sentContracts} contrato(s) ({$sentMessages} mensaje(s) enviado(s)).",
+                'sent_contracts' => $sentContracts,
+                'sent_messages' => $sentMessages,
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => 'No se pudieron enviar los accesos. Verifique que el cliente tenga teléfono y los servicios tengan credenciales configuradas.',
+            'sent_contracts' => 0,
+            'sent_messages' => 0,
         ];
     }
 
@@ -257,5 +317,22 @@ class ContractNotificationService
         }
 
         return null;
+    }
+
+    protected function isContractCurrent(Contract $contract): bool
+    {
+        if (($contract->status ?? 'active') !== 'active') {
+            return false;
+        }
+
+        if (! $contract->next_due_date) {
+            return false;
+        }
+
+        $tz = config('app.timezone');
+        $dueDate = Carbon::parse($contract->next_due_date, $tz)->endOfDay();
+        $graceDays = max(0, (int) ($contract->grace_period_days ?? 0));
+
+        return $dueDate->copy()->addDays($graceDays)->greaterThanOrEqualTo(Carbon::now($tz)->endOfDay());
     }
 }

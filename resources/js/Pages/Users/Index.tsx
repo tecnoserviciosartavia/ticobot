@@ -160,7 +160,7 @@ export default function UsersIndex({ users = [] }: { users?: ManagedUser[] }) {
             <div className="py-8">
                 <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 space-y-6">
                     {page.flash?.success && (
-                        <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
+                        <div className="rounded-md border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-700 dark:border-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300">
                             {page.flash.success}
                         </div>
                     )}

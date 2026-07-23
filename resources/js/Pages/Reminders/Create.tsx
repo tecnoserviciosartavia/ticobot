@@ -18,11 +18,18 @@ interface ReminderCreateProps extends PageProps<{
 }> {}
 
 export default function RemindersCreate({ clients, channels, defaultChannel, prefill }: ReminderCreateProps) {
+    const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Costa_Rica',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(new Date());
+
     const form = useForm<ReminderFormData>({
         client_id: prefill?.client_id != null ? String(prefill.client_id) : '',
         contract_id: prefill?.contract_id != null ? String(prefill.contract_id) : '',
         channel: defaultChannel ?? channels[0] ?? 'whatsapp',
-        scheduled_for: '',
+        scheduled_for: today,
         message: '',
         amount: '',
         due_date: '',

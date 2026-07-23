@@ -86,7 +86,7 @@ export default function PaymentChart({ data, title = 'Ingresos por Mes', type = 
         const verifiedHeight = (item.verified / maxValue) * height;
         const verifiedY = canvas.height - padding - verifiedHeight;
         
-        ctx.fillStyle = '#10b981';
+        ctx.fillStyle = '#06b6d4';
         ctx.fillRect(x, verifiedY, barWidth, verifiedHeight);
 
         // Unverified bar
@@ -131,7 +131,7 @@ export default function PaymentChart({ data, title = 'Ingresos por Mes', type = 
       const legendY = 20;
       
       // Verified legend
-      ctx.fillStyle = '#10b981';
+      ctx.fillStyle = '#06b6d4';
       ctx.fillRect(canvas.width - 150, legendY, 15, 15);
       ctx.fillStyle = '#374151';
       ctx.font = '12px sans-serif';

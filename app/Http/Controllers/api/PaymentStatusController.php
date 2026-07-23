@@ -388,7 +388,7 @@ class PaymentStatusController extends Controller
 
         // Por defecto, mantener la fecha de cobro del contrato.
         // Evita que los recordatorios manuales se vayan "al siguiente mes" por usar now() en fechas cercanas al corte.
-        $sendTime = (string) config('reminders.send_time', '09:00');
+        $sendTime = (string) config('reminders.send_time', '12:00');
 
         if ($request->filled('scheduled_for')) {
             $scheduled = Carbon::parse($request->input('scheduled_for'), config('app.timezone'));
@@ -426,4 +426,3 @@ class PaymentStatusController extends Controller
         ], 201);
     }
 }
-
