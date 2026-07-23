@@ -117,7 +117,7 @@ export default function ClientsIndex() {
                                             if (e.key === 'Enter') applyFilters();
                                         }}
                                         placeholder="Nombre, teléfono o correo"
-                                        className="block w-full rounded-lg border-slate-300 dark:border-slate-700 pl-10 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                        className="block w-full rounded-lg border-slate-300 bg-white pl-10 text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                                     />
                                 </div>
                             </div>
@@ -126,7 +126,7 @@ export default function ClientsIndex() {
                                 <select
                                     value={status}
                                     onChange={(e) => setStatus(e.target.value)}
-                                    className="block w-full rounded-lg border-slate-300 dark:border-slate-700 shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                    className="block w-full rounded-lg border-slate-300 bg-white text-slate-900 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                                 >
                                     <option value="">Todos</option>
                                     <option value="active">Activos</option>
@@ -152,7 +152,7 @@ export default function ClientsIndex() {
 
                     {/* System Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                        <Card className="p-6 border-l-4 border-l-blue-500">
+                        <Card className="p-6 border-l-4 border-l-cyan-500">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
                                     <Users className="h-8 w-8 text-cyan-600" />
@@ -180,7 +180,7 @@ export default function ClientsIndex() {
                                 </div>
                             </div>
                         </Card>
-                        <Card className="p-6 border-l-4 border-l-purple-500">
+                        <Card className="p-6 border-l-4 border-l-cyan-500">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
                                     <DollarSign className="h-8 w-8 text-cyan-600" />
@@ -280,7 +280,7 @@ export default function ClientsIndex() {
                                 </thead>
                                 <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-800">
                                     {clients?.data?.map((client) => (
-                                        <tr key={client.id} className="hover:bg-slate-50 dark:bg-slate-950">
+                                        <tr key={client.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/70">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
                                                     <div className="flex-shrink-0 h-10 w-10">
