@@ -29,12 +29,12 @@ export default function DatePickerInput({
                 {...props}
                 ref={inputRef}
                 type={type}
-                className="block w-full rounded-md border-gray-300 bg-white pr-11 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
+                className="block w-full rounded-md border-slate-300 bg-white pr-11 text-slate-900 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-cyan-500 dark:focus:ring-cyan-500"
             />
             <button
                 type="button"
                 onClick={openCalendar}
-                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-md text-gray-500 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-600"
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-md text-slate-500 hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-cyan-300"
                 aria-label="Abrir calendario"
                 title="Abrir calendario"
             >

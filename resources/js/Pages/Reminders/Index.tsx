@@ -106,9 +106,9 @@ function rowAccentClass(status: string): string {
     if (s === 'failed') return 'border-l-4 border-l-rose-500';
     if (s === 'queued') return 'border-l-4 border-l-amber-400';
     if (s === 'pending') return 'border-l-4 border-l-amber-500';
-    if (s === 'sent') return 'border-l-4 border-l-emerald-500';
+    if (s === 'sent') return 'border-l-4 border-l-cyan-500';
     if (s === 'acknowledged') return 'border-l-4 border-l-sky-500';
-    if (s === 'paid') return 'border-l-4 border-l-emerald-600';
+    if (s === 'paid') return 'border-l-4 border-l-cyan-600';
     return 'border-l-4 border-l-transparent';
 }
 
@@ -269,42 +269,42 @@ export default function RemindersIndex() {
             label: 'Total',
             value: stats?.total ?? reminders.meta?.total ?? reminders.data.length,
             icon: Bell,
-            className: 'text-cyan-600 bg-cyan-50 ring-indigo-100',
+            className: 'text-cyan-700 bg-cyan-50 ring-cyan-100 dark:bg-cyan-950/30 dark:text-cyan-300 dark:ring-cyan-900',
         },
         {
             key: 'pending',
             label: 'Pendientes',
             value: stats?.pending ?? 0,
             icon: Clock,
-            className: 'text-amber-700 bg-amber-50 ring-amber-100',
+            className: 'text-amber-700 bg-amber-50 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-900',
         },
         {
             key: 'queued',
             label: 'En cola',
             value: stats?.queued ?? 0,
             icon: Send,
-            className: 'text-orange-700 bg-orange-50 ring-orange-100',
+            className: 'text-orange-700 bg-orange-50 ring-orange-100 dark:bg-orange-950/30 dark:text-orange-300 dark:ring-orange-900',
         },
         {
             key: 'sent',
             label: 'Enviados',
             value: stats?.sent ?? 0,
             icon: CheckCircle,
-            className: 'text-emerald-700 bg-emerald-50 ring-emerald-100',
+            className: 'text-cyan-700 bg-cyan-50 ring-cyan-100 dark:bg-cyan-950/30 dark:text-cyan-300 dark:ring-cyan-900',
         },
         {
             key: 'failed',
             label: 'Fallidos',
             value: stats?.failed ?? 0,
             icon: XCircle,
-            className: 'text-rose-700 bg-rose-50 ring-rose-100',
+            className: 'text-rose-700 bg-rose-50 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-300 dark:ring-rose-900',
         },
         {
             key: 'paid',
             label: 'Pagados',
             value: stats?.paid ?? 0,
             icon: CheckCircle,
-            className: 'text-teal-700 bg-teal-50 ring-teal-100',
+            className: 'text-cyan-700 bg-cyan-50 ring-cyan-100 dark:bg-cyan-950/30 dark:text-cyan-300 dark:ring-cyan-900',
         },
     ];
 
@@ -334,10 +334,10 @@ export default function RemindersIndex() {
                     </div>
 
                     {flashSuccess && (
-                        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+                        <div className="mb-6 rounded-lg border border-cyan-200 bg-cyan-50 p-4 shadow-sm dark:border-cyan-900/60 dark:bg-cyan-950/30">
                             <div className="flex gap-3">
-                                <CheckCircle className="h-5 w-5 shrink-0 text-emerald-500" />
-                                <p className="text-sm font-medium text-emerald-900">{flashSuccess}</p>
+                                <CheckCircle className="h-5 w-5 shrink-0 text-cyan-500" />
+                                <p className="text-sm font-medium text-cyan-900 dark:text-cyan-200">{flashSuccess}</p>
                             </div>
                         </div>
                     )}
@@ -352,12 +352,12 @@ export default function RemindersIndex() {
                     )}
 
                     {(stats?.stuck_queued > 0 || stats?.overdue_open > 0) && (
-                        <div className="mb-6 rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm">
+                        <div className="mb-6 rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm dark:border-amber-900/60 dark:from-amber-950/50 dark:to-orange-950/30">
                             <div className="flex gap-3">
                                 <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
                                 <div>
-                                    <p className="text-sm font-semibold text-amber-950">Revisión sugerida</p>
-                                    <p className="mt-1 text-sm text-amber-900/90">
+                                    <p className="text-sm font-semibold text-amber-950 dark:text-amber-200">Revisión sugerida</p>
+                                    <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-300">
                                         <span className="font-medium">{stats.stuck_queued}</span> en cola más de 30
                                         minutos · <span className="font-medium">{stats.overdue_open}</span> abiertos con
                                         fecha vencida. Usa <strong>Reintentar</strong> o filtra por estado para
@@ -382,7 +382,7 @@ export default function RemindersIndex() {
                                         'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
                                         active
                                             ? 'border-cyan-600 bg-cyan-600 text-white shadow-sm'
-                                            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-950',
+                                            : 'border-slate-200 bg-white text-slate-700 hover:border-cyan-300 hover:bg-cyan-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-cyan-800 dark:hover:bg-slate-900',
                                     ].join(' ')}
                                 >
                                     {label}
@@ -415,7 +415,7 @@ export default function RemindersIndex() {
                                         <input
                                             type="text"
                                             placeholder="Buscar…"
-                                            className="block w-full rounded-lg border border-slate-300 dark:border-slate-700 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                            className="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500"
                                             value={search}
                                             onChange={(e) => setSearch(e.target.value)}
                                             onKeyDown={(e) => {
@@ -429,7 +429,7 @@ export default function RemindersIndex() {
                                     <div>
                                         <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">Estado</label>
                                         <select
-                                            className="block w-full min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                            className="block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 focus:border-cyan-500 focus:ring-cyan-500"
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value)}
                                         >
@@ -444,7 +444,7 @@ export default function RemindersIndex() {
                                     <div>
                                         <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-300">Canal</label>
                                         <select
-                                            className="block w-full min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                            className="block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 focus:border-cyan-500 focus:ring-cyan-500"
                                             value={channelFilter}
                                             onChange={(e) => setChannelFilter(e.target.value)}
                                         >
@@ -461,7 +461,7 @@ export default function RemindersIndex() {
                                             Recurrencia
                                         </label>
                                         <select
-                                            className="block w-full min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm shadow-sm focus:border-cyan-500 focus:ring-cyan-500"
+                                            className="block w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 focus:border-cyan-500 focus:ring-cyan-500"
                                             value={recurrenceFilter}
                                             onChange={(e) => setRecurrenceFilter(e.target.value)}
                                         >
@@ -577,7 +577,7 @@ export default function RemindersIndex() {
                                             <th className="px-5 py-3 text-right">Acciones</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100 bg-white dark:bg-slate-900">
+                                    <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-900">
                                         {reminders.data.map((reminder) => {
                                             const scheduledStatus = getScheduledStatus(
                                                 reminder.scheduled_for,
@@ -591,7 +591,7 @@ export default function RemindersIndex() {
                                                 >
                                                     <td className="px-5 py-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 ring-1 ring-indigo-100">
+                                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 ring-1 ring-cyan-100 dark:bg-cyan-950/40 dark:text-cyan-300 dark:ring-cyan-900">
                                                                 <Bell className="h-5 w-5" />
                                                             </div>
                                                             <div>
@@ -666,7 +666,7 @@ export default function RemindersIndex() {
                                                                       : scheduledStatus.color === 'yellow'
                                                                         ? 'border-amber-200 text-amber-800'
                                                                         : scheduledStatus.color === 'green'
-                                                                          ? 'border-emerald-200 text-emerald-700'
+                                                                          ? 'border-cyan-200 text-cyan-700'
                                                                           : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
                                                             }`}
                                                         >
@@ -703,7 +703,7 @@ export default function RemindersIndex() {
                                                                     onClick={() => handleManualSend(reminder.id)}
                                                                     disabled={sendingId === reminder.id}
                                                                     title="Enviar manualmente por WhatsApp"
-                                                                    className="shrink-0 text-emerald-700 hover:text-emerald-800"
+                                                                    className="shrink-0 text-cyan-700 hover:text-cyan-800"
                                                                 >
                                                                     <Send className="h-4 w-4" />
                                                                 </Button>
