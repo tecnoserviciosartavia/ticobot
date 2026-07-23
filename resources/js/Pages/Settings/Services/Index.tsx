@@ -364,7 +364,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                                             />
                                                         ) : (
                                                             s.is_active ? (
-                                                                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">Sí</span>
+                                                                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-800">Sí</span>
                                                             ) : (
                                                                 <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">No</span>
                                                             )
@@ -445,7 +445,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                                             <span className={`text-xs font-semibold ${
                                                                 s.max_profiles != null && (s.profiles_used ?? 0) >= s.max_profiles ? 'text-red-600' :
                                                                 s.max_profiles != null && (s.profiles_used ?? 0) >= (s.max_profiles * 0.8) ? 'text-yellow-600' :
-                                                                'text-green-700'
+                                                                'text-cyan-700'
                                                             }`}>
                                                                 {(s.profiles_used ?? 0)}/{s.max_profiles ?? '∞'}
                                                             </span>
@@ -684,7 +684,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                                 <td className="py-2 pr-4">{account.name ?? '—'}</td>
                                                 <td className="py-2 pr-4">
                                                     {account.is_active ? (
-                                                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">Sí</span>
+                                                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-800">Sí</span>
                                                     ) : (
                                                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">No</span>
                                                     )}

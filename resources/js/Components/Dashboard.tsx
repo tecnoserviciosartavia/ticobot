@@ -83,7 +83,7 @@ export default function Dashboard({ stats }: DashboardProps) {
   }) => {
     const colorClasses: Record<string, string> = {
       blue: 'bg-blue-500/10 text-blue-600 border-blue-200',
-      green: 'bg-green-500/10 text-green-600 border-green-200',
+      cyan: 'bg-cyan-500/10 text-cyan-600 border-cyan-200',
       yellow: 'bg-yellow-500/10 text-yellow-600 border-yellow-200',
       red: 'bg-red-500/10 text-red-600 border-red-200',
     };
@@ -100,7 +100,7 @@ export default function Dashboard({ stats }: DashboardProps) {
             <p className="text-2xl font-bold text-gray-900">{displayValue}</p>
             {change !== undefined && (
               <div className={`flex items-center mt-1 text-sm ${
-                change >= 0 ? 'text-green-600' : 'text-red-600'
+                change >= 0 ? 'text-cyan-600' : 'text-red-600'
               }`}>
                 {change >= 0 ? (
                   <ArrowUpRight className="w-4 h-4 mr-1" />
@@ -169,7 +169,7 @@ export default function Dashboard({ stats }: DashboardProps) {
               value={stats.totalRevenue}
               change={8.2}
               icon={DollarSign}
-              color="green"
+              color="cyan"
               format="currency"
             />
             <StatCard
@@ -184,7 +184,7 @@ export default function Dashboard({ stats }: DashboardProps) {
               value={85.2}
               change={5.4}
               icon={TrendingUp}
-              color="green"
+              color="cyan"
             />
           </div>
 
@@ -208,10 +208,10 @@ export default function Dashboard({ stats }: DashboardProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                    <CheckCircle className="w-5 h-5 text-cyan-500 mr-2" />
                     <span>Verificados</span>
                   </div>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
+                  <Badge variant="default" className="bg-cyan-100 text-cyan-800">
                     {stats.paymentStats.verified}
                   </Badge>
                 </div>
@@ -280,9 +280,9 @@ export default function Dashboard({ stats }: DashboardProps) {
               </div>
             </Card>
             
-            <Card className="p-4 border-dashed border-2 border-gray-300 hover:border-green-400 transition-colors cursor-pointer">
+            <Card className="p-4 border-dashed border-2 border-gray-300 hover:border-cyan-400 transition-colors cursor-pointer">
               <div className="text-center">
-                <DollarSign className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                <DollarSign className="w-8 h-8 text-cyan-500 mx-auto mb-2" />
                 <h4 className="font-medium text-gray-900">Registrar Pago</h4>
                 <p className="text-sm text-gray-500 mt-1">Añadir pago manual</p>
               </div>

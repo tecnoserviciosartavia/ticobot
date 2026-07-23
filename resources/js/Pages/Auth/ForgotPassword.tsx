@@ -36,10 +36,10 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
                     {/* Success Message */}
                     {status && (
-                        <Card className="p-6 bg-green-50 border-green-200">
+                        <Card className="p-6 bg-cyan-50 border-cyan-200">
                             <div className="flex items-center">
-                                <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
-                                <p className="text-sm text-green-800">
+                                <CheckCircle className="h-5 w-5 text-cyan-600 mr-3" />
+                                <p className="text-sm text-cyan-800">
                                     {status}
                                 </p>
                             </div>
@@ -121,15 +121,15 @@ export default function ForgotPassword({ status }: { status?: string }) {
                             <h3 className="text-sm font-medium text-gray-900 mb-4">¿Necesitas ayuda?</h3>
                             <div className="space-y-2">
                                 <div className="flex items-center justify-center text-sm text-gray-600">
-                                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                    <CheckCircle className="h-4 w-4 text-cyan-500 mr-2" />
                                     Revisa tu carpeta de spam si no recibes el correo
                                 </div>
                                 <div className="flex items-center justify-center text-sm text-gray-600">
-                                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                    <CheckCircle className="h-4 w-4 text-cyan-500 mr-2" />
                                     El enlace expirará en 60 minutos
                                 </div>
                                 <div className="flex items-center justify-center text-sm text-gray-600">
-                                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                    <CheckCircle className="h-4 w-4 text-cyan-500 mr-2" />
                                     Solo puedes solicitar un enlace cada 5 minutos
                                 </div>
                             </div>

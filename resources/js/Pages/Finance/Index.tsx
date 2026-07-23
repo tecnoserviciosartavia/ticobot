@@ -54,7 +54,7 @@ const labels: Record<string, string> = {
 
 function Status({ value }: { value: string }) {
     const color = value === 'verified' || value === 'approved'
-        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+        ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300'
         : value === 'rejected'
           ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300'
           : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
@@ -148,7 +148,7 @@ export default function FinanceIndex({ activeTab, periodLabel, summary, dataQual
                     <div className="space-y-5">
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                             <Metric label="Cartera activa total" value={money(summary.contracted)} detail={`${money(summary.future)} vence después de este mes`} icon={DollarSign} />
-                            <Metric label="Conciliado este mes" value={money(summary.verified)} detail={`${summary.verified_count} pagos`} icon={CheckCircle} tone="green" />
+                            <Metric label="Conciliado este mes" value={money(summary.verified)} detail={`${summary.verified_count} pagos`} icon={CheckCircle} tone="cyan" />
                             <Metric label="Por cobrar hasta fin de mes" value={money(summary.pending)} detail={`${money(summary.due_this_month)} vence · ${money(summary.due_in_review)} en revisión`} icon={Clock} tone="amber" />
                             <Metric label="Por revisar" value={money(summary.in_review + summary.unverified)} detail={`${summary.review_count} movimientos`} icon={AlertCircle} tone="rose" />
                         </div>
@@ -234,7 +234,7 @@ export default function FinanceIndex({ activeTab, periodLabel, summary, dataQual
 }
 
 function Metric({ label, value, detail, icon: Icon, tone = 'blue' }: { label: string; value: string; detail?: string; icon: typeof DollarSign; tone?: string }) {
-    const tones: Record<string, string> = { blue: 'bg-blue-100 text-blue-700', green: 'bg-emerald-100 text-emerald-700', amber: 'bg-amber-100 text-amber-700', rose: 'bg-rose-100 text-rose-700' };
+    const tones: Record<string, string> = { blue: 'bg-blue-100 text-blue-700', cyan: 'bg-cyan-100 text-cyan-700', amber: 'bg-amber-100 text-amber-700', rose: 'bg-rose-100 text-rose-700' };
     return <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800"><div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${tones[tone]}`}><Icon className="h-5 w-5" /></div><p className="text-sm text-gray-500">{label}</p><p className="mt-1 text-2xl font-bold">{value}</p>{detail && <p className="mt-1 text-xs text-gray-500">{detail}</p>}</div>;
 }
 

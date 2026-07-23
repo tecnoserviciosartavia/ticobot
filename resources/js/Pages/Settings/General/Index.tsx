@@ -170,18 +170,18 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                     </div>
 
                     <Card className="p-6">
-                        <div className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 dark:border-emerald-900/40 dark:bg-emerald-900/15">
+                        <div className="mb-6 rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4 dark:border-cyan-900/40 dark:bg-cyan-900/15">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="min-w-0">
-                                    <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-gray-800/80 dark:text-emerald-300 dark:ring-emerald-900/40">
+                                    <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-cyan-700 ring-1 ring-cyan-200 dark:bg-gray-800/80 dark:text-cyan-300 dark:ring-cyan-900/40">
                                         <Bell className="h-3.5 w-3.5" />
                                         Push del dispositivo
                                     </div>
-                                    <p className="mt-2 text-sm text-emerald-900/80 dark:text-emerald-100/80">
+                                    <p className="mt-2 text-sm text-cyan-900/80 dark:text-cyan-100/80">
                                         Configura Android o iPhone para que las notificaciones lleguen correctamente.
                                     </p>
                                 </div>
-                                <Button type="button" variant="outline" onClick={() => setActiveTab('notifications')} className="gap-2 border-emerald-200 bg-white/85 dark:border-emerald-900/40 dark:bg-gray-800/85">
+                                <Button type="button" variant="outline" onClick={() => setActiveTab('notifications')} className="gap-2 border-cyan-200 bg-white/85 dark:border-cyan-900/40 dark:bg-gray-800/85">
                                     <Bell className="h-4 w-4" />
                                     Ver guía
                                 </Button>
@@ -213,7 +213,7 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                                                         setPushActivationBusy(false);
                                                     }
                                                 }}
-                                                className="gap-2 border-emerald-200 bg-white/85 dark:border-emerald-900/40 dark:bg-gray-800/85"
+                                                className="gap-2 border-cyan-200 bg-white/85 dark:border-cyan-900/40 dark:bg-gray-800/85"
                                             >
                                                 <Bell className="h-4 w-4" />
                                                 {pushActivationBusy ? 'Activando…' : 'Activar notificaciones'}
@@ -291,7 +291,7 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                         <div className="min-w-0 flex-1">
-                                            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-300">
+                                            <div className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-900/25 dark:text-cyan-300">
                                                 <Bell className="h-3.5 w-3.5" />
                                                 Guía de notificaciones push
                                             </div>
@@ -308,7 +308,7 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                                                     onClick={() => setPushGuide('android')}
                                                     className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
                                                         pushGuide === 'android'
-                                                            ? 'bg-emerald-600 text-white'
+                                                            ? 'bg-cyan-600 text-white'
                                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
                                                     }`}
                                                 >
@@ -319,7 +319,7 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                                                     onClick={() => setPushGuide('ios')}
                                                     className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition ${
                                                         pushGuide === 'ios'
-                                                            ? 'bg-emerald-600 text-white'
+                                                            ? 'bg-cyan-600 text-white'
                                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
                                                     }`}
                                                 >
@@ -328,7 +328,7 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                                             </div>
                                         </div>
 
-                                        <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100">
+                                        <div className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm text-cyan-900 dark:bg-cyan-900/20 dark:text-cyan-100">
                                             {pushGuide === 'android' ? (
                                                 <ol className="space-y-2">
                                                     <li>1. Abre la app instalada en Android.</li>
@@ -416,7 +416,7 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                                     <div
                                         className={`mt-3 rounded-md px-3 py-2 text-sm ${
                                             testResult.type === 'success'
-                                                ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                                                ? 'bg-cyan-50 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-200'
                                                 : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-200'
                                         }`}
                                     >
@@ -528,7 +528,7 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                                 {flash.mail_status && (
                                     <div
                                         className={`mb-4 rounded-md px-3 py-2 text-sm ${flash.mail_status.ok
-                                            ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                                            ? 'bg-cyan-50 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-200'
                                             : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-200'}`}
                                     >
                                         {String(flash.mail_status.message || '')}

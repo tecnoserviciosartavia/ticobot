@@ -121,7 +121,7 @@ export default function ContractsIndex() {
         if (diffDays < 0) return { text: 'Vencido', color: 'red' };
         if (diffDays <= 7) return { text: `${diffDays} días`, color: 'orange' };
         if (diffDays <= 30) return { text: `${diffDays} días`, color: 'yellow' };
-        return { text: `${diffDays} días`, color: 'green' };
+        return { text: `${diffDays} días`, color: 'cyan' };
     };
 
     return (

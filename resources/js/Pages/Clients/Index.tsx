@@ -166,7 +166,7 @@ export default function ClientsIndex() {
                                 </div>
                             </div>
                         </Card>
-                        <Card className="p-6 border-l-4 border-l-green-500">
+                        <Card className="p-6 border-l-4 border-l-cyan-500">
                             <div className="flex items-center">
                                 <div className="flex-shrink-0">
                                     <TrendingUp className="h-8 w-8 text-cyan-600" />
@@ -226,7 +226,7 @@ export default function ClientsIndex() {
                                 <Clock className="h-8 w-8 text-cyan-500" />
                             </div>
                         </Card>
-                        <Card className="p-6 bg-gradient-to-r from-green-50 to-green-100">
+                        <Card className="p-6 bg-gradient-to-r from-cyan-50 to-cyan-100">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-medium text-cyan-600">Pagos Verificados Mes</p>

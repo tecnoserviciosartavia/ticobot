@@ -254,13 +254,13 @@ export default function RemindersIndex() {
     };
 
     const getScheduledStatus = (scheduledFor: string | null, sentAt: string | null) => {
-        if (sentAt) return { text: 'Enviado', color: 'green' as const };
+        if (sentAt) return { text: 'Enviado', color: 'cyan' as const };
         if (!scheduledFor) return { text: 'Sin fecha', color: 'gray' as const };
         const diffDays = calendarDiffDays(new Date(), new Date(scheduledFor));
         if (diffDays < 0) return { text: 'Atrasado', color: 'red' as const };
         if (diffDays === 0) return { text: 'Hoy', color: 'orange' as const };
         if (diffDays <= 3) return { text: `${diffDays} días`, color: 'yellow' as const };
-        return { text: `${diffDays} días`, color: 'green' as const };
+        return { text: `${diffDays} días`, color: 'cyan' as const };
     };
 
     const statItems = [
@@ -665,7 +665,7 @@ export default function RemindersIndex() {
                                                                       ? 'border-orange-200 text-orange-700'
                                                                       : scheduledStatus.color === 'yellow'
                                                                         ? 'border-amber-200 text-amber-800'
-                                                                        : scheduledStatus.color === 'green'
+                                                                        : scheduledStatus.color === 'cyan'
                                                                           ? 'border-cyan-200 text-cyan-700'
                                                                           : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
                                                             }`}

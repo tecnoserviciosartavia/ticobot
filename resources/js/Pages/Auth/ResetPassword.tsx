@@ -34,7 +34,7 @@ export default function ResetPassword({
                 <div className="max-w-md w-full space-y-8">
                     {/* Header */}
                     <div className="text-center">
-                        <div className="mx-auto h-16 w-16 bg-green-600 rounded-full flex items-center justify-center">
+                        <div className="mx-auto h-16 w-16 bg-cyan-600 rounded-full flex items-center justify-center">
                             <Lock className="h-8 w-8 text-white" />
                         </div>
                         <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -79,7 +79,7 @@ export default function ResetPassword({
                                         type="password"
                                         name="password"
                                         value={data.password}
-                                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
                                         placeholder="••••••••"
                                         autoComplete="new-password"
                                         onChange={(e) => setData('password', e.target.value)}
@@ -107,7 +107,7 @@ export default function ResetPassword({
                                         type="password"
                                         name="password_confirmation"
                                         value={data.password_confirmation}
-                                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
                                         placeholder="••••••••"
                                         autoComplete="new-password"
                                         onChange={(e) => setData('password_confirmation', e.target.value)}
@@ -147,7 +147,7 @@ export default function ResetPassword({
                             <div className="mt-6 text-center">
                                 <Link
                                     href={route('login')}
-                                    className="font-medium text-green-600 hover:text-green-500 inline-flex items-center"
+                                    className="font-medium text-cyan-600 hover:text-cyan-500 inline-flex items-center"
                                 >
                                     <ArrowLeft className="h-4 w-4 mr-1" />
                                     Volver al inicio de sesión
@@ -162,19 +162,19 @@ export default function ResetPassword({
                             <h3 className="text-sm font-medium text-gray-900 mb-4">Consejos de seguridad</h3>
                             <div className="space-y-2">
                                 <div className="flex items-center justify-center text-sm text-gray-600">
-                                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                    <CheckCircle className="h-4 w-4 text-cyan-500 mr-2" />
                                     Usa al menos 8 caracteres
                                 </div>
                                 <div className="flex items-center justify-center text-sm text-gray-600">
-                                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                    <CheckCircle className="h-4 w-4 text-cyan-500 mr-2" />
                                     Incluye números y símbolos
                                 </div>
                                 <div className="flex items-center justify-center text-sm text-gray-600">
-                                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                    <CheckCircle className="h-4 w-4 text-cyan-500 mr-2" />
                                     No uses contraseñas fáciles de adivinar
                                 </div>
                                 <div className="flex items-center justify-center text-sm text-gray-600">
-                                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                                    <CheckCircle className="h-4 w-4 text-cyan-500 mr-2" />
                                     Guarda tu contraseña en un lugar seguro
                                 </div>
                             </div>

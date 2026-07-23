@@ -147,7 +147,7 @@ export default function ReportsIndex({ snapshot, generated_at }: ReportsPageProp
                         <div className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Contratos</div>
                         <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{s.contracts_with_client}</div>
                     </Card>
-                    <Card className="border-l-4 border-l-green-500 p-4 sm:col-span-2">
+                    <Card className="border-l-4 border-l-cyan-500 p-4 sm:col-span-2">
                         <div className="text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Ingresos verificados (mes)</div>
                         <div className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{formatMoneyCrs(s.payments_verified_month_crc)}</div>
                         {s.payments_verified_month_usd > 0 && (

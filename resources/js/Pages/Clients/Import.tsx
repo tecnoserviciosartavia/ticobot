@@ -75,7 +75,7 @@ export default function ClientsImport(_props: PageProps) {
                                     <span className="text-xs text-gray-500 dark:text-gray-400">{progress.percentage}%</span>
                                 )}
                                 {message && (
-                                    <span className="text-sm text-emerald-700">{message}</span>
+                                    <span className="text-sm text-cyan-700">{message}</span>
                                 )}
                             </div>
                         </form>

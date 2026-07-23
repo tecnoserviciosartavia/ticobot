@@ -48,10 +48,10 @@ export function formatPhoneNumber(phone: string): string {
 
 export function getStatusColor(status: string): string {
   const statusColors: Record<string, string> = {
-    active: 'green',
+    active: 'cyan',
     inactive: 'gray',
     pending: 'yellow',
-    verified: 'green',
+    verified: 'cyan',
     unverified: 'yellow',
     failed: 'red',
     cancelled: 'red',

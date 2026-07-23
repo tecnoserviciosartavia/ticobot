@@ -102,7 +102,7 @@ export default function PwaInstallPrompt() {
         <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-slate-950/95 p-4 text-white shadow-2xl backdrop-blur dark:border-slate-700">
                 <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-300">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/15 text-cyan-300">
                         <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13 3H6a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V9l-5-6z" />
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13 3v6h6" />

@@ -143,7 +143,7 @@ export default function RemindersShow({ reminder, messages, payments }: Reminder
                                         type="button"
                                         onClick={handleManualSend}
                                         disabled={sendingId === reminder.id}
-                                        className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+                                        className="inline-flex items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-cyan-900/40 dark:bg-cyan-900/20 dark:text-cyan-300"
                                     >
                                         <Send className="h-4 w-4" />
                                         {sendingId === reminder.id ? 'Enviando...' : 'Enviar manualmente'}

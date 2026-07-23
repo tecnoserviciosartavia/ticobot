@@ -149,7 +149,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                 <div className="text-lg font-bold text-gray-800 dark:text-gray-100">Pagos de {selected_month_label}: CRC {formatMoney(totalPeriodPayments)}</div>
                                 <div className="text-sm text-gray-600 dark:text-gray-300">Costo del período: CRC {formatMoney(totalPeriodCost)}</div>
                             </div>
-                            <div className={`text-2xl font-bold ${totalPeriodMargin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                            <div className={`text-2xl font-bold ${totalPeriodMargin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                 Margen total: CRC {formatMoney(totalPeriodMargin)}
                             </div>
                         </div>
@@ -172,7 +172,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                     )}
                                     <div className="mt-1 text-lg font-bold text-gray-800 dark:text-gray-100">Pagos de {selected_month_label}: CRC {formatMoney(service.revenue || 0)}</div>
                                     <div className="text-sm text-gray-600 dark:text-gray-300">Costo del período: CRC {formatMoney(service.cost || 0)}</div>
-                                    <div className={`text-sm font-semibold ${gain >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    <div className={`text-sm font-semibold ${gain >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                         Margen: CRC {formatMoney(gain)}
                                     </div>
                                 </button>
@@ -260,7 +260,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                                         </div>
                                                         <div>
                                                             <div className="text-gray-500 dark:text-gray-400">Margen</div>
-                                                            <div className={`font-mono font-semibold ${row.margin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                                            <div className={`font-mono font-semibold ${row.margin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                                                 {details.service.currency} {formatMoney(row.margin)}
                                                             </div>
                                                         </div>
@@ -284,7 +284,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                                     </div>
                                                     <div>
                                                         <div className="text-gray-500 dark:text-gray-400">Margen</div>
-                                                        <div className={`font-mono font-semibold ${details.summary.total_margin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                                        <div className={`font-mono font-semibold ${details.summary.total_margin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                                             {details.service.currency} {formatMoney(details.summary.total_margin)}
                                                         </div>
                                                     </div>
@@ -319,7 +319,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                                             <td className="px-3 py-2 text-right">{row.payments_count}</td>
                                                             <td className="px-3 py-2 text-right font-mono text-gray-900 dark:text-gray-100">{details.service.currency} {formatMoney(row.revenue)}</td>
                                                             <td className="px-3 py-2 text-right font-mono text-gray-900 dark:text-gray-100">{details.service.currency} {formatMoney(row.cost)}</td>
-                                                            <td className={`px-3 py-2 text-right font-mono font-semibold ${row.margin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                                            <td className={`px-3 py-2 text-right font-mono font-semibold ${row.margin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                                                 {details.service.currency} {formatMoney(row.margin)}
                                                             </td>
                                                         </tr>
@@ -331,7 +331,7 @@ export default function AccountingIndicators({ selected_month, selected_month_la
                                                         <td className="px-3 py-2 text-right font-semibold">{details.summary.payments_count}</td>
                                                         <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900 dark:text-gray-100">{details.service.currency} {formatMoney(details.summary.total_revenue)}</td>
                                                         <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900 dark:text-gray-100">{details.service.currency} {formatMoney(details.summary.total_cost)}</td>
-                                                        <td className={`px-3 py-2 text-right font-mono font-semibold ${details.summary.total_margin >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                                        <td className={`px-3 py-2 text-right font-mono font-semibold ${details.summary.total_margin >= 0 ? 'text-cyan-700' : 'text-red-700'}`}>
                                                             {details.service.currency} {formatMoney(details.summary.total_margin)}
                                                         </td>
                                                     </tr>

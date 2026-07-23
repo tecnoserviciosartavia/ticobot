@@ -154,7 +154,7 @@ export default function CollectionsIndex() {
                 </div>
               )}
               {success && (
-                <div className="mt-3 rounded bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-300">
+                <div className="mt-3 rounded bg-cyan-50 p-3 text-sm text-cyan-700 dark:bg-cyan-900/20 dark:text-cyan-300">
                   {success}
                 </div>
               )}

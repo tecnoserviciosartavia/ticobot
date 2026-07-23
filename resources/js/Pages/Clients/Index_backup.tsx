@@ -75,7 +75,7 @@ export default function ClientsIndex() {
                         </Card>
                         <Card className="p-6">
                             <div className="text-center">
-                                <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                                <TrendingUp className="h-8 w-8 text-cyan-600 mx-auto mb-2" />
                                 <p className="text-sm font-medium text-gray-600">Activos</p>
                                 <p className="text-2xl font-bold text-gray-900">
                                     {clients?.data?.filter(c => c.status === 'active').length || 0}
@@ -160,7 +160,7 @@ export default function ClientsIndex() {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                                     client.status === 'active' 
-                                                        ? 'bg-green-100 text-green-800' 
+                                                        ? 'bg-cyan-100 text-cyan-800'
                                                         : 'bg-gray-100 text-gray-800'
                                                 }`}>
                                                     {client.status === 'active' ? 'Activo' : 'Inactivo'}

@@ -261,7 +261,7 @@ export default function LogsTab({ sources, defaultSource }: Props) {
 
             <div
                 ref={viewportRef}
-                className="h-[58vh] overflow-auto rounded-lg border border-gray-200 bg-black p-4 font-mono text-xs leading-5 text-green-200 dark:border-gray-700"
+                className="h-[58vh] overflow-auto rounded-lg border border-gray-200 bg-black p-4 font-mono text-xs leading-5 text-cyan-200 dark:border-gray-700"
             >
                 {loading && filteredLines.length === 0 ? (
                     <div className="text-gray-300">Cargando logs...</div>

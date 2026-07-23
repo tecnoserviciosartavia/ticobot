@@ -38,10 +38,10 @@ export default function VerifyEmail({ status }: { status?: string }) {
 
                     <Card className="p-6">
                         {status === 'verification-link-sent' && (
-                            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="mb-6 p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
                                 <div className="flex items-center space-x-2">
-                                    <CheckCircle className="h-5 w-5 text-green-600" />
-                                    <p className="text-sm font-medium text-green-800">
+                                    <CheckCircle className="h-5 w-5 text-cyan-600" />
+                                    <p className="text-sm font-medium text-cyan-800">
                                         Se ha enviado un nuevo enlace de verificación a la dirección de correo 
                                         electrónico que proporcionaste durante el registro.
                                     </p>

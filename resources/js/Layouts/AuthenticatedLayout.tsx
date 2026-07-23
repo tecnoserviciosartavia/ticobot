@@ -47,8 +47,8 @@ export default function Authenticated({
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900 dark:text-gray-100">
             {pushBanner && (
-                <div className="fixed right-4 top-4 z-50 w-[min(92vw,26rem)] rounded-2xl border border-emerald-200 bg-white/95 p-4 shadow-2xl backdrop-blur dark:border-emerald-900 dark:bg-gray-900/95">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400">
+                <div className="fixed right-4 top-4 z-50 w-[min(92vw,26rem)] rounded-2xl border border-cyan-200 bg-white/95 p-4 shadow-2xl backdrop-blur dark:border-cyan-900 dark:bg-gray-900/95">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-600 dark:text-cyan-400">
                         Nuevo mensaje
                     </div>
                     <div className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-50">
@@ -64,7 +64,7 @@ export default function Authenticated({
                                 window.location.assign(pushBanner.url);
                                 setPushBanner(null);
                             }}
-                            className="mt-3 inline-flex items-center rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
+                            className="mt-3 inline-flex items-center rounded-full bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-500"
                         >
                             Abrir chat
                         </button>
@@ -331,13 +331,13 @@ export default function Authenticated({
                         { label: 'Contratos', href: route('contracts.index'), active: route().current('contracts.*'), Icon: FileText },
                         { label: 'Chats', href: route('chats.index'), active: route().current('chats.*'), Icon: MessageSquare },
                     ].map(({ label, href, active, Icon }) => (
-                        <Link key={label} href={href} onClick={() => setShowingNavigationDropdown(false)} className={`flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] font-semibold transition active:bg-emerald-50 dark:active:bg-emerald-950/30 ${active ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                            <span className={`rounded-full px-4 py-1 ${active ? 'bg-emerald-100 dark:bg-emerald-900/50' : ''}`}><Icon className="h-5 w-5" /></span>
+                        <Link key={label} href={href} onClick={() => setShowingNavigationDropdown(false)} className={`flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] font-semibold transition active:bg-cyan-50 dark:active:bg-cyan-950/30 ${active ? 'text-cyan-700 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            <span className={`rounded-full px-4 py-1 ${active ? 'bg-cyan-100 dark:bg-cyan-900/50' : ''}`}><Icon className="h-5 w-5" /></span>
                             <span className="truncate">{label}</span>
                         </Link>
                     ))}
-                    <button type="button" onClick={() => setShowingNavigationDropdown((open) => !open)} className={`flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] font-semibold transition active:bg-emerald-50 dark:active:bg-emerald-950/30 ${showingNavigationDropdown ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                        <span className={`rounded-full px-4 py-1 ${showingNavigationDropdown ? 'bg-emerald-100 dark:bg-emerald-900/50' : ''}`}><Menu className="h-5 w-5" /></span>
+                    <button type="button" onClick={() => setShowingNavigationDropdown((open) => !open)} className={`flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] font-semibold transition active:bg-cyan-50 dark:active:bg-cyan-950/30 ${showingNavigationDropdown ? 'text-cyan-700 dark:text-cyan-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <span className={`rounded-full px-4 py-1 ${showingNavigationDropdown ? 'bg-cyan-100 dark:bg-cyan-900/50' : ''}`}><Menu className="h-5 w-5" /></span>
                         <span>Más</span>
                     </button>
                 </div>

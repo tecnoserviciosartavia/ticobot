@@ -145,7 +145,7 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
             <div className="py-12">
                 <div className="w-full space-y-6 px-4 sm:px-6 lg:px-8">
                     {flashSuccess && (
-                        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                        <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
                             {flashSuccess}
                         </div>
                     )}
