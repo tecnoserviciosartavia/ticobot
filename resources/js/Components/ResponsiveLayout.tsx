@@ -18,6 +18,7 @@ import {
   BarChart3,
   PieChart,
   ChevronDown,
+  AlertCircle,
 } from './icons';
 
 interface ResponsiveLayoutProps {
@@ -35,7 +36,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
   const [isMobile, setIsMobile] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
-  const [sidebarProfileMenuOpen, setSidebarProfileMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any>(null);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -147,20 +148,21 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
     };
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileMenuOpen) {
-        setProfileMenuOpen(false);
-      }
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("[data-header-menu]")) return;
+      setProfileMenuOpen(false);
+      setNotificationsOpen(false);
     };
 
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    window.addEventListener('click', handleClickOutside);
-    
+    window.addEventListener("resize", checkMobile);
+    window.addEventListener("click", handleClickOutside);
+
     return () => {
-      window.removeEventListener('resize', checkMobile);
-      window.removeEventListener('click', handleClickOutside);
+      window.removeEventListener("resize", checkMobile);
+      window.removeEventListener("click", handleClickOutside);
     };
-  }, [profileMenuOpen]);
+  }, []);
 
   const accountingRoutesActive = useMemo(() => {
     try {
@@ -176,9 +178,11 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
       return false;
     }
   }, [page.url]);
-
   const currentUserForNav = user ?? (page.props as { auth?: { user?: { name?: string; profile_type?: string | null } } })?.auth?.user;
-  const unreadChats = Number((page.props as { notifications?: { unread_chats?: number } }).notifications?.unread_chats ?? 0);
+
+  const notificationData = (page.props as { notifications?: { total?: number; unread_chats?: number; system?: number; items?: Array<{ type: "messages" | "system"; label: string; count: number; url: string }> } }).notifications;
+  const notificationTotal = Number(notificationData?.total ?? 0);
+  const notificationItems = notificationData?.items ?? [];
   const isAdminNav = !currentUserForNav?.profile_type || currentUserForNav.profile_type === 'admin';
 
   const AccountingNavBlock = ({ onNavigate }: { onNavigate?: () => void }) => (
@@ -400,16 +404,36 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
           {/* Right side items */}
           <div className="flex items-center space-x-4">
             <ThemeToggle />
-            {/* Notifications */}
-            <div className="relative">
-              <Button variant="ghost" size="icon" onClick={() => router.visit('/chats')} title="Abrir chats pendientes">
-                <Bell className="w-5 h-5" />
-                {unreadChats > 0 && (
-                  <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {unreadChats > 99 ? '99+' : unreadChats}
+            <div className="relative" data-header-menu>
+              <Button variant="ghost" size="icon" onClick={() => { setNotificationsOpen((open) => !open); setProfileMenuOpen(false); }} title="Abrir notificaciones" aria-label="Abrir notificaciones">
+                <Bell className="h-5 w-5" />
+                {notificationTotal > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs text-white">
+                    {notificationTotal > 99 ? "99+" : notificationTotal}
                   </span>
                 )}
               </Button>
+              {notificationsOpen && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-950">
+                  <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">Notificaciones</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{notificationTotal} pendientes en total</p>
+                  </div>
+                  <div className="p-2">
+                    {notificationItems.filter((item) => item.count > 0).length === 0 ? (
+                      <p className="px-3 py-5 text-center text-sm text-slate-500 dark:text-slate-400">No hay notificaciones pendientes.</p>
+                    ) : notificationItems.filter((item) => item.count > 0).map((item) => (
+                      <Link key={`${item.type}-${item.label}`} href={item.url} onClick={() => setNotificationsOpen(false)} className="flex items-center justify-between rounded-xl px-3 py-3 text-sm hover:bg-cyan-50 dark:hover:bg-slate-900">
+                        <span className="flex items-center gap-3 text-slate-700 dark:text-slate-200">
+                          {item.type === "messages" ? <MessageSquare className="h-4 w-4 text-cyan-600 dark:text-cyan-300" /> : <AlertCircle className="h-4 w-4 text-amber-500" />}
+                          {item.label}
+                        </span>
+                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">{item.count}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* User menu */}
@@ -418,7 +442,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                 <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{currentUserForNav?.name}</p>
                 <p className="text-xs text-gray-500 dark:text-slate-400">{isAdminNav ? 'Administrador' : 'Usuario'}</p>
               </div>
-              <div className="relative">
+              <div className="relative" data-header-menu>
                 <button
                   onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 transition-colors hover:bg-cyan-500"
@@ -438,6 +462,14 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                     >
                       <Users className="w-4 h-4 mr-2 text-gray-400" />
                       Perfil
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className="flex items-center px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                      onClick={() => setProfileMenuOpen(false)}
+                    >
+                      <Settings className="mr-2 h-4 w-4 text-gray-400" />
+                      Configuración
                     </Link>
                     <hr className="my-1 border-gray-200" />
                     <Link
@@ -504,68 +536,6 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
           </a>
                   </nav>
 
-        {/* User section */}
-        <div className="border-t border-gray-200 p-3">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">
-                {currentUserForNav?.name?.charAt(0)?.toUpperCase() || 'U'}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {currentUserForNav?.name || 'Usuario'}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                {isAdminNav ? 'Administrador' : 'Usuario'}
-              </p>
-            </div>
-            <div className="relative">
-              <button
-                onClick={() => {
-                  console.log('Sidebar profile button clicked, current state:', sidebarProfileMenuOpen);
-                  setSidebarProfileMenuOpen(!sidebarProfileMenuOpen);
-                }}
-                className="p-1 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <Settings className="w-4 h-4 text-gray-400" />
-              </button>
-
-              {/* Profile Dropdown Menu */}
-              {sidebarProfileMenuOpen && (
-                <div className="absolute bottom-full right-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-48">
-                  <Link
-                    href="/profile"
-                    className="flex items-center px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-900"
-                    onClick={() => setSidebarProfileMenuOpen(false)}
-                  >
-                    <Users className="w-4 h-4 mr-2 text-gray-400" />
-                    Perfil
-                  </Link>
-                  <Link
-                    href="/settings"
-                    className="flex items-center px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-900"
-                    onClick={() => setSidebarProfileMenuOpen(false)}
-                  >
-                    <Settings className="w-4 h-4 mr-2 text-gray-400" />
-                    Configuración
-                  </Link>
-                  <hr className="my-1 border-gray-200" />
-                  <Link
-                    href="/logout"
-                    method="post"
-                    as="button"
-                    className="flex w-full items-center px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-900"
-                    onClick={() => setSidebarProfileMenuOpen(false)}
-                  >
-                    <X className="w-4 h-4 mr-2 text-gray-400" />
-                    Salir
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </aside>
   );
@@ -573,12 +543,8 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
   const MobileSearch = () => (
     <div className="border-b border-gray-200 px-4 py-3 dark:border-slate-800 dark:bg-black md:hidden">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Buscar..."
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-        />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input type="text" placeholder="Buscar..." className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
       </div>
     </div>
   );

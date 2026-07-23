@@ -255,7 +255,7 @@ export default function Dashboard({ stats }: DashboardProps) {
   );
 
   return (
-    <ResponsiveLayout title="Dashboard" user={{ name: 'Admin User' }}>
+    <ResponsiveLayout title="Dashboard">
       <Head title="Dashboard" />
       
       <div className="py-6">

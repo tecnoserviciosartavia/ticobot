@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Reminder;
+use App\Models\SinpeEmailTransaction;
 use App\Models\WhatsappChatMessage;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -95,15 +97,30 @@ class HandleInertiaRequests extends Middleware
             'push' => [
                 'web_public_key' => fn () => config('services.webpush.public_key'),
             ],
-            'notifications' => fn () => [
-                'unread_chats' => $request->user()
-                    ? WhatsappChatMessage::query()
-                        ->where('direction', 'inbound')
-                        ->where('status', 'received')
-                        ->distinct()
-                        ->count('phone')
-                    : 0,
-            ],
+            "notifications" => function () use ($request) {
+                if (! $request->user()) {
+                    return ["total" => 0, "unread_chats" => 0, "system" => 0, "items" => []];
+                }
+
+                $unreadChats = WhatsappChatMessage::query()
+                    ->where("direction", "inbound")
+                    ->where("status", "received")
+                    ->count();
+                $unreadSinpe = SinpeEmailTransaction::query()->where("is_read", false)->count();
+                $failedReminders = Reminder::query()->where("status", "failed")->count();
+                $system = $unreadSinpe + $failedReminders;
+
+                return [
+                    "total" => $unreadChats + $system,
+                    "unread_chats" => $unreadChats,
+                    "system" => $system,
+                    "items" => [
+                        ["type" => "messages", "label" => "Mensajes sin leer", "count" => $unreadChats, "url" => "/chats"],
+                        ["type" => "system", "label" => "SINPE sin revisar", "count" => $unreadSinpe, "url" => "/sinpe-emails?read=unread"],
+                        ["type" => "system", "label" => "Recordatorios fallidos", "count" => $failedReminders, "url" => "/reminders?status=failed"],
+                    ],
+                ];
+            },
         ];
     }
 }
