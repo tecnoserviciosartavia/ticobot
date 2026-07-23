@@ -108,6 +108,7 @@ class ProfileTest extends TestCase
                 'overdue_payments' => false,
                 'platform_cost_due' => true,
                 'conciliation_pending' => false,
+                'payment_email_received' => true,
                 'whatsapp_manual_pause_events' => true,
                 'whatsapp_help_requests' => true,
                 'whatsapp_incoming_messages' => true,
@@ -124,6 +125,7 @@ class ProfileTest extends TestCase
         $this->assertFalse((bool) ($prefs['overdue_payments'] ?? true));
         $this->assertTrue((bool) ($prefs['platform_cost_due'] ?? false));
         $this->assertFalse((bool) ($prefs['conciliation_pending'] ?? true));
+        $this->assertTrue((bool) ($prefs['payment_email_received'] ?? false));
         $this->assertTrue((bool) ($prefs['whatsapp_manual_pause_events'] ?? false));
         $this->assertTrue((bool) ($prefs['whatsapp_incoming_messages'] ?? false));
     }

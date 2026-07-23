@@ -19,6 +19,7 @@ export default function Edit({
         overdue_payments: boolean;
         platform_cost_due: boolean;
         conciliation_pending: boolean;
+        payment_email_received: boolean;
         whatsapp_manual_pause_events: boolean;
         whatsapp_help_requests: boolean;
         whatsapp_incoming_messages: boolean;

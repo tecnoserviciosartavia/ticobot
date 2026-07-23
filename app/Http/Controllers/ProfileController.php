@@ -23,6 +23,7 @@ class ProfileController extends Controller
             'overdue_payments' => true,
             'platform_cost_due' => true,
             'conciliation_pending' => true,
+            'payment_email_received' => true,
             'whatsapp_manual_pause_events' => false,
             'whatsapp_help_requests' => true,
             'whatsapp_incoming_messages' => true,
