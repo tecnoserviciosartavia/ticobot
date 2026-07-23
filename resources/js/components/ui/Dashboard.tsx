@@ -182,7 +182,7 @@ export default function Dashboard({ stats }: DashboardProps) {
     value, 
     change, 
     icon: Icon, 
-    color = 'blue',
+    color = 'cyan',
     format = 'number'
   }: {
     title: string;
@@ -193,9 +193,8 @@ export default function Dashboard({ stats }: DashboardProps) {
     format?: 'number' | 'currency' | 'percentage';
   }) => {
     const colorClasses: Record<string, string> = {
-      blue: 'bg-blue-500/10 text-blue-600 border-blue-200',
-      green: 'bg-green-500/10 text-green-600 border-green-200',
-      yellow: 'bg-yellow-500/10 text-yellow-600 border-yellow-200',
+      cyan: 'border-cyan-200 bg-cyan-500/10 text-cyan-600 dark:border-cyan-800 dark:text-cyan-300',
+      yellow: 'border-amber-200 bg-amber-500/10 text-amber-600 dark:border-amber-700 dark:text-amber-300',
       red: 'bg-red-500/10 text-red-600 border-red-200',
     };
 
@@ -209,11 +208,11 @@ export default function Dashboard({ stats }: DashboardProps) {
       <Card className={`p-6 border-2 ${colorClasses[color]}`}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="text-2xl font-bold text-gray-900">{displayValue}</p>
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{title}</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{displayValue}</p>
             {change !== undefined && (
               <div className={`flex items-center mt-1 text-sm ${
-                change >= 0 ? 'text-green-600' : 'text-red-600'
+                change >= 0 ? 'text-cyan-600' : 'text-red-600'
               }`}>
                 {change >= 0 ? (
                   <ArrowUpRight className="w-4 h-4 mr-1" />
@@ -232,26 +231,25 @@ export default function Dashboard({ stats }: DashboardProps) {
     );
   };
 
-  const MoneyCard = ({ title, amounts, subtitle, color = 'green' }: {
+  const MoneyCard = ({ title, amounts, subtitle }: {
     title: string;
     amounts: Record<string, number>;
     subtitle: string;
-    color?: 'green' | 'blue';
   }) => (
-    <Card className={`border-2 p-6 ${color === 'green' ? 'border-green-200 bg-green-500/10' : 'border-blue-200 bg-blue-500/10'}`}>
+    <Card className="border-2 border-cyan-200 bg-cyan-500/10 p-6 dark:border-cyan-800 dark:bg-cyan-950/30">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{title}</p>
           <div className="mt-1 space-y-1">
             {Object.keys(amounts).length === 0 ? (
-              <p className="text-2xl font-bold text-gray-900">—</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">—</p>
             ) : Object.entries(amounts).map(([currency, amount]) => (
-              <p key={currency} className="text-2xl font-bold text-gray-900">{formatCurrency(amount, currency)}</p>
+              <p key={currency} className="text-2xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(amount, currency)}</p>
             ))}
           </div>
-          <p className="mt-2 text-xs text-gray-500">{subtitle}</p>
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
         </div>
-        <DollarSign className={`h-6 w-6 ${color === 'green' ? 'text-green-600' : 'text-blue-600'}`} />
+        <DollarSign className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
       </div>
     </Card>
   );
@@ -264,8 +262,8 @@ export default function Dashboard({ stats }: DashboardProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="mt-2 text-gray-600">Resumen general de tu negocio</p>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h1>
+            <p className="mt-2 text-slate-600 dark:text-slate-300">Resumen general de tu negocio</p>
           </div>
 
           {/* Period Selector */}
@@ -301,7 +299,6 @@ export default function Dashboard({ stats }: DashboardProps) {
               value={stats.activeContracts}
               change={stats.changes?.activeContracts || 0}
               icon={Users}
-              color="blue"
             />
             <MoneyCard
               title="Pagos recibidos"
@@ -312,7 +309,6 @@ export default function Dashboard({ stats }: DashboardProps) {
               title="Ganancia real"
               amounts={safeStats.financialSummary?.real_profit ?? {}}
               subtitle="Pagos recibidos menos costos de plataformas"
-              color="blue"
             />
             <StatCard
               title="Pagos Pendientes"
@@ -326,21 +322,21 @@ export default function Dashboard({ stats }: DashboardProps) {
           <Card className="mb-8 p-6">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Últimos pagos recibidos</h3>
-                <p className="mt-1 text-sm text-gray-500">Detalle de los pagos verificados incluidos en las cifras anteriores.</p>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Últimos pagos recibidos</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Detalle de los pagos verificados incluidos en las cifras anteriores.</p>
               </div>
-              <Link href="/accounting" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">Ver contabilidad →</Link>
+              <Link href="/accounting" className="text-sm font-medium text-cyan-600 hover:text-cyan-500">Ver contabilidad →</Link>
             </div>
             <div className="divide-y divide-gray-100">
               {safeStats.recentVerifiedPayments.length === 0 ? (
-                <p className="py-3 text-sm text-gray-500">No hay pagos verificados en este período.</p>
+                <p className="py-3 text-sm text-slate-500 dark:text-slate-400">No hay pagos verificados en este período.</p>
               ) : safeStats.recentVerifiedPayments.map((payment) => (
                 <div key={payment.id} className="flex items-center justify-between gap-4 py-3 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-gray-900">{payment.client_name || 'Cliente sin nombre'}</p>
-                    <p className="truncate text-xs text-gray-500">{payment.contract_name || 'Sin contrato'} · {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('es-CR') : 'Sin fecha'}</p>
+                    <p className="truncate font-medium text-slate-900 dark:text-slate-100">{payment.client_name || 'Cliente sin nombre'}</p>
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">{payment.contract_name || 'Sin contrato'} · {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('es-CR') : 'Sin fecha'}</p>
                   </div>
-                  <p className="shrink-0 font-semibold text-green-700">{formatCurrency(payment.amount, payment.currency)}</p>
+                  <p className="shrink-0 font-semibold text-cyan-700">{formatCurrency(payment.amount, payment.currency)}</p>
                 </div>
               ))}
             </div>
@@ -351,30 +347,30 @@ export default function Dashboard({ stats }: DashboardProps) {
             <Card className="p-6">
               <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Recordatorios de cobro enviados</h3>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Recordatorios de cobro enviados</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                     Clientes a quienes ya se les envió el recordatorio (p. ej. WhatsApp) en el período seleccionado; suelen incluir la solicitud de comprobante.
                   </p>
                 </div>
               </div>
               <div className="max-h-72 space-y-2 overflow-y-auto">
                 {safeStats.recentSentReminders.length === 0 ? (
-                  <p className="text-sm text-gray-500">No hay recordatorios enviados en este período.</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No hay recordatorios enviados en este período.</p>
                 ) : (
                   safeStats.recentSentReminders.map((row) => (
                     <div
                       key={row.id}
-                      className="flex flex-col gap-1 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0">
-                        <div className="truncate font-medium text-gray-900">{row.client_name || '—'}</div>
-                        <div className="truncate text-xs text-gray-500">
+                        <div className="truncate font-medium text-slate-900 dark:text-slate-100">{row.client_name || '—'}</div>
+                        <div className="truncate text-xs text-slate-500 dark:text-slate-400">
                           {row.contract_name ? `${row.contract_name} · ` : ''}
                           {row.client_phone || '—'}
                           {row.channel ? ` · ${row.channel}` : ''}
                         </div>
                       </div>
-                      <div className="shrink-0 text-xs text-gray-500 sm:text-right">
+                      <div className="shrink-0 text-xs text-slate-500 dark:text-slate-400 sm:text-right">
                         {row.sent_at
                           ? new Date(row.sent_at).toLocaleString('es-CR', {
                               day: '2-digit',
@@ -393,17 +389,17 @@ export default function Dashboard({ stats }: DashboardProps) {
             <Card className="p-6">
               <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Montos por cobrar</h3>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Montos por cobrar</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                     Contratos con vencimiento y sin pago registrado en el mes del vencimiento (misma lógica que Cobranzas). Incluye vencidos, hoy y próximos {safeStats.upcomingCollections?.window_days ?? 7} días.
                   </p>
                   {safeStats.upcomingCollections && (
-                    <p className="mt-1 text-xs text-gray-400">Corte: {safeStats.upcomingCollections.as_of}</p>
+                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Corte: {safeStats.upcomingCollections.as_of}</p>
                   )}
                 </div>
                 <Link
                   href="/collections"
-                  className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                  className="shrink-0 text-sm font-medium text-cyan-600 hover:text-cyan-500"
                 >
                   Ir a Cobranzas →
                 </Link>
@@ -413,25 +409,25 @@ export default function Dashboard({ stats }: DashboardProps) {
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className="rounded-lg border border-red-100 bg-red-50/50 p-3">
                       <div className="text-xs font-medium uppercase text-red-700">Vencidos</div>
-                      <div className="mt-1 text-2xl font-bold text-gray-900">{safeStats.upcomingCollections.overdue.count}</div>
-                      <div className="mt-1 text-xs text-gray-600">{formatBucketMoney(safeStats.upcomingCollections.overdue.by_currency)}</div>
+                      <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{safeStats.upcomingCollections.overdue.count}</div>
+                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">{formatBucketMoney(safeStats.upcomingCollections.overdue.by_currency)}</div>
                     </div>
                     <div className="rounded-lg border border-orange-100 bg-orange-50/50 p-3">
                       <div className="text-xs font-medium uppercase text-orange-800">Vence hoy</div>
-                      <div className="mt-1 text-2xl font-bold text-gray-900">{safeStats.upcomingCollections.due_today.count}</div>
-                      <div className="mt-1 text-xs text-gray-600">{formatBucketMoney(safeStats.upcomingCollections.due_today.by_currency)}</div>
+                      <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{safeStats.upcomingCollections.due_today.count}</div>
+                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">{formatBucketMoney(safeStats.upcomingCollections.due_today.by_currency)}</div>
                     </div>
                     <div className="rounded-lg border border-amber-100 bg-amber-50/50 p-3">
                       <div className="text-xs font-medium uppercase text-amber-800">Próximos {safeStats.upcomingCollections.window_days}d</div>
-                      <div className="mt-1 text-2xl font-bold text-gray-900">{safeStats.upcomingCollections.due_soon.count}</div>
-                      <div className="mt-1 text-xs text-gray-600">{formatBucketMoney(safeStats.upcomingCollections.due_soon.by_currency)}</div>
+                      <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{safeStats.upcomingCollections.due_soon.count}</div>
+                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">{formatBucketMoney(safeStats.upcomingCollections.due_soon.by_currency)}</div>
                     </div>
                   </div>
-                  <div className="mt-4 border-t border-gray-100 pt-4">
-                    <div className="text-sm font-medium text-gray-700">Total por moneda (todos los buckets)</div>
+                  <div className="mt-4 border-t border-slate-200 dark:border-slate-800 pt-4">
+                    <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Total por moneda (todos los buckets)</div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {Object.keys(safeStats.upcomingCollections.total_by_currency).length === 0 ? (
-                        <span className="text-sm text-gray-500">Sin montos pendientes con la regla actual.</span>
+                        <span className="text-sm text-slate-500 dark:text-slate-400">Sin montos pendientes con la regla actual.</span>
                       ) : (
                         Object.entries(safeStats.upcomingCollections.total_by_currency).map(([cur, amt]) => (
                           <Badge key={cur} variant="outline" className="text-sm font-semibold">
@@ -443,7 +439,7 @@ export default function Dashboard({ stats }: DashboardProps) {
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-gray-500">No se pudieron cargar los montos de cobranza.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">No se pudieron cargar los montos de cobranza.</p>
               )}
             </Card>
           </div>
@@ -452,7 +448,7 @@ export default function Dashboard({ stats }: DashboardProps) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {/* Revenue Chart */}
             <Card className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
                 Ingresos por Mes
               </h3>
               <div className="h-64">
@@ -465,16 +461,16 @@ export default function Dashboard({ stats }: DashboardProps) {
                       return (
                         <div key={index} className="flex-1 flex flex-col items-center">
                           <div className="w-full flex flex-col items-center">
-                            <span className="text-xs text-gray-600 mb-1">
+                            <span className="text-xs text-slate-600 dark:text-slate-300 mb-1">
                               {formatCurrency(month.revenue, month.currency)}
                             </span>
                             <div 
-                              className="w-full bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600"
+                              className="w-full bg-cyan-500 rounded-t transition-all duration-300 hover:bg-cyan-600"
                               style={{ height: `${height}%`, minHeight: '4px' }}
                               title={`${month.month}: ${formatCurrency(month.revenue, month.currency)}`}
                             />
                           </div>
-                          <span className="text-xs text-gray-500 mt-2 text-center">
+                          <span className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">
                             {month.month} · {month.currency}
                           </span>
                         </div>
@@ -482,8 +478,8 @@ export default function Dashboard({ stats }: DashboardProps) {
                     })}
                   </div>
                 ) : (
-                  <div className="h-full flex items-center justify-center bg-gray-50 rounded-lg">
-                    <p className="text-gray-500">Sin datos de ingresos para el período seleccionado</p>
+                  <div className="h-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 rounded-lg">
+                    <p className="text-slate-500 dark:text-slate-400">Sin datos de ingresos para el período seleccionado</p>
                   </div>
                 )}
               </div>
@@ -491,7 +487,7 @@ export default function Dashboard({ stats }: DashboardProps) {
 
             {/* Payment Status Chart */}
             <Card className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
                 Estado de Pagos
               </h3>
               <div className="space-y-6">
@@ -501,7 +497,7 @@ export default function Dashboard({ stats }: DashboardProps) {
                     {stats.paymentStats.total > 0 ? (
                       <div className="w-32 h-32 rounded-full overflow-hidden flex relative">
                         <div 
-                          className="bg-green-500"
+                          className="bg-cyan-500"
                           style={{ 
                             width: `${(stats.paymentStats.verified / stats.paymentStats.total) * 100}%` 
                           }}
@@ -523,8 +519,8 @@ export default function Dashboard({ stats }: DashboardProps) {
                         />
                       </div>
                     ) : (
-                      <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-500 text-sm">Sin datos</span>
+                      <div className="w-32 h-32 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
+                        <span className="text-slate-500 dark:text-slate-400 text-sm">Sin datos</span>
                       </div>
                     )}
                   </div>
@@ -534,14 +530,14 @@ export default function Dashboard({ stats }: DashboardProps) {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <div className="w-3 h-3 bg-green-500 rounded-full mr-2" />
+                      <div className="w-3 h-3 bg-cyan-500 rounded-full mr-2" />
                       <span className="text-sm">Verificados</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                      <Badge variant="default" className="bg-cyan-100 text-cyan-800 text-xs">
                         {stats.paymentStats.verified}
                       </Badge>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
                         {stats.paymentStats.total > 0 
                           ? `${Math.round((stats.paymentStats.verified / stats.paymentStats.total) * 100)}%`
                           : '0%'
@@ -558,7 +554,7 @@ export default function Dashboard({ stats }: DashboardProps) {
                       <Badge variant="default" className="bg-yellow-100 text-yellow-800 text-xs">
                         {stats.paymentStats.unverified}
                       </Badge>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
                         {stats.paymentStats.total > 0 
                           ? `${Math.round((stats.paymentStats.unverified / stats.paymentStats.total) * 100)}%`
                           : '0%'
@@ -575,7 +571,7 @@ export default function Dashboard({ stats }: DashboardProps) {
                       <Badge variant="default" className="bg-red-100 text-red-800 text-xs">
                         {stats.paymentStats.failed || 0}
                       </Badge>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
                         {stats.paymentStats.total > 0 
                           ? `${Math.round(((stats.paymentStats.failed || 0) / stats.paymentStats.total) * 100)}%`
                           : '0%'
@@ -591,7 +587,7 @@ export default function Dashboard({ stats }: DashboardProps) {
           {/* Recent Activity */}
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Actividad Reciente
               </h3>
               <Button variant="outline" size="sm">
@@ -601,14 +597,14 @@ export default function Dashboard({ stats }: DashboardProps) {
             
             <div className="space-y-4">
               {stats.recentActivity.slice(0, 5).map((activity) => (
-                <div key={activity.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                <div key={activity.id} className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-800 last:border-0">
                   <div className="flex items-center">
-                    <Activity className="w-5 h-5 text-gray-400 mr-3" />
+                    <Activity className="w-5 h-5 text-slate-400 dark:text-slate-500 mr-3" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         {activity.description}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         {new Date(activity.created_at).toLocaleString('es-CR')}
                       </p>
                     </div>
@@ -624,35 +620,35 @@ export default function Dashboard({ stats }: DashboardProps) {
           {/* Quick Actions */}
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card 
-              className="p-4 border-dashed border-2 border-gray-300 hover:border-blue-400 transition-colors cursor-pointer hover:shadow-md"
+              className="p-4 border-dashed border-2 border-slate-300 dark:border-slate-700 hover:border-cyan-400 transition-colors cursor-pointer hover:shadow-md"
               onClick={() => router.visit('/clients/create')}
             >
               <div className="text-center">
-                <Users className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                <h4 className="font-medium text-gray-900">Nuevo Cliente</h4>
-                <p className="text-sm text-gray-500 mt-1">Agregar un nuevo cliente</p>
+                <Users className="w-8 h-8 text-cyan-500 mx-auto mb-2" />
+                <h4 className="font-medium text-slate-900 dark:text-slate-100">Nuevo Cliente</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Agregar un nuevo cliente</p>
               </div>
             </Card>
             
             <Card 
-              className="p-4 border-dashed border-2 border-gray-300 hover:border-green-400 transition-colors cursor-pointer hover:shadow-md"
+              className="p-4 border-dashed border-2 border-slate-300 dark:border-slate-700 hover:border-cyan-400 transition-colors cursor-pointer hover:shadow-md"
               onClick={() => router.visit('/payments/create')}
             >
               <div className="text-center">
-                <DollarSign className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                <h4 className="font-medium text-gray-900">Registrar Pago</h4>
-                <p className="text-sm text-gray-500 mt-1">Añadir pago manual</p>
+                <DollarSign className="w-8 h-8 text-cyan-500 mx-auto mb-2" />
+                <h4 className="font-medium text-slate-900 dark:text-slate-100">Registrar Pago</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Añadir pago manual</p>
               </div>
             </Card>
             
             <Card 
-              className="p-4 border-dashed border-2 border-gray-300 hover:border-purple-400 transition-colors cursor-pointer hover:shadow-md"
+              className="p-4 border-dashed border-2 border-slate-300 dark:border-slate-700 hover:border-cyan-400 transition-colors cursor-pointer hover:shadow-md"
               onClick={() => router.visit('/reminders/create')}
             >
               <div className="text-center">
-                <Calendar className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-                <h4 className="font-medium text-gray-900">Enviar Recordatorio</h4>
-                <p className="text-sm text-gray-500 mt-1">Recordatorio masivo</p>
+                <Calendar className="w-8 h-8 text-cyan-500 mx-auto mb-2" />
+                <h4 className="font-medium text-slate-900 dark:text-slate-100">Enviar Recordatorio</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Recordatorio masivo</p>
               </div>
             </Card>
           </div>
