@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Client;
 use App\Models\WhatsappChatMessage;
 use App\Models\User;
 use Carbon\Carbon;
@@ -68,13 +69,13 @@ class ChatWindowVisibilityTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_reply_is_rejected_once_the_service_window_expires(): void
+    public function test_web_reply_can_be_queued_after_the_service_window_expires(): void
     {
         config()->set('app.timezone', 'UTC');
         Carbon::setTestNow(Carbon::parse('2026-07-17 12:00:00', 'UTC'));
 
         $user = User::factory()->create();
-        $phone = '506' . random_int(80000000, 89999999);
+        $phone = '506'.random_int(80000000, 89999999);
 
         WhatsappChatMessage::create([
             'phone' => $phone,
@@ -85,18 +86,19 @@ class ChatWindowVisibilityTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->from('/chats/' . $phone)
-            ->post('/chats/' . $phone . '/reply', [
-                'body' => 'Respuesta fuera de ventana',
+            ->from('/chats/'.$phone)
+            ->post('/chats/'.$phone.'/reply', [
+                'body' => 'Respuesta manual fuera de ventana',
             ])
-            ->assertSessionHasErrors('body')
-            ->assertRedirect('/chats/' . $phone);
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/chats/'.$phone);
 
-        $this->assertSame(0, WhatsappChatMessage::query()
-            ->where('phone', $phone)
-            ->where('direction', 'outbound')
-            ->where('status', 'queued')
-            ->count());
+        $this->assertDatabaseHas('whatsapp_chat_messages', [
+            'phone' => $phone,
+            'direction' => 'outbound',
+            'body' => 'Respuesta manual fuera de ventana',
+            'status' => 'queued',
+        ]);
 
         Carbon::setTestNow();
     }
@@ -159,5 +161,59 @@ class ChatWindowVisibilityTest extends TestCase
         $this->assertSame('image', $message->metadata['media']['kind'] ?? null);
         $this->assertSame('comprobante.jpg', $message->metadata['media']['filename'] ?? null);
         $this->assertNotEmpty($message->metadata['media']['data'] ?? null);
+    }
+
+    public function test_mobile_chat_keeps_the_client_name_and_phone(): void
+    {
+        $user = User::factory()->create();
+        $phone = '506'.random_int(70000000, 79999999);
+
+        Client::factory()->create([
+            'name' => 'Ana Maria',
+            'phone' => $phone,
+        ]);
+
+        WhatsappChatMessage::create([
+            'phone' => $phone,
+            'direction' => 'inbound',
+            'body' => 'Hola',
+            'status' => 'received',
+            'sent_at' => now()->subMinutes(5),
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/mobile/chats')
+            ->assertOk()
+            ->assertJsonPath('data.0.phone', $phone)
+            ->assertJsonPath('data.0.client_name', 'Ana Maria');
+    }
+
+    public function test_incremental_updates_include_status_changes_for_existing_outbound_messages(): void
+    {
+        $user = User::factory()->create();
+        $phone = '506'.random_int(70000000, 79999999);
+
+        $message = WhatsappChatMessage::create([
+            'phone' => $phone,
+            'direction' => 'outbound',
+            'body' => 'Mensaje ya visible',
+            'status' => 'queued',
+            'sent_at' => null,
+        ]);
+
+        $message->update([
+            'status' => 'delivered',
+            'whatsapp_message_id' => 'wamid.incremental-status',
+            'sent_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->getJson(route('chats.updates', ['phone' => $phone, 'after_id' => $message->id]))
+            ->assertOk()
+            ->assertJsonCount(0, 'messages')
+            ->assertJsonPath('status_updates.0.id', $message->id)
+            ->assertJsonPath('status_updates.0.status', 'delivered')
+            ->assertJsonPath('status_updates.0.whatsapp_message_id', 'wamid.incremental-status');
     }
 }

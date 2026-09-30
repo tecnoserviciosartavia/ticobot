@@ -7,6 +7,7 @@ import { Link } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEventHandler } from 'react';
 import { labelForChannel } from '@/lib/labels';
+import { formatDate } from '@/lib/utils';
 
 interface ReminderClientOption {
     id: number;
@@ -23,6 +24,7 @@ export interface ReminderFormData {
     amount: string;
     due_date: string;
     recurrence?: string;
+    sender_company: string;
 }
 
 interface ReminderFormProps {
@@ -200,6 +202,7 @@ export default function ReminderForm({
                     )}
                 </div>
 
+
                 <div>
                     <InputLabel htmlFor="channel" value="Canal" />
                     <select
@@ -252,7 +255,7 @@ export default function ReminderForm({
                 </div>
 
                 <div className="md:col-span-2">
-                    <InputLabel htmlFor="message" value="Mensaje" />
+                    <InputLabel htmlFor="message" value="Mensaje adicional (opcional)" />
                     <div className="mt-1 flex flex-col">
                         <div className="mb-2 flex flex-wrap gap-2">
                             <span className="text-xs text-gray-500 dark:text-gray-400">Variables:</span>
@@ -362,7 +365,7 @@ export default function ReminderForm({
                                 const contract = contractOptions.find((c) => String(c.id) === String(data.contract_id));
                                 const contractName = contract?.name ?? '';
                                 const amount = data.amount || '';
-                                const dueDate = data.due_date || '';
+                                const dueDate = data.due_date ? formatDate(data.due_date) : '';
                                 return msg
                                     .replace(/\{client_name\}/g, clientName)
                                     .replace(/\{contract_name\}/g, contractName)

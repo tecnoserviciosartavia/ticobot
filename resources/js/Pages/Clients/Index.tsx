@@ -1,6 +1,7 @@
 import { Button } from '@/Components/button';
 import { Card } from '@/Components/card';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
+import Pagination from '@/Components/Pagination';
 import { usePage } from '@inertiajs/react';
 import type { PageProps } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -251,7 +252,112 @@ export default function ClientsIndex() {
                         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
                             <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">Lista de Clientes</h3>
                         </div>
-                        <div className="overflow-x-auto">
+
+                        {/* Mobile card list */}
+                        <div className="space-y-3 p-4 md:hidden">
+                            {clients?.data?.map((client) => (
+                                <div
+                                    key={client.id}
+                                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-950/50">
+                                                <span className="font-medium text-cyan-600 dark:text-cyan-300">
+                                                    {client.name.charAt(0).toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                                    {client.name}
+                                                </div>
+                                                <div className="text-xs text-slate-500 dark:text-slate-400">#{client.id}</div>
+                                            </div>
+                                        </div>
+                                        <span
+                                            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                                client.status === 'active'
+                                                    ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300'
+                                                    : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100'
+                                            }`}
+                                        >
+                                            {client.status === 'active' ? 'Activo' : 'Inactivo'}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                                        {client.email && (
+                                            <div className="flex items-center gap-1.5">
+                                                <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
+                                                <span className="truncate">{client.email}</span>
+                                            </div>
+                                        )}
+                                        {client.phone && (
+                                            <div className="flex items-center gap-1.5">
+                                                <Phone className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
+                                                {client.phone}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-3 gap-2 rounded-md bg-slate-50 px-3 py-2 text-center dark:bg-slate-950/60">
+                                        <div>
+                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{client.contracts_count}</div>
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400">Contratos</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{client.payments_count}</div>
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400">Pagos</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{client.reminders_count}</div>
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400">Avisos</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                                        <span>
+                                            Ingresos:{' '}
+                                            <span className="font-semibold text-slate-900 dark:text-slate-100">
+                                                {new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC' }).format(
+                                                    client.total_revenue || 0,
+                                                )}
+                                            </span>
+                                        </span>
+                                        <span>{client.updated_at ? new Date(client.updated_at).toLocaleDateString('es-CR') : '—'}</span>
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-3 gap-1.5">
+                                        <Link href={`/clients/${client.id}`}>
+                                            <Button variant="outline" size="sm" className="w-full">
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                        </Link>
+                                        <Link href={`/clients/${client.id}/edit`}>
+                                            <Button variant="outline" size="sm" className="w-full">
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        </Link>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleDeleteClient(client)}
+                                            disabled={deletingId === client.id}
+                                            className="w-full text-red-600 hover:text-red-700"
+                                            title="Eliminar cliente"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                            {(!clients?.data || clients.data.length === 0) && (
+                                <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">No se encontraron clientes.</p>
+                            )}
+                        </div>
+
+                        <div className="hidden overflow-x-auto md:block">
                             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
                                 <thead className="bg-slate-50 dark:bg-slate-950">
                                     <tr>
@@ -389,29 +495,11 @@ export default function ClientsIndex() {
 
                     {/* Pagination */}
                     {clients?.links && clients.links.length > 3 && (
-                        <div className="mt-6">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-slate-700 dark:text-slate-200">
-                                    Mostrando {clients.meta?.from || 0} a {clients.meta?.to || 0} de {clients.meta?.total || 0} resultados
-                                </div>
-                                <div className="flex items-center space-x-1">
-                                    {clients.links.map((link, index) => (
-                                        <Link
-                                            key={index}
-                                            href={link.url || '#'}
-                                            className={`px-3 py-2 text-sm font-medium rounded-md ${
-                                                link.active
-                                                    ? 'bg-cyan-600 text-white'
-                                                    : link.url
-                                                    ? 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-950'
-                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                                            }`}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                            preserveScroll={true}
-                                        />
-                                    ))}
-                                </div>
+                        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="text-sm text-slate-700 dark:text-slate-200">
+                                Mostrando {clients.meta?.from || 0} a {clients.meta?.to || 0} de {clients.meta?.total || 0} resultados
                             </div>
+                            <Pagination links={clients.links} />
                         </div>
                     )}
 

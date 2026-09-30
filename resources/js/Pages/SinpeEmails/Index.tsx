@@ -27,11 +27,13 @@ interface SinpeEmailTransaction {
     client: { id: number; name: string } | null;
     contract: { id: number; name: string } | null;
     payment: { id: number; status: string } | null;
+    company: { id: number; name: string } | null;
 }
 
 interface ClientOption {
     id: number;
     name: string;
+    company_id: number | null;
 }
 
 interface ContractOption {
@@ -159,16 +161,18 @@ interface Paginated<T> {
 
 type PageData = PageProps<{
     transactions: Paginated<SinpeEmailTransaction>;
-    filters: { status?: string | null; read?: string | null; search?: string | null };
+    filters: { status?: string | null; read?: string | null; search?: string | null; company_id?: number | null };
     statuses: string[];
     clients: ClientOption[];
+    companies: Array<{ id: number; name: string }>;
 }>;
 
-export default function SinpeEmailsIndex({ transactions, filters, statuses, clients }: PageData) {
-    const { data, setData } = useForm<{ status: string; read: string; search: string }>({
+export default function SinpeEmailsIndex({ transactions, filters, statuses, clients, companies }: PageData) {
+    const { data, setData } = useForm<{ status: string; read: string; search: string; company_id: string }>({
         status: filters.status ?? '',
         read: filters.read ?? '',
         search: filters.search ?? '',
+        company_id: filters.company_id ? String(filters.company_id) : '',
     });
 
     const rows = transactions?.data ?? [];
@@ -183,7 +187,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
     const [contracts, setContracts] = useState<ContractOption[]>([]);
     const [loadingContracts, setLoadingContracts] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [billingMonth, setBillingMonth] = useState(() => new Date().toISOString().slice(0, 7));
+    const [billingMonth, setBillingMonth] = useState('');
     const [monthsCount, setMonthsCount] = useState('1');
     const [formError, setFormError] = useState<string | null>(null);
 
@@ -192,7 +196,8 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
     const [syncing, setSyncing] = useState(false);
     const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-    const orderedClients = sortClientsByOrigin(selected?.origin_name, clients);
+    const eligibleClients = selected?.company ? clients.filter((client) => client.company_id === selected.company?.id) : clients;
+    const orderedClients = sortClientsByOrigin(selected?.origin_name, eligibleClients);
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
@@ -204,7 +209,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
     };
 
     const resetFilters = () => {
-        setData({ status: '', read: '', search: '' });
+        setData({ status: '', read: '', search: '', company_id: '' });
         router.get(route('sinpe-emails.index'), {}, { preserveScroll: true, replace: true });
     };
 
@@ -213,12 +218,13 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
         setClientId('');
         setContractId('');
         setContracts([]);
-        setBillingMonth(new Date().toISOString().slice(0, 7));
+        setBillingMonth('');
         setMonthsCount('1');
         setFormError(null);
         setModalOpen(true);
 
-        const suggestedClient = findBestClient(tx.origin_name, clients);
+        const candidates = tx.company ? clients.filter((client) => client.company_id === tx.company?.id) : clients;
+        const suggestedClient = findBestClient(tx.origin_name, candidates);
         if (suggestedClient) {
             void handleClientChange(String(suggestedClient.id));
         }
@@ -333,6 +339,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                             handleSync={handleSync}
                             syncing={syncing}
                             statuses={statuses}
+                            companies={companies}
                             showMobileFilters={showMobileFilters}
                             setShowMobileFilters={setShowMobileFilters}
                             paginationMeta={paginationMeta}
@@ -541,6 +548,7 @@ export default function SinpeEmailsIndex({ transactions, filters, statuses, clie
                                                             id="billing_month"
                                                             name="billing_month"
                                                             type="month"
+                                                            required
                                                             value={billingMonth}
                                                             onChange={(e) => setBillingMonth(e.target.value)}
                                                             className="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"

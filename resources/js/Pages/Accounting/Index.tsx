@@ -3,7 +3,8 @@ import { Card } from '@/Components/card';
 import { Badge } from '@/Components/badge';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { DollarSign, TrendingUp, TrendingDown, Calendar, ArrowLeft, BarChart3, PieChart, Activity } from '@/Components/icons';
+import { DollarSign, TrendingUp, TrendingDown, Calendar, ArrowLeft, BarChart3, PieChart, Activity, XCircle } from '@/Components/icons';
+import { formatDate, formatDateTime } from '@/lib/utils';
 
 interface StatusCurrencyRow {
   currency: string;
@@ -37,10 +38,30 @@ interface Props {
     last_sent_at?: string | null;
     last_reminder_id?: number | null;
     last_reminder_status?: string | null;
-    contracts: Array<{ id: number; name: string }>;
+    status: 'delinquent';
+    oldest_due_date: string;
+    contracts: Array<{
+      id: number;
+      name: string;
+      services?: string;
+      period: string;
+      due_date: string;
+      amount: number;
+      currency: string;
+    }>;
     pending_by_currency?: Record<string, number>;
   }>;
   clients_unpaid_total?: Record<string, number>;
+  recent_conciliations?: Array<{
+    id: number;
+    amount: number;
+    currency: string;
+    status: string;
+    paid_at?: string | null;
+    client?: { id: number; name: string } | null;
+    contract?: { id: number; name: string } | null;
+    conciliation: { id: number; status: string };
+  }>;
 }
 
 export default function AccountingIndex({ 
@@ -52,7 +73,8 @@ export default function AccountingIndex({
   conciliation_rate = 0, 
   monthly_pending = [], 
   clients_unpaid_after_reminder = [], 
-  clients_unpaid_total = {} 
+  clients_unpaid_total = {},
+  recent_conciliations = []
 }: Props) {
   const formatMoney = (v: number) => v.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const conciliatedAmount = totals.verified?.amount || 0;
@@ -63,6 +85,11 @@ export default function AccountingIndex({
     unverified: 'No verificados',
     in_review: 'En revisión',
     rejected: 'Rechazados',
+  };
+
+  const breakConciliation = (payment: NonNullable<Props['recent_conciliations']>[number]) => {
+    if (!confirm(`¿Romper la conciliación del pago #${payment.id} de ${payment.client?.name ?? 'este cliente'}? El pago quedará sin verificar y se reabrirán sus períodos.`)) return;
+    router.delete(route('conciliations.destroy', payment.conciliation.id), { preserveScroll: true });
   };
 
   return (
@@ -92,6 +119,29 @@ export default function AccountingIndex({
           </div>
 
           <div className="space-y-8">
+          <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
+            <div className="mb-3">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Conciliaciones recientes</h3>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Desde aquí puede romper una conciliación incorrecta sin eliminar el comprobante ni el historial.</p>
+            </div>
+            <div className="space-y-2">
+              {recent_conciliations.map((payment) => (
+                <div key={payment.id} className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700">
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-900 dark:text-gray-100">#{payment.id} · {payment.client?.name ?? 'Sin cliente'}</div>
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {payment.contract?.name ?? 'Sin contrato'} · {payment.currency} {formatMoney(payment.amount)} · {payment.paid_at ? formatDate(payment.paid_at) : 'Sin fecha'}
+                    </div>
+                  </div>
+                  <Button type="button" variant="outline" className="shrink-0 text-amber-700" onClick={() => breakConciliation(payment)}>
+                    <XCircle className="mr-2 h-4 w-4" />Romper conciliación
+                  </Button>
+                </div>
+              ))}
+              {recent_conciliations.length === 0 && <div className="py-4 text-center text-sm text-gray-500">No hay conciliaciones recientes.</div>}
+            </div>
+          </div>
+
           {/* Tarjetas resumen - Mes actual */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <SummaryCard title="Monto conciliado" value={`CRC ${formatMoney(conciliatedAmount)}`} subtitle={`${totals.verified?.count || 0} pagos conciliados (mes actual)`} color="bg-cyan-50 dark:bg-cyan-900/20" />
@@ -151,16 +201,24 @@ export default function AccountingIndex({
 
           {/* Recordatorio enviado y sin pago verificado */}
           <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800 dark:shadow-gray-900/50">
-            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">Recordatorio enviado y sin pago verificado</h3>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Clientes morosos</h3>
+              <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                {(clients_unpaid_after_reminder || []).length} cliente(s)
+              </Badge>
+            </div>
             <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-              Clientes con al menos un recordatorio enviado durante el período, y sin pagos con estado &quot;verified&quot; en el mismo período.
+              Recordatorios enviados cuyo período de cobro todavía no está cubierto por un pago verificado. Permanecen aquí hasta conciliar el período pendiente.
             </p>
             <div className="space-y-3 md:hidden">
               {(clients_unpaid_after_reminder || []).map(c => (
                 <div key={c.id} className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="font-medium text-indigo-700 dark:text-indigo-300">{c.name}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-medium text-indigo-700 dark:text-indigo-300">{c.name}</div>
+                        <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Moroso</Badge>
+                      </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">{c.phone}{c.email ? ` — ${c.email}` : ''}</div>
                     </div>
                     <div className="rounded-md bg-gray-50 px-3 py-2 text-center dark:bg-gray-700/50">
@@ -168,8 +226,13 @@ export default function AccountingIndex({
                       <div className="font-semibold text-gray-900 dark:text-gray-100">{c.sent_reminders_count ?? 0}</div>
                     </div>
                   </div>
-                  <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">Último recordatorio: {c.last_sent_at || '-'}</div>
-                  <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">Contratos: {c.contracts.map(ct => ct.name).join(', ') || '—'}</div>
+                  <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">Último recordatorio: {c.last_sent_at ? formatDateTime(c.last_sent_at) : '-'}</div>
+                  <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">Pendiente desde: {formatDate(c.oldest_due_date)}</div>
+                  <div className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                    {c.contracts.map(ct => (
+                      <div key={`${ct.id}-${ct.period}`}>{ct.services || ct.name} — {formatDate(ct.due_date)} — {ct.currency} {formatMoney(ct.amount)}</div>
+                    ))}
+                  </div>
                   <div className="mt-4">
                     <button onClick={(e) => {
                       e.preventDefault();
@@ -189,10 +252,11 @@ export default function AccountingIndex({
                 <thead className="border-b border-gray-200 dark:border-gray-700">
                   <tr>
                     <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Cliente</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Estado</th>
                     <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Contacto</th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Recordatorios</th>
+                    <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">Recordatorios</th>
                     <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Último recordatorio</th>
-                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Contratos</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Períodos pendientes</th>
                     <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">Acción</th>
                   </tr>
                 </thead>
@@ -234,10 +298,19 @@ export default function AccountingIndex({
                     return (
                       <tr key={c.id} className="last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/40">
                         <td className="px-3 py-2 font-medium text-indigo-700 dark:text-indigo-300">{c.name}</td>
+                        <td className="px-3 py-2"><Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Moroso</Badge></td>
                         <td className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{c.phone}{c.email ? ` — ${c.email}` : ''}</td>
-                          <td className="px-3 py-2 text-right font-mono">{c.sent_reminders_count ?? 0}</td>
-                        <td className="px-3 py-2 text-sm">{c.last_sent_at || '-'}</td>
-                        <td className="px-3 py-2 text-sm">{c.contracts.map(ct => ct.name).join(', ')}</td>
+                        <td className="px-3 py-2 text-right font-mono">{c.sent_reminders_count ?? 0}</td>
+                        <td className="px-3 py-2 text-sm">{c.last_sent_at ? formatDateTime(c.last_sent_at) : '-'}</td>
+                        <td className="px-3 py-2 text-sm">
+                          <div className="space-y-1">
+                            {c.contracts.map(ct => (
+                              <div key={`${ct.id}-${ct.period}`}>
+                                {ct.services || ct.name} — {formatDate(ct.due_date)} — {ct.currency} {formatMoney(ct.amount)}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
                         <td className="px-3 py-2 text-sm">
                           <button onClick={sendNow} className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700">Ver cliente</button>
                         </td>
@@ -247,7 +320,7 @@ export default function AccountingIndex({
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={7} className="px-3 py-2 text-right text-gray-500 dark:text-gray-400">
+                    <td colSpan={8} className="px-3 py-2 text-right text-gray-500 dark:text-gray-400">
                       Total clientes: {(clients_unpaid_after_reminder || []).length}
                     </td>
                   </tr>

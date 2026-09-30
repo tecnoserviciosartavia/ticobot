@@ -26,9 +26,9 @@ class ContractService
             'client_id' => $client?->id,
             'amount' => $amount,
             'discount_amount' => max(0, (float) ($data['discount_amount'] ?? 0)),
-            'currency' => strtoupper($data['currency']),
-            'billing_cycle' => $data['billing_cycle'],
-            'next_due_date' => $data['next_due_date'] ?? $this->computeNextDueDate($data['billing_cycle']),
+            'currency' => strtoupper((string) ($data['currency'] ?? 'CRC')),
+            'billing_cycle' => $data['billing_cycle'] ?? 'monthly',
+            'next_due_date' => $data['next_due_date'] ?? $this->computeNextDueDate($data['billing_cycle'] ?? 'monthly'),
             'grace_period_days' => $data['grace_period_days'] ?? 0,
             'notes' => $data['notes'] ?? null,
         ];
@@ -38,7 +38,7 @@ class ContractService
         // Attach services with pivot data
         $this->attachServicesToContract($contract, $serviceIds, $serviceQuantities, $servicePins, $client);
 
-        return $contract;
+        return $contract->fresh(['services']);
     }
 
     /**
@@ -143,44 +143,30 @@ class ContractService
     }
 
     /**
-     * Resolve access PIN for service
+     * Resolve access PIN for service.
      */
     protected function resolveAccessPin(?string $serviceName, ?string $phone, ?string $providedPin, ?string $defaultPin): ?string
     {
-        $serviceNameNorm = mb_strtolower((string) ($serviceName ?? ''));
-        
-        // Spotify doesn't use PIN
+        $serviceNameNorm = mb_strtolower((string) $serviceName);
         if (str_contains($serviceNameNorm, 'spotify')) {
             return null;
         }
 
-        // Use provided PIN if available
-        $providedPin = trim((string) ($providedPin ?? ''));
+        $providedPin = trim((string) $providedPin);
         if ($providedPin !== '') {
             return $providedPin;
         }
 
-        // Use default PIN if available
-        $defaultPin = trim((string) ($defaultPin ?? ''));
-        if ($defaultPin !== '') {
-            return $defaultPin;
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if ($digits !== '') {
+            $lastFour = substr($digits, -4);
+            return str_contains($serviceNameNorm, 'prime')
+                ? $lastFour . substr($lastFour, -1)
+                : $lastFour;
         }
 
-        // Generate PIN from phone number
-        if ($phone) {
-            $digits = preg_replace('/\D+/', '', $phone);
-            if ($digits !== '') {
-                $lastFour = substr($digits, -4);
-                if ($lastFour !== '') {
-                    if (str_contains($serviceNameNorm, 'prime')) {
-                        return $lastFour . substr($lastFour, -1);
-                    }
-                    return $lastFour;
-                }
-            }
-        }
-
-        return null;
+        $defaultPin = trim((string) $defaultPin);
+        return $defaultPin !== '' ? $defaultPin : null;
     }
 
     /**

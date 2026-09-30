@@ -11,6 +11,7 @@ class Service extends Model
     use HasFactory;
 
     protected $fillable = [
+        'company_id',
         'name',
         'price',
         'cost',
@@ -30,6 +31,11 @@ class Service extends Model
         'max_profiles' => 'integer',
         'is_active' => 'bool',
     ];
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
 
     public function contracts()
     {

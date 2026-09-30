@@ -128,6 +128,26 @@ class AccountingController extends Controller
 
         $clientsUnpaid = $this->clientsWithSentRemindersWithoutVerifiedPayments($startOfMonth, $endOfMonth);
 
+        $recentConciliations = Payment::query()
+            ->whereHas('conciliation')
+            ->with(['client:id,name', 'contract:id,name', 'conciliation:id,payment_id,status,verified_at'])
+            ->latest('updated_at')
+            ->limit(30)
+            ->get()
+            ->map(fn (Payment $payment) => [
+                'id' => $payment->id,
+                'amount' => (float) $payment->amount,
+                'currency' => $payment->currency ?: 'CRC',
+                'status' => $payment->status,
+                'paid_at' => $payment->paid_at?->toIso8601String(),
+                'client' => $payment->client?->only(['id', 'name']),
+                'contract' => $payment->contract?->only(['id', 'name']),
+                'conciliation' => $payment->conciliation ? [
+                    'id' => $payment->conciliation->id,
+                    'status' => $payment->conciliation->status,
+                ] : null,
+            ]);
+
         return Inertia::render('Accounting/Index', [
             'by_status_currency' => $byStatusCurrency,
             'totals' => $totals,
@@ -139,6 +159,7 @@ class AccountingController extends Controller
             // Clientes con pendiente real en el periodo (por defecto: mes actual)
             'clients_unpaid_after_reminder' => $clientsUnpaid['clients'] ?? [],
             'clients_unpaid_total' => $clientsUnpaid['totals'] ?? [],
+            'recent_conciliations' => $recentConciliations,
         ]);
     }
 
@@ -402,70 +423,156 @@ class AccountingController extends Controller
     }
 
     /**
-     * Devuelve lista de clientes con pendiente real en el periodo.
+     * Clientes morosos: tienen al menos un recordatorio enviado cuyo período de
+     * cobro aún no está cubierto por un pago verificado.
      *
-     * Criterio:
-     * - Al menos un contrato activo en el periodo
-     * - Pendiente = total contratos (activos) - pagos verificados en el periodo
-     * - Se listan solo los que tienen pendiente > 0
-     *
-     * Nota: mantenemos el nombre de props en UI por compatibilidad.
+     * La deuda se conserva aunque el recordatorio se haya reenviado en otro mes.
+     * El pago se cruza por covered_months/paid_for_month; la fecha de la
+     * transferencia solo se usa como compatibilidad para pagos históricos.
      */
-    private function clientsWithSentRemindersWithoutVerifiedPayments(Carbon $startOfPeriod, Carbon $endOfPeriod): array
+    public function clientsWithSentRemindersWithoutVerifiedPayments(Carbon $startOfPeriod, Carbon $endOfPeriod): array
     {
-        // Opción A: recordatorio enviado dentro del periodo y SIN pagos verificados en el mismo periodo.
-        // 1) Partimos de clientes que tienen al menos un recordatorio enviado en el rango.
-        $clients = Client::query()
-            ->whereHas('reminders', function ($q) use ($startOfPeriod, $endOfPeriod) {
-                $q->whereNotNull('sent_at')
-                    ->whereBetween('sent_at', [$startOfPeriod, $endOfPeriod]);
-            })
-            ->withCount(['reminders as sent_reminders_count' => function ($q) use ($startOfPeriod, $endOfPeriod) {
-                $q->whereNotNull('sent_at')->whereBetween('sent_at', [$startOfPeriod, $endOfPeriod]);
-            }])
-            ->with(['reminders' => function ($q) use ($startOfPeriod, $endOfPeriod) {
-                $q->whereNotNull('sent_at')
-                    ->whereBetween('sent_at', [$startOfPeriod, $endOfPeriod])
-                    ->orderByDesc('sent_at')
-                    ->limit(1);
-            }])
+        $today = Carbon::today(config('app.timezone'));
+        $reminders = Reminder::query()
+            ->where('status', 'sent')
+            ->whereNotNull('sent_at')
+            ->whereNotNull('contract_id')
+            ->with([
+                'client:id,name,email,phone',
+                'contract:id,name,client_id,amount,currency,status,next_due_date',
+                'contract.payments' => fn ($q) => $q->where('status', 'verified'),
+                'contract.services',
+            ])
+            ->orderBy('sent_at')
             ->get();
 
         $clientsData = [];
         $totals = [];
 
-        foreach ($clients as $c) {
-            $hasVerified = Payment::query()
-                ->where('client_id', $c->id)
-                ->where('status', 'verified')
-                ->whereBetween('created_at', [$startOfPeriod, $endOfPeriod])
-                ->exists();
-
-            if ($hasVerified) {
+        foreach ($reminders as $reminder) {
+            $client = $reminder->client;
+            $contract = $reminder->contract;
+            if (! $client || ! $contract) {
                 continue;
             }
 
-            $last = $c->reminders->first();
+            $payload = is_array($reminder->payload) ? $reminder->payload : [];
+            $dueValue = $payload['due_date'] ?? $reminder->scheduled_for;
+            try {
+                $dueDate = Carbon::parse($dueValue, config('app.timezone'))->startOfDay();
+            } catch (\Throwable) {
+                continue;
+            }
 
-            $clientsData[] = [
-                'id' => $c->id,
-                'name' => $c->name,
-                'email' => $c->email,
-                'phone' => $c->phone,
-                'sent_reminders_count' => $c->sent_reminders_count,
-                'last_sent_at' => $last ? $last->sent_at->toDateTimeString() : null,
-                'last_reminder_id' => $last?->id,
-                'last_reminder_status' => $last?->status,
-                'contracts' => $c->contracts()->select('id', 'name')->get()->map(fn ($ct) => ['id' => $ct->id, 'name' => $ct->name])->values(),
-                // Este bloque ya no muestra montos; se mantiene por compatibilidad.
-                'pending_by_currency' => [],
-            ];
+            if ($dueDate->isAfter($today)) {
+                continue;
+            }
+
+            $period = $dueDate->format('Y-m');
+            if ($contract->payments->contains(fn (Payment $payment) => $this->paymentCoversPeriod($payment, $period))) {
+                continue;
+            }
+
+            $clientId = (int) $client->id;
+            $obligationKey = $contract->id.'|'.$period;
+            $amount = (float) ($payload['amount'] ?? $contract->amount ?? 0);
+            $currency = (string) ($contract->currency ?? 'CRC');
+
+            if (! isset($clientsData[$clientId])) {
+                $clientsData[$clientId] = [
+                    'id' => $clientId,
+                    'name' => $client->name,
+                    'email' => $client->email,
+                    'phone' => $client->phone,
+                    'status' => 'delinquent',
+                    'sent_reminders_count' => 0,
+                    'last_sent_at' => null,
+                    'last_reminder_id' => null,
+                    'last_reminder_status' => 'sent',
+                    'oldest_due_date' => $dueDate->toDateString(),
+                    'contracts' => [],
+                    'pending_by_currency' => [],
+                    '_obligations' => [],
+                ];
+            }
+
+            $row = &$clientsData[$clientId];
+            $row['sent_reminders_count']++;
+            if ($row['last_sent_at'] === null || $reminder->sent_at?->gt(Carbon::parse($row['last_sent_at']))) {
+                $row['last_sent_at'] = $reminder->sent_at?->toDateTimeString();
+                $row['last_reminder_id'] = $reminder->id;
+            }
+            if ($dueDate->lt(Carbon::parse($row['oldest_due_date']))) {
+                $row['oldest_due_date'] = $dueDate->toDateString();
+            }
+
+            if (! isset($row['_obligations'][$obligationKey])) {
+                $row['_obligations'][$obligationKey] = true;
+                $row['contracts'][] = [
+                    'id' => (int) $contract->id,
+                    'name' => (string) $contract->name,
+                    'reminder_id' => (int) $reminder->id,
+                    'reminder_sent_at' => $reminder->sent_at?->toIso8601String(),
+                    'last_resend_at' => $reminder->last_resend_at?->toIso8601String(),
+                    'was_resent' => $reminder->last_resend_at !== null
+                        || (bool) data_get($reminder->response_payload, 'manual_send', false),
+                    'services' => $contract->servicesLabelForMessaging(),
+                    'period' => $period,
+                    'due_date' => $dueDate->toDateString(),
+                    'amount' => $amount,
+                    'currency' => $currency,
+                ];
+                $row['pending_by_currency'][$currency] = ($row['pending_by_currency'][$currency] ?? 0) + $amount;
+                $totals[$currency] = ($totals[$currency] ?? 0) + $amount;
+            } else {
+                foreach ($row['contracts'] as &$obligation) {
+                    if ((int) $obligation['id'] === (int) $contract->id && $obligation['period'] === $period) {
+                        $obligation['reminder_id'] = (int) $reminder->id;
+                        $obligation['reminder_sent_at'] = $reminder->sent_at?->toIso8601String();
+                        $obligation['last_resend_at'] = $reminder->last_resend_at?->toIso8601String();
+                        $obligation['was_resent'] = $reminder->last_resend_at !== null
+                            || (bool) data_get($reminder->response_payload, 'manual_send', false);
+                        break;
+                    }
+                }
+                unset($obligation);
+            }
+            unset($row);
         }
 
+        foreach ($clientsData as &$row) {
+            unset($row['_obligations']);
+            usort($row['contracts'], fn (array $a, array $b) => $a['due_date'] <=> $b['due_date']);
+        }
+        unset($row);
+
+        usort($clientsData, fn (array $a, array $b) => $a['oldest_due_date'] <=> $b['oldest_due_date']);
+
         return [
-            'clients' => $clientsData,
+            'clients' => array_values($clientsData),
             'totals' => $totals,
         ];
+    }
+
+    private function paymentCoversPeriod(Payment $payment, string $period): bool
+    {
+        $metadata = is_array($payment->metadata) ? $payment->metadata : [];
+        $coveredMonths = is_array($metadata['covered_months'] ?? null)
+            ? $metadata['covered_months']
+            : [];
+
+        if (in_array($period, $coveredMonths, true) || ($metadata['paid_for_month'] ?? null) === $period) {
+            return true;
+        }
+
+        // Compatibilidad con pagos antiguos que no guardaban explícitamente el período cubierto.
+        if ($coveredMonths === [] && empty($metadata['paid_for_month'])) {
+            $paymentDate = $payment->paid_at ?? $payment->created_at;
+
+            return $paymentDate?->format('Y-m') === $period;
+        }
+
+        return false;
     }
 
     /**

@@ -34,6 +34,7 @@ export default function RemindersCreate({ clients, channels, defaultChannel, pre
         amount: '',
         due_date: '',
         recurrence: '',
+        sender_company: 'ticocast',
     });
 
     const handleChange = (field: keyof ReminderFormData, value: string) => {

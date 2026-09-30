@@ -15,6 +15,7 @@ interface RemindersEditProps extends PageProps<{
         message: string;
         amount: string;
         due_date: string | null;
+        sender_company?: string;
     };
     clients: Array<{
         id: number;
@@ -42,6 +43,7 @@ export default function RemindersEdit({ reminder, clients, channels }: Reminders
         amount: reminder.amount ?? '',
         due_date: reminder.due_date ?? '',
         recurrence: (reminder as any).recurrence ?? '',
+        sender_company: reminder.sender_company ?? 'ticocast',
     });
 
     const statusLabel = reminder.status ? labelForStatus(reminder.status) : 'Desconocido';

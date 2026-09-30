@@ -73,6 +73,7 @@ class ReminderController extends Controller
         ]);
 
         $contract = Contract::query()->findOrFail($data['contract_id']);
+        $contract->loadMissing('client.company');
 
         if ((int) $data['client_id'] !== (int) $contract->client_id) {
             throw ValidationException::withMessages([
@@ -85,6 +86,21 @@ class ReminderController extends Controller
         // form (ignore year/month). Otherwise normalize to configured send time.
         $requested = Carbon::parse($data['scheduled_for'], config('app.timezone'));
         $payload = $data['payload'] ?? [];
+        $payload = array_merge($contract->client?->company?->reminderPayload() ?? [], $payload);
+
+        $existingAtRequestedTime = Reminder::query()
+            ->where('client_id', $data['client_id'])
+            ->where('contract_id', $data['contract_id'])
+            ->whereIn('status', ['pending', 'queued', 'sent'])
+            ->get()
+            ->first(fn (Reminder $candidate) => $candidate->scheduled_for?->copy()->timezone(config('app.timezone'))->equalTo($requested));
+        if ($existingAtRequestedTime) {
+            $existing = Reminder::createOpenUnique([
+                'contract_id' => $data['contract_id'], 'client_id' => $data['client_id'], 'channel' => $data['channel'],
+                'scheduled_for' => $requested, 'status' => $data['status'] ?? 'pending', 'payload' => $payload,
+            ]);
+            return response()->json($existing->load(['client', 'contract']), 201);
+        }
 
         // Default recurrence to contract's cycle if not provided
         $recurrence = $payload['recurrence'] ?? $contract->billing_cycle ?? null;

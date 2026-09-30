@@ -30,7 +30,6 @@ interface ResponsiveLayoutProps {
 }
 
 export default function ResponsiveLayout({ children, title, user, contentWidth = 'contained' }: ResponsiveLayoutProps) {
-  console.log('ResponsiveLayout rendering, title:', title);
   const page = usePage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -45,16 +44,10 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
 
   // Debug: Log user data and profile menu state - DISABLED TEMPORARILY TO FIX FOCUS ISSUE
   // if (typeof window !== 'undefined') {
-  //   console.log('=== MENU DEBUG ===');
-  //   console.log('User data:', user);
-  //   console.log('Window location:', window.location.pathname);
-  //   console.log('Full URL:', window.location.href);
-  //   console.log('========================');
   //   
   //   // Continuous menu visibility enforcement
   //   const enforceMenuVisibility = () => {
   //     const menuItems = document.querySelectorAll('nav a');
-  //     console.log('Found menu items:', menuItems.length);
   //     menuItems.forEach((item, index) => {
   //       const element = item as HTMLElement;
   //       element.style.display = 'flex';
@@ -63,7 +56,6 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
   //       element.style.setProperty('display', 'flex', 'important');
   //       element.style.setProperty('visibility', 'visible', 'important');
   //       element.style.setProperty('opacity', '1', 'important');
-  //       console.log(`Made menu item ${index} visible:`, element.textContent);
   //     });
   //   };
   //   
@@ -80,8 +72,6 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
   // }
 
   const handleSearch = async (query: string) => {
-    console.log('Search triggered:', query);
-    setSearchQuery(query);
     
     if (query.length < 2) {
       setSearchResults(null);
@@ -92,15 +82,11 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
     setSearchLoading(true);
     try {
       const url = `/search?q=${encodeURIComponent(query)}`;
-      console.log('Fetching from:', url);
       const response = await fetch(url);
-      console.log('Response status:', response.status);
       const data = await response.json();
-      console.log('Search results:', data);
       setSearchResults(data);
       setShowSearchResults(true);
     } catch (error) {
-      console.error('Search error:', error);
       setSearchResults(null);
     } finally {
       setSearchLoading(false);
@@ -211,6 +197,48 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
     { name: 'Configuración', href: '/settings', icon: Settings },
   ];
 
+  const bottomNavItems = [
+    { name: 'Inicio', href: '/dashboard', icon: Home },
+    { name: 'Clientes', href: '/clients', icon: Users },
+    { name: 'Contratos', href: '/contracts', icon: FileText },
+    { name: 'Mensajes', href: '/chats', icon: MessageSquare },
+  ];
+
+  const isBottomNavActive = (href: string) => page.url === href || page.url.startsWith(`${href}/`);
+
+  const BottomNav = () => (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_10px_rgba(0,0,0,0.06)] dark:border-slate-800 dark:bg-black md:hidden">
+      <div className="grid grid-cols-5 gap-1 px-1 py-1.5">
+        {bottomNavItems.map((item) => {
+          const Icon = item.icon;
+          const active = isBottomNavActive(item.href);
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold transition-colors ${
+                active
+                  ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300'
+                  : 'text-gray-500 dark:text-slate-400'
+              }`}
+            >
+              <Icon className="h-6 w-6" />
+              {item.name}
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(true)}
+          className="flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-xs font-semibold text-gray-500 dark:text-slate-400"
+        >
+          <Menu className="h-6 w-6" />
+          Más
+        </button>
+      </div>
+    </nav>
+  );
+
   const MobileMenu = () => (
     <div className="md:hidden">
       {/* Mobile menu overlay */}
@@ -279,15 +307,12 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
     <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-black">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Mobile menu button */}
-          <div className="flex items-center md:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
+          {/* App branding on mobile (bottom nav replaces the hamburger menu) */}
+          <div className="flex items-center gap-2 md:hidden">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-600">
+              <span className="text-sm font-bold text-white">TB</span>
+            </div>
+            <span className="text-lg font-semibold text-gray-900 dark:text-slate-100">{title || 'TicoBOT'}</span>
           </div>
 
           {/* Search bar - hidden on mobile */}
@@ -301,7 +326,6 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
                 className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 value={searchQuery}
                 onChange={(e) => {
-                  console.log('Input changed:', e.target.value);
                   setSearchQuery(e.target.value);
                 }}
                 onFocus={() => searchResults && setShowSearchResults(true)}
@@ -553,21 +577,21 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
     <div className="h-full min-h-0 bg-gray-50 dark:bg-black dark:text-slate-100">
       <Head title={title || 'TicoBOT'} />
       
-      <MobileMenu />
+      {MobileMenu()}
       
       <div className="flex h-full min-h-0 bg-gray-50 dark:bg-black">
-        <Sidebar />
+        {Sidebar()}
         
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:ml-64 ml-0">
-          <Header />
-          <MobileSearch />
+          {Header()}
+          {MobileSearch()}
           
-          <main className="flex-1 overflow-y-auto dark:bg-slate-950">
-            <div className="py-6">
+          <main className="flex-1 overflow-y-auto pb-24 dark:bg-slate-950 md:pb-0">
+            <div className="py-4 sm:py-6">
               <div
                 className={
                   contentWidth === 'full'
-                    ? 'w-full max-w-none min-w-0 px-3 sm:px-4 lg:px-6'
+                    ? 'w-full max-w-none min-w-0 px-4 sm:px-4 lg:px-6'
                     : 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'
                 }
               >
@@ -577,6 +601,7 @@ export default function ResponsiveLayout({ children, title, user, contentWidth =
           </main>
         </div>
       </div>
+      <BottomNav />
       <PwaInstallPrompt />
     </div>
   );

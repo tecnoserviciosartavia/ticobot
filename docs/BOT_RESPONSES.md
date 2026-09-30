@@ -35,10 +35,10 @@ Este documento resume el comportamiento operativo actual del bot de WhatsApp lue
 - Si un cliente no tiene teléfono configurado, el reminder se marca como `failed` y ya no vuelve a `pending`.
 - Esto evita ciclos de reintento infinitos para recordatorios imposibles de enviar.
 
-### 7. Chats tipo @lid
+### 7. Transporte Meta Cloud API
 
-- El bot ahora considera chats `@lid` en recepción porque varios mensajes reales llegan con ese identificador.
-- Para envío, el bot intenta fallback a `@c.us` y otras resoluciones cuando WhatsApp Web falla al ubicar el chat.
+- Los mensajes entrantes llegan mediante el webhook oficial de Meta.
+- Para envío, el bot utiliza el número internacional normalizado mediante Meta Cloud API.
 - Esta parte se procesa mediante la API oficial de WhatsApp Cloud de Meta.
 
 ### 8. Monitoreo recomendado

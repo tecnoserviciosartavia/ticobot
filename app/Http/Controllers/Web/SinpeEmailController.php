@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\Company;
 use App\Models\Conciliation;
 use App\Models\Contract;
 use App\Models\Payment;
@@ -16,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Carbon;
@@ -31,13 +33,19 @@ class SinpeEmailController extends Controller
         $status = trim((string) $request->query('status', ''));
         $read = trim((string) $request->query('read', ''));
         $search = trim((string) $request->query('search', ''));
+        $companyId = (int) $request->query('company_id', 0);
 
         $query = SinpeEmailTransaction::query()
             ->with([
-                'client:id,name',
+                'company:id,name',
+                'client:id,name,company_id',
                 'contract:id,name',
                 'payment:id,status',
             ]);
+
+        if ($companyId > 0) {
+            $query->where('company_id', $companyId);
+        }
 
         if ($status !== '') {
             $query->where('status', $status);
@@ -81,6 +89,7 @@ class SinpeEmailController extends Controller
                 'is_read'      => (bool) $t->is_read,
                 'status'       => $t->status,
                 'notes'        => $t->notes,
+                'company'      => $t->company?->only(['id', 'name']),
                 'client'       => $t->client?->only(['id', 'name']),
                 'contract'     => $t->contract?->only(['id', 'name']),
                 'payment'      => $t->payment ? ['id' => $t->payment->id, 'status' => $t->payment->status] : null,
@@ -95,10 +104,12 @@ class SinpeEmailController extends Controller
             ->values();
 
         $clients = Client::query()
-            ->select('id', 'name')
+            ->select('id', 'name', 'company_id')
             ->whereNull('deleted_at')
             ->orderBy('name')
             ->get();
+
+        $companies = Company::query()->select('id', 'name')->where('is_active', true)->orderBy('name')->get();
 
         return Inertia::render('SinpeEmails/Index', [
             'transactions' => $transactions,
@@ -106,9 +117,11 @@ class SinpeEmailController extends Controller
                 'status' => $status !== '' ? $status : null,
                 'read' => $read !== '' ? $read : null,
                 'search' => $search !== '' ? $search : null,
+                'company_id' => $companyId > 0 ? $companyId : null,
             ],
             'statuses'     => $statuses,
             'clients'      => $clients,
+            'companies'    => $companies,
         ]);
     }
 
@@ -192,9 +205,18 @@ class SinpeEmailController extends Controller
             $clientId    = (int) $validated['client_id'];
             $contractId  = (int) $validated['contract_id'];
             $contract = Contract::query()->findOrFail($contractId);
+            $client = Client::query()->findOrFail($clientId);
 
             if ((int) $contract->client_id !== $clientId) {
                 abort(422, 'El contrato no pertenece al cliente.');
+            }
+            if ($transaction->company_id && (int) $transaction->company_id !== (int) $client->company_id) {
+                abort(422, 'El cliente pertenece a otra empresa.');
+            }
+            if ($this->contractSupportsMonthlyCoverage($contract) && empty($validated['billing_month'])) {
+                throw ValidationException::withMessages([
+                    'billing_month' => 'Debes seleccionar explícitamente el mes que cubre este pago.',
+                ]);
             }
             $amount      = (float) $transaction->amount;
             $reference   = $transaction->reference;
@@ -236,6 +258,7 @@ class SinpeEmailController extends Controller
                 $metadata['paid_for_month'] = $coveredMonths[0];
                 $metadata['covered_months'] = $coveredMonths;
                 $metadata['months'] = count($coveredMonths);
+                $metadata['billing_period_explicit'] = true;
             }
 
             if ($payment) {
@@ -271,6 +294,7 @@ class SinpeEmailController extends Controller
             );
 
             $transaction->forceFill([
+                'company_id'          => $client->company_id,
                 'status'              => 'in_review',
                 'matched_client_id'   => $clientId,
                 'matched_contract_id' => $contractId,
@@ -367,7 +391,8 @@ class SinpeEmailController extends Controller
             return false;
         }
 
-        $config = $this->loadImapConfig();
+        $transaction->loadMissing('company');
+        $config = $this->loadImapConfig($transaction->company);
         if (! $config['valid']) {
             Log::warning('sinpe_email.destroy.invalid_imap_config', [
                 'transaction_id' => $transaction->id,
@@ -426,29 +451,32 @@ class SinpeEmailController extends Controller
     /**
      * @return array<string,mixed>
      */
-    private function loadImapConfig(): array
+    private function loadImapConfig(?Company $company = null): array
     {
-        $host = trim((string) Setting::get('sinpe_imap_host', 'imap.dreamhost.com'));
-        $port = (int) Setting::get('sinpe_imap_port', 993);
-        $encryption = trim((string) Setting::get('sinpe_imap_encryption', 'ssl'));
-        $folder = trim((string) Setting::get('sinpe_imap_folder', 'BCR'));
-        $username = trim((string) Setting::get('sinpe_imap_username', ''));
-        $password = (string) Setting::get('sinpe_imap_password', '');
+        if ($company && $company->sinpe_email_enabled) {
+            $host = trim((string) $company->sinpe_imap_host);
+            $port = (int) $company->sinpe_imap_port;
+            $encryption = trim((string) $company->sinpe_imap_encryption);
+            $folder = trim((string) $company->sinpe_imap_folder);
+            $username = trim((string) $company->sinpe_imap_username);
+            $password = (string) $company->sinpe_imap_password;
+        } elseif (! $company || $company->slug === 'ticocast') {
+            $host = trim((string) Setting::get('sinpe_imap_host', 'imap.dreamhost.com'));
+            $port = (int) Setting::get('sinpe_imap_port', 993);
+            $encryption = trim((string) Setting::get('sinpe_imap_encryption', 'ssl'));
+            $folder = trim((string) Setting::get('sinpe_imap_folder', 'BCR'));
+            $username = trim((string) Setting::get('sinpe_imap_username', ''));
+            $password = (string) Setting::get('sinpe_imap_password', '');
+        } else {
+            return ['imap' => [], 'valid' => false];
+        }
 
+        $valid = $host !== '' && $port > 0 && $folder !== '' && $username !== '' && $password !== '';
         return [
-            'imap' => [
-                'host' => $host,
-                'port' => $port,
-                'encryption' => in_array($encryption, ['ssl', 'tls', 'none'], true) ? $encryption : 'ssl',
-                'folder' => $folder,
-                'username' => $username,
-                'password' => $password,
-                'valid' => $host !== '' && $port > 0 && $folder !== '' && $username !== '' && $password !== '',
-            ],
-            'valid' => $host !== '' && $port > 0 && $folder !== '' && $username !== '' && $password !== '',
+            'imap' => ['host' => $host, 'port' => $port, 'encryption' => in_array($encryption, ['ssl', 'tls', 'none'], true) ? $encryption : 'ssl', 'folder' => $folder, 'username' => $username, 'password' => $password, 'valid' => $valid],
+            'valid' => $valid,
         ];
     }
-
     /**
      * @param array<string,mixed> $config
      */

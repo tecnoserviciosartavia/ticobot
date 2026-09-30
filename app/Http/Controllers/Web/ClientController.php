@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\Company;
 use App\Models\Contract;
 use App\Models\Payment;
 use App\Models\Reminder;
 use App\Models\Service;
+use App\Models\Setting;
 use App\Models\WhatsappChatMessage;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -185,6 +187,7 @@ class ClientController extends Controller
             ->get()
             ->map(fn (Service $s) => [
                 'id' => $s->id,
+                'company_id' => $s->company_id,
                 'name' => $s->name,
                 'price' => (string) $s->price,
                 'currency' => $s->currency,
@@ -197,12 +200,12 @@ class ClientController extends Controller
             'statuses' => $statuses,
             'defaultStatus' => 'active',
             'services' => $services,
+            'companies' => Company::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'multiCompanyEnabled' => Setting::get('multi_company_enabled', '0') === '1',
             'prefill' => [
                 'name' => trim((string) $request->query('name', '')),
                 'phone' => trim((string) $request->query('phone', '')),
-                'notes' => $request->boolean('from_chat')
-                    ? 'Cliente creado desde una conversación de WhatsApp.'
-                    : '',
+                'notes' => $request->boolean('from_chat') ? 'Cliente creado desde una conversación de WhatsApp.' : '',
                 'from_chat' => $request->boolean('from_chat'),
             ],
         ]);
@@ -348,6 +351,7 @@ class ClientController extends Controller
             ->get()
             ->map(fn (Service $s) => [
                 'id' => $s->id,
+                'company_id' => $s->company_id,
                 'name' => $s->name,
                 'price' => (string) $s->price,
                 'currency' => $s->currency,
@@ -358,25 +362,22 @@ class ClientController extends Controller
 
         return Inertia::render('Clients/Edit', [
             'client' => [
-                'id' => $client->id,
-                'name' => $client->name,
-                'email' => $client->email,
-                'phone' => $client->phone,
-                'status' => $client->status,
-                'notes' => $client->notes,
+                'id' => $client->id, 'name' => $client->name, 'email' => $client->email,
+                'phone' => $client->phone, 'status' => $client->status, 'notes' => $client->notes,
+                'company_id' => $client->company_id,
             ],
             'statuses' => $statuses,
             'services' => $services,
+            'companies' => Company::query()->where('is_active', true)->orWhere('id', $client->company_id)->orderBy('name')->get(['id', 'name']),
+            'multiCompanyEnabled' => Setting::get('multi_company_enabled', '0') === '1',
         ]);
     }
 
     public function update(Request $request, Client $client): RedirectResponse
     {
         $data = $this->validatedData($request, $client);
-
         $contractId = isset($data['contract_id']) ? (int) $data['contract_id'] : null;
         unset($data['contract_id']);
-
         $client->update($data);
 
         if ($contractId) {
@@ -580,7 +581,9 @@ class ClientController extends Controller
 
     private function validatedData(Request $request, ?Client $client = null): array
     {
-        return $request->validate([
+        $multiCompanyEnabled = Setting::get('multi_company_enabled', '0') === '1';
+        $data = $request->validate([
+            'company_id' => [$multiCompanyEnabled ? 'required' : 'nullable', 'integer', Rule::exists('companies', 'id')->where('is_active', true)],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
@@ -588,6 +591,10 @@ class ClientController extends Controller
             'notes' => ['nullable', 'string'],
             'contract_id' => ['nullable', 'integer', 'exists:contracts,id'],
         ]);
+        if (! $multiCompanyEnabled && empty($data['company_id'])) {
+            $data['company_id'] = Company::query()->where('is_active', true)->orderBy('id')->value('id');
+        }
+        return $data;
     }
 
     private function normalizePhone(string $raw): string

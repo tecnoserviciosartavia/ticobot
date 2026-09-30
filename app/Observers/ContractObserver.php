@@ -43,7 +43,7 @@ class ContractObserver
             // Map billing_cycle to recurrence
             $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
 
-            $contract->loadMissing('services');
+            $contract->loadMissing(['services', 'client.company']);
 
             Reminder::createOpenUnique([
                 'client_id' => $contract->client_id,
@@ -53,6 +53,7 @@ class ContractObserver
                 'channel' => 'whatsapp',
                 'payload' => array_filter([
                     'recurrence' => $recurrence,
+                    ...(($contract->client?->company)?->reminderPayload() ?? []),
                     'amount' => (string) $contract->amount,
                     'due_date' => $contract->next_due_date?->toDateString(),
                     'services' => $contract->servicesForReminderPayload(),
@@ -76,7 +77,7 @@ class ContractObserver
 
                 $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
 
-                $contract->loadMissing('services');
+                $contract->loadMissing(['services', 'client.company']);
 
                 Reminder::createOpenUnique([
                     'client_id' => $contract->client_id,
@@ -86,6 +87,7 @@ class ContractObserver
                     'channel' => 'whatsapp',
                     'payload' => array_filter([
                         'recurrence' => $recurrence,
+                    ...(($contract->client?->company)?->reminderPayload() ?? []),
                         'amount' => (string) $contract->amount,
                         'due_date' => $contract->next_due_date?->toDateString(),
                         'services' => $contract->servicesForReminderPayload(),
@@ -110,7 +112,7 @@ class ContractObserver
             if ($updated === 0) {
                 $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
 
-                $contract->loadMissing('services');
+                $contract->loadMissing(['services', 'client.company']);
 
                 Reminder::createOpenUnique([
                     'client_id' => $contract->client_id,
@@ -120,6 +122,7 @@ class ContractObserver
                     'channel' => 'whatsapp',
                     'payload' => array_filter([
                         'recurrence' => $recurrence,
+                    ...(($contract->client?->company)?->reminderPayload() ?? []),
                         'amount' => (string) $contract->amount,
                         'due_date' => $contract->next_due_date?->toDateString(),
                         'services' => $contract->servicesForReminderPayload(),
@@ -141,7 +144,7 @@ class ContractObserver
             $recurrence = $this->recurrenceForBillingCycle($contract->billing_cycle);
             $dueDate = $contract->next_due_date?->toDateString();
 
-            $contract->loadMissing('services');
+            $contract->loadMissing(['services', 'client.company']);
             $servicesPayload = $contract->servicesForReminderPayload();
 
             foreach ($reminders as $reminder) {
@@ -179,7 +182,7 @@ class ContractObserver
             return;
         }
 
-        $contract->loadMissing('services');
+        $contract->loadMissing(['services', 'client.company']);
         $servicesPayload = $contract->servicesForReminderPayload();
 
         $reminders = Reminder::where('contract_id', $contract->id)

@@ -2,13 +2,14 @@ import { Search } from '@/Components/icons';
 import { FormEvent } from 'react';
 
 interface FiltersBarProps {
-    data: { status: string; read: string; search: string };
-    setData: (key: 'status' | 'read' | 'search', value: string) => void;
+    data: { status: string; read: string; search: string; company_id: string };
+    setData: (key: 'status' | 'read' | 'search' | 'company_id', value: string) => void;
     submit: (event: FormEvent) => void;
     resetFilters: () => void;
     handleSync: () => void;
     syncing: boolean;
     statuses: string[];
+    companies: Array<{ id: number; name: string }>;
     showMobileFilters: boolean;
     setShowMobileFilters: (value: boolean) => void;
     paginationMeta: { total: number };
@@ -23,6 +24,7 @@ export default function FiltersBar({
     handleSync,
     syncing,
     statuses,
+    companies,
     showMobileFilters,
     setShowMobileFilters,
     paginationMeta,
@@ -59,6 +61,13 @@ export default function FiltersBar({
                             className="w-full rounded-md border-gray-300 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                         />
                     </div>
+                </div>
+                <div className="w-full sm:w-auto">
+                    <label htmlFor="company_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Empresa</label>
+                    <select id="company_id" value={data.company_id} onChange={(e) => setData('company_id', e.target.value)} className="mt-1 w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:w-auto">
+                        <option value="">Todas</option>
+                        {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+                    </select>
                 </div>
                 <div className="w-full sm:w-auto">
                     <label htmlFor="read" className="block text-sm font-medium text-gray-700 dark:text-gray-300">

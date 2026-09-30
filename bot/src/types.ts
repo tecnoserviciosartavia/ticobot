@@ -21,6 +21,13 @@ export interface ReminderPayload {
   attachment_url?: string;
   due_date?: string;
   amount?: string;
+  sender_company?: 'ticocast' | 'ticofac';
+  company_name?: string;
+  company_id?: number;
+  company_reminder_template?: string;
+  payment_contact?: string;
+  bank_accounts?: string;
+  beneficiary_name?: string;
   [key: string]: unknown;
 }
 

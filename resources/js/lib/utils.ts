@@ -11,22 +11,28 @@ export function formatCurrency(amount: number, currency = 'CRC'): string {
   }).format(amount);
 }
 
-export function formatDate(date: string | Date, locale = 'es-CR'): string {
-  return new Date(date).toLocaleDateString(locale, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+export function formatDate(date: string | Date): string {
+  const value = typeof date === 'string' ? date : date.toISOString();
+  const dateOnly = value.slice(0, 10);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
+  if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  const parts = new Intl.DateTimeFormat('es-CR', {
+    timeZone: 'America/Costa_Rica', day: '2-digit', month: '2-digit', year: 'numeric',
+  }).formatToParts(parsed);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${get('day')}-${get('month')}-${get('year')}`;
 }
 
-export function formatDateTime(date: string | Date, locale = 'es-CR'): string {
-  return new Date(date).toLocaleString(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+export function formatDateTime(date: string | Date): string {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  const time = new Intl.DateTimeFormat('es-CR', {
+    timeZone: 'America/Costa_Rica', hour: '2-digit', minute: '2-digit', hour12: true,
+  }).format(parsed);
+  return `${formatDate(parsed)}, ${time}`;
 }
 
 export function formatPhoneNumber(phone: string): string {

@@ -47,6 +47,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('/chats', [WebChatController::class, 'store'])->name('chats.store');
     Route::patch('/chats/mark-all-read', [WebChatController::class, 'markAllAsRead'])->name('chats.mark-all-read');
     Route::patch('/chats/mark-selected-read', [WebChatController::class, 'markSelectedAsRead'])->name('chats.mark-selected-read');
+    Route::get('/chats/{phone}/updates', [WebChatController::class, 'updates'])->name('chats.updates');
+    Route::get('/chats/{phone}/media/{message}', [WebChatController::class, 'media'])->name('chats.media');
     Route::get('/chats/{phone}', [WebChatController::class, 'show'])->name('chats.show');
     Route::post('/chats/{phone}/reply', [WebChatController::class, 'reply'])->name('chats.reply');
     Route::delete('/chats/{phone}', [WebChatController::class, 'destroy'])->name('chats.destroy');
@@ -78,12 +80,20 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/conciliations', [FinancialOperationsController::class, 'conciliations'])->name('conciliations.index');
         Route::post('/conciliations', [WebConciliationController::class, 'store'])->name('conciliations.store');
         Route::patch('/conciliations/{conciliation}', [WebConciliationController::class, 'update'])->name('conciliations.update');
+        Route::delete('/conciliations/{conciliation}', [WebConciliationController::class, 'destroy'])->name('conciliations.destroy');
 
         Route::get('/collections', [FinancialOperationsController::class, 'collections'])->name('collections.index');
 
         Route::get('/settings', [\App\Http\Controllers\Web\SettingsController::class, 'index'])->name('settings.index');
         Route::post('/settings', [\App\Http\Controllers\Web\SettingsController::class, 'update'])->name('settings.update');
         Route::post('/settings/send-test', [\App\Http\Controllers\Web\SettingsController::class, 'sendTestReminder'])->name('settings.sendTestReminder');
+
+        Route::get('/settings/companies', [\App\Http\Controllers\Web\CompanyController::class, 'index'])->name('settings.companies.index');
+        Route::patch('/settings/companies/toggle', [\App\Http\Controllers\Web\CompanyController::class, 'toggle'])->name('settings.companies.toggle');
+        Route::post('/settings/companies', [\App\Http\Controllers\Web\CompanyController::class, 'store'])->name('settings.companies.store');
+        Route::put('/settings/companies/{company}', [\App\Http\Controllers\Web\CompanyController::class, 'update'])->name('settings.companies.update');
+        Route::delete('/settings/companies/{company}', [\App\Http\Controllers\Web\CompanyController::class, 'destroy'])->name('settings.companies.destroy');
+        Route::post('/settings/companies/{company}/send-test', [\App\Http\Controllers\Web\CompanyController::class, 'sendTest'])->name('settings.companies.send-test');
 
         Route::get('/settings/services', [\App\Http\Controllers\Web\ServiceController::class, 'index'])->name('settings.services.index');
         Route::post('/settings/services', [\App\Http\Controllers\Web\ServiceController::class, 'store'])->name('settings.services.store');
@@ -118,6 +128,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::delete('/sinpe-emails/{id}', [WebSinpeEmailController::class, 'destroy'])->name('sinpe-emails.destroy');
 
         Route::get('/accounting', [FinancialOperationsController::class, 'accounting'])->name('accounting.index');
+        Route::post('/accounting/delinquencies/{reminder}/dismiss', [FinancialOperationsController::class, 'dismissDelinquency'])
+            ->name('accounting.delinquencies.dismiss');
         Route::get('/accounting/indicators', \App\Http\Controllers\Web\AccountingController::class . '@indicators')->name('accounting.indicators');
         Route::get('/accounting/indicators/service-clients', \App\Http\Controllers\Web\AccountingController::class . '@serviceClients')->name('accounting.indicators.service-clients');
 

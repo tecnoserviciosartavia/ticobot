@@ -15,7 +15,7 @@ interface ContractResource {
     notes?: string | null;
     amount: string;
     currency: string | null;
-    services?: Array<{ id: number; name: string; price: string; currency: string; quantity?: number; account_email?: string | null; password?: string | null; pin?: string | null }>;
+    services?: Array<{ id: number; name: string; price: string; currency: string; quantity?: number; service_account_name?: string | null; service_account_identifier?: string | null; account_email?: string | null; password?: string | null; pin?: string | null }>;
     billing_cycle: string;
     status: string;
     next_due_date: string | null;
@@ -127,9 +127,9 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                     Detalles del contrato y seguimiento de recordatorios y pagos vinculados.
                                 </p>
                             </div>
-                            <div className="flex gap-3">
-                                <Link href={route('contracts.index')}>
-                                    <Button variant="outline">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                                <Link href={route('contracts.index')} className="sm:w-auto">
+                                    <Button variant="outline" className="w-full sm:w-auto">
                                         <ArrowLeft className="w-4 h-4 mr-2" />
                                         Volver
                                     </Button>
@@ -137,7 +137,7 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                                 <Button 
                                     variant="outline" 
                                     onClick={() => router.post(route('contracts.resend-access', contract.id))}
-                                    className="text-cyan-700 border-cyan-300 hover:bg-cyan-50"
+                                    className="w-full text-cyan-700 border-cyan-300 hover:bg-cyan-50 sm:w-auto"
                                 >
                                     <AlertCircle className="w-4 h-4 mr-2" />
                                     Reenviar Acceso
@@ -233,13 +233,19 @@ export default function ContractsShow({ contract, reminders, payments }: Contrac
                     {/* Services */}
                     {contract.services && contract.services.length > 0 && (
                         <Card className="p-6">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Servicios Asociados</h3>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Plataformas y accesos asignados</h3>
+                            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">Estas son las cuentas que utiliza este contrato.</p>
                             <div className="space-y-3">
                                         {contract.services.map((service) => (
                                     <div key={service.id} className="flex flex-col gap-3 p-3 border rounded-lg sm:flex-row sm:items-center sm:justify-between">
                                         <div>
                                             <p className="font-medium">{service.name}</p>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">{formatCurrency(service.price, service.currency)}</p>
+                                            <dl className="mt-2 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                                                <div><dt className="text-slate-500 dark:text-slate-400">Correo / usuario</dt><dd className="break-all font-medium">{service.account_email || 'No configurado'}</dd></div>
+                                                <div><dt className="text-slate-500 dark:text-slate-400">Contraseña</dt><dd className="break-all font-medium">{service.password || 'No configurada'}</dd></div>
+                                                <div><dt className="text-slate-500 dark:text-slate-400">PIN</dt><dd className="font-medium">{service.pin || 'No configurado'}</dd></div>
+                                                <div><dt className="text-slate-500 dark:text-slate-400">Precio</dt><dd className="font-medium">{formatServicePriceLabel(service.price, service.currency)}</dd></div>
+                                            </dl>
                                         </div>
                                         <div className="flex flex-col gap-2 sm:items-end sm:justify-end">
                                             <Badge variant="secondary">

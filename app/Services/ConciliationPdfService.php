@@ -16,12 +16,15 @@ class ConciliationPdfService
      */
     public function generateConciliationReceipt(Payment $payment, int $months = 1): string
     {
-        $payment->loadMissing(['client', 'contract.services']);
+        $payment->loadMissing(['client.company', 'contract.services']);
+        $company = $payment->client?->company;
+        $companyName = trim((string) ($company?->name ?? '')) ?: 'Empresa';
+        $companySlug = trim((string) ($company?->slug ?? ''));
 
         // Obtener el logo de la empresa si existe
         $logoPath = public_path('images/logo.png');
         $logoData = null;
-        if (file_exists($logoPath)) {
+        if ($companySlug === 'ticocast' && file_exists($logoPath)) {
             $logoData = base64_encode(file_get_contents($logoPath));
         }
 
@@ -35,17 +38,18 @@ class ConciliationPdfService
 
         $servicesLabel = $contract ? $contract->servicesLabelForMessaging() : '';
         $periodLabel = $this->formatCoveredMonthsLabel($coveredMonths);
-
         $graceMonths = (int) (is_array($payment->metadata) ? ($payment->metadata['grace_months'] ?? 0) : 0);
 
         $data = [
             'client_name' => $payment->client ? $payment->client->name : 'Cliente',
+            'company_name' => $companyName,
+            'company_slug' => $companySlug,
             'balance' => 0.00,
             'ticket_id' => str_pad((string) $payment->id, 6, '0', STR_PAD_LEFT),
             'initial_balance' => $total,
             'total_transactions' => -$total,
             'final_balance' => 0.00,
-            'date' => $paidAt->format('Y-m-d'),
+            'date' => $paidAt->format('d-m-Y'),
             'concept' => $this->getPaymentConcept($payment, $monthsCount, $coveredMonths),
             'amount' => $total,
             'currency' => $payment->currency ?? 'CRC',
@@ -70,7 +74,8 @@ class ConciliationPdfService
 
     public function generateWhatsAppMessage(Payment $payment, int $months): string
     {
-        $payment->loadMissing('contract.services');
+        $payment->loadMissing(['client.company', 'contract.services']);
+        $companyName = trim((string) ($payment->client?->company?->name ?? '')) ?: 'Empresa';
         $meta = is_array($payment->metadata) ? $payment->metadata : [];
         $covered = $meta['covered_months'] ?? null;
         $coveredList = [];
@@ -89,8 +94,7 @@ class ConciliationPdfService
         $services = $payment->contract ? $payment->contract->servicesLabelForMessaging() : '';
 
         $monthText = $months === 1 ? '1 mes' : "{$months} meses";
-
-        $msg = "¡Pago recibido! ";
+        $msg = "{$companyName}: ¡Pago recibido! ";
 
         if ($period !== '') {
             $msg .= "Este pago aplica a los siguientes períodos: {$period}. ";
@@ -108,8 +112,7 @@ class ConciliationPdfService
         if ($grace > 0) {
             $msg .= " Incluye {$grace} mes(es) adicional(es) de cortesía.";
         }
-
-        $msg .= "\n\n¡Gracias por tu preferencia!";
+        $msg .= "\n\n¡Gracias por preferir {$companyName}!";
 
         return $msg;
     }

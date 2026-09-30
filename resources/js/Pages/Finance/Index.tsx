@@ -15,7 +15,7 @@ type Contract = { id: number; name: string; amount?: number; currency?: string }
 
 type Payment = {
     id: number; status: string; channel: string; amount: number; currency: string;
-    reference: string | null; paid_at: string | null; created_at: string | null;
+    reference: string | null; paid_at: string | null; billing_period: string | null; created_at: string | null;
     receipts_count: number; client: Person | null; contract: Contract | null;
     conciliation: { id: number; status: string } | null; needs_attention: boolean;
 };
@@ -31,6 +31,17 @@ type CollectionsResponse = {
     overdue: CollectionRow[]; due_today: CollectionRow[]; due_soon: CollectionRow[];
 };
 
+type DelinquentClient = {
+    id: number; name: string; phone?: string | null; status: 'delinquent';
+    sent_reminders_count: number; last_sent_at?: string | null; oldest_due_date: string;
+    pending_by_currency: Record<string, number>;
+    contracts: Array<{
+        id: number; name: string; reminder_id: number; services?: string; period: string;
+        last_resend_at?: string | null; was_resent?: boolean;
+        due_date: string; amount: number; currency: string;
+    }>;
+};
+
 interface Props {
     activeTab: Tab;
     periodLabel: string;
@@ -41,11 +52,25 @@ interface Props {
     };
     dataQuality: { without_contract: number; without_client: number; zero_amount: number; without_paid_at: number };
     payments: Paginated<Payment>;
+    delinquentClients: DelinquentClient[];
+    delinquentTotals: Record<string, number>;
     filters: { status: string; search: string };
 }
 
 const money = (amount: number, currency = 'CRC') =>
     new Intl.NumberFormat('es-CR', { style: 'currency', currency: currency === 'USD' ? 'USD' : 'CRC' }).format(amount || 0);
+
+const displayDate = (value?: string | null) => {
+    if (!value) return '—';
+    const date = value.slice(0, 10);
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
+};
+
+const displayPeriod = (value: string) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(value);
+    return match ? `${match[2]}-${match[1]}` : value;
+};
 
 const labels: Record<string, string> = {
     verified: 'Verificado', unverified: 'Sin verificar', in_review: 'En revisión',
@@ -61,13 +86,25 @@ function Status({ value }: { value: string }) {
     return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${color}`}>{labels[value] ?? value}</span>;
 }
 
-export default function FinanceIndex({ activeTab, periodLabel, summary, dataQuality, payments, filters }: Props) {
+export default function FinanceIndex({ activeTab, periodLabel, summary, dataQuality, payments, delinquentClients = [], delinquentTotals = {}, filters }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [status, setStatus] = useState(filters.status ?? '');
     const [days, setDays] = useState(7);
     const [collections, setCollections] = useState<CollectionsResponse | null>(null);
     const [collectionsError, setCollectionsError] = useState<string | null>(null);
     const [sending, setSending] = useState<number | null>(null);
+    const [delinquencyAction, setDelinquencyAction] = useState<string | null>(null);
+    const [delinquentRows, setDelinquentRows] = useState<DelinquentClient[]>(delinquentClients);
+    const [resentReminderIds, setResentReminderIds] = useState<number[]>([]);
+
+    useEffect(() => setDelinquentRows(delinquentClients), [delinquentClients]);
+
+    const visibleDelinquentTotals = useMemo(() => delinquentRows.reduce<Record<string, number>>((totals, client) => {
+        client.contracts.forEach((contract) => {
+            totals[contract.currency] = (totals[contract.currency] ?? 0) + contract.amount;
+        });
+        return totals;
+    }, {}), [delinquentRows]);
 
     const filterPayments = (event: FormEvent) => {
         event.preventDefault();
@@ -108,6 +145,48 @@ export default function FinanceIndex({ activeTab, periodLabel, summary, dataQual
         }
     };
 
+    const resendDelinquency = async (client: DelinquentClient, reminderId: number, key: string) => {
+        if (!confirm(`¿Reenviar el recordatorio pendiente a ${client.name}?`)) return;
+        setDelinquencyAction(`send-${key}`);
+        try {
+            await axios.post(route('reminders.send-manually', reminderId), {}, {
+                headers: { Accept: 'application/json' },
+            });
+            setResentReminderIds((ids) => ids.includes(reminderId) ? ids : [...ids, reminderId]);
+            setDelinquentRows((rows) => rows.map((row) => ({
+                ...row,
+                contracts: row.contracts.map((contract) => contract.reminder_id === reminderId
+                    ? { ...contract, was_resent: true, last_resend_at: new Date().toISOString() }
+                    : contract),
+            })));
+        } catch (error: any) {
+            alert(error?.response?.data?.message ?? 'No se pudo reenviar el recordatorio.');
+        } finally {
+            setDelinquencyAction(null);
+        }
+    };
+
+    const dismissDelinquency = async (client: DelinquentClient, reminderId: number, period: string, key: string) => {
+        if (!confirm(`¿Quitar la morosidad de ${client.name} para ${displayPeriod(period)}? El historial se conservará.`)) return;
+        setDelinquencyAction(`dismiss-${key}`);
+        try {
+            await axios.post(route('accounting.delinquencies.dismiss', reminderId), {}, {
+                headers: { Accept: 'application/json' },
+            });
+            setDelinquentRows((rows) => rows
+                .map((row) => row.id !== client.id ? row : {
+                    ...row,
+                    contracts: row.contracts.filter((contract) => contract.reminder_id !== reminderId),
+                    sent_reminders_count: Math.max(0, row.sent_reminders_count - 1),
+                })
+                .filter((row) => row.contracts.length > 0));
+        } catch (error: any) {
+            alert(error?.response?.data?.message ?? 'No se pudo quitar el período de morosidad.');
+        } finally {
+            setDelinquencyAction(null);
+        }
+    };
+
     const approvePayment = (payment: Payment) => {
         if (!confirm(`¿Aprobar el pago #${payment.id} de ${payment.client?.name ?? 'este cliente'}?`)) return;
         if (payment.conciliation) {
@@ -136,6 +215,12 @@ export default function FinanceIndex({ activeTab, periodLabel, summary, dataQual
                 contract_id: payment.contract?.id ?? null,
             });
         }
+    };
+
+    const breakConciliation = (payment: Payment) => {
+        if (!payment.conciliation) return;
+        if (!confirm(`¿Romper la conciliación del pago #${payment.id}? El pago quedará sin verificar y se reabrirán únicamente los períodos asociados.`)) return;
+        router.delete(route('conciliations.destroy', payment.conciliation.id), { preserveScroll: true });
     };
 
     return (
@@ -168,6 +253,60 @@ export default function FinanceIndex({ activeTab, periodLabel, summary, dataQual
                             </div>
                             <Link href={route('finance.index', { tab: 'payments' })} className="mt-4 inline-flex text-sm font-semibold text-amber-800 dark:text-amber-300">Revisar movimientos →</Link>
                         </section>
+                        <section className="overflow-hidden rounded-2xl border border-rose-200 bg-white dark:border-rose-900/50 dark:bg-gray-800">
+                            <div className="flex flex-col gap-3 border-b border-rose-100 bg-rose-50 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900/40 dark:bg-rose-950/20">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <AlertCircle className="h-5 w-5 text-rose-700" />
+                                        <h2 className="font-semibold text-gray-900 dark:text-gray-100">Clientes morosos</h2>
+                                        <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800 dark:bg-rose-900/50 dark:text-rose-200">{delinquentRows.length}</span>
+                                    </div>
+                                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Recordatorios enviados sin un pago verificado que cubra el período cobrado.</p>
+                                </div>
+                                <div className="text-sm font-semibold text-rose-800 dark:text-rose-200">
+                                    {Object.entries(visibleDelinquentTotals).map(([currency, amount]) => `${money(amount, currency)} pendiente`).join(' · ')}
+                                </div>
+                            </div>
+                            <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                {delinquentRows.map((client) => (
+                                    <article key={client.id} className="grid gap-3 p-4 lg:grid-cols-[150px_minmax(0,1fr)_180px_auto] lg:items-center">
+                                        <div>
+                                            <Status value="rejected" />
+                                            <p className="mt-1 text-xs font-semibold text-rose-700">Moroso desde {displayDate(client.oldest_due_date)}</p>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-semibold text-gray-900 dark:text-gray-100">{client.name}</p>
+                                            <div className="mt-1 space-y-1 text-sm text-gray-500">
+                                                {client.contracts.map((contract) => {
+                                                    const key = `${contract.id}-${contract.period}`;
+                                                    return (
+                                                        <div key={key} className="flex flex-col gap-2 rounded-xl bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between dark:bg-gray-700/40">
+                                                            <div>
+                                                                <p>{contract.services || contract.name} · vence {displayDate(contract.due_date)} · {money(contract.amount, contract.currency)}</p>
+                                                                {(contract.was_resent || resentReminderIds.includes(contract.reminder_id)) && (
+                                                                    <span className="mt-1 inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">Recordatorio reenviado</span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                <Button size="sm" disabled={delinquencyAction !== null} onClick={() => resendDelinquency(client, contract.reminder_id, key)}>
+                                                                    <Send className="mr-1 h-4 w-4" />{delinquencyAction === `send-${key}` ? 'Enviando…' : 'Enviar recordatorio'}
+                                                                </Button>
+                                                                <Button size="sm" variant="outline" disabled={delinquencyAction !== null} className="text-rose-700" onClick={() => dismissDelinquency(client, contract.reminder_id, contract.period, key)}>
+                                                                    {delinquencyAction === `dismiss-${key}` ? 'Quitando…' : 'Quitar morosidad'}
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    <div className="text-sm text-gray-500">{client.sent_reminders_count} envío(s)<br />Último: {displayDate(client.last_sent_at)}</div>
+                                        <Link href={route('clients.show', client.id)}><Button size="sm" variant="outline">Ver cliente</Button></Link>
+                                    </article>
+                                ))}
+                                {delinquentRows.length === 0 && <Empty text="No hay clientes morosos con recordatorios enviados." />}
+                            </div>
+                        </section>
                     </div>
                 )}
 
@@ -192,10 +331,14 @@ export default function FinanceIndex({ activeTab, periodLabel, summary, dataQual
                                         <p className="mt-1 truncate text-sm text-gray-500">{payment.contract?.name ?? 'Sin contrato'} · {payment.reference ?? 'Sin referencia'} · {payment.channel}</p>
                                     </div>
                                     <div className="font-mono font-semibold">{money(payment.amount, payment.currency)}</div>
-                                    <div className="text-sm text-gray-500">{payment.paid_at ?? payment.created_at?.slice(0, 10) ?? 'Sin fecha'}</div>
+                                    <div className="text-sm text-gray-500">
+                                        <div>Período: <span className="font-semibold text-gray-700 dark:text-gray-200">{payment.billing_period ? displayPeriod(payment.billing_period) : '—'}</span></div>
+                                        <div className="mt-1 text-xs">Pagado: {displayDate(payment.paid_at ?? payment.created_at)}</div>
+                                    </div>
                                     <div className="flex flex-wrap justify-end gap-2">
                                         {payment.status !== 'verified' && payment.status !== 'rejected' && <Button size="sm" onClick={() => approvePayment(payment)}><CheckCircle className="mr-1 h-4 w-4" />Aprobar</Button>}
                                         {payment.status !== 'verified' && payment.status !== 'rejected' && <Button size="sm" variant="outline" onClick={() => rejectPayment(payment)}><XCircle className="mr-1 h-4 w-4" />Rechazar</Button>}
+                                        {payment.conciliation && <Button size="sm" variant="outline" className="text-amber-700" onClick={() => breakConciliation(payment)}><XCircle className="mr-1 h-4 w-4" />Romper conciliación</Button>}
                                         {!payment.conciliation && <Button size="sm" variant="outline" className="text-rose-600" onClick={() => confirm(`¿Eliminar el pago #${payment.id}?`) && router.delete(route('payments.destroy', payment.id))}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}
                                     </div>
                                 </article>
@@ -217,7 +360,7 @@ export default function FinanceIndex({ activeTab, periodLabel, summary, dataQual
                                 {collectionRows.map(({ label, row }) => (
                                     <article key={`${label}-${row.contract.id}`} className="grid gap-3 p-4 lg:grid-cols-[130px_minmax(0,1fr)_150px_150px] lg:items-center">
                                         <Status value={label === 'Vencido' ? 'rejected' : 'pending'} />
-                                        <div><p className="font-semibold">{row.client?.name ?? 'Sin cliente'}</p><p className="text-sm text-gray-500">{row.contract.name} · vence {row.contract.next_due_date ?? '—'}</p></div>
+                                        <div><p className="font-semibold">{row.client?.name ?? 'Sin cliente'}</p><p className="text-sm text-gray-500">{row.contract.name} · vence {displayDate(row.contract.next_due_date)}</p></div>
                                         <span className="font-mono font-semibold">{money(row.contract.amount, row.contract.currency)}</span>
                                         <Button size="sm" disabled={!row.client?.phone || sending === row.contract.id} onClick={() => sendNotice(row)}><Send className="mr-1 h-4 w-4" />{sending === row.contract.id ? 'Enviando…' : 'Enviar aviso'}</Button>
                                     </article>

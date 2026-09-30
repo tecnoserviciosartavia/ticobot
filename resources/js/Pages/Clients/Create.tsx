@@ -10,13 +10,16 @@ import { useMemo, useState } from 'react';
 interface CreateClientPageProps extends PageProps {
     statuses: string[];
     defaultStatus: string;
-    services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
+    companies: Array<{ id: number; name: string }>;
+    multiCompanyEnabled: boolean;
+    services: Array<{ id: number; company_id?: number | null; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
     prefill?: { name?: string; phone?: string; notes?: string; from_chat?: boolean };
 }
 
-export default function CreateClient({ statuses, defaultStatus, services, prefill }: CreateClientPageProps) {
+export default function CreateClient({ statuses, defaultStatus, services, companies, multiCompanyEnabled, prefill }: CreateClientPageProps) {
     const form = useForm({
         name: prefill?.name ?? '',
+        company_id: '',
         email: '',
         phone: prefill?.phone ?? '',
         status: defaultStatus ?? 'active',
@@ -46,8 +49,8 @@ export default function CreateClient({ statuses, defaultStatus, services, prefil
     const [contracts, setContracts] = useState<Array<{ id: number; name: string }>>([]);
 
     const clientsForContractForm = useMemo(
-        () => [{ id: 0, name: 'Nuevo cliente', phone: form.data.phone ?? '' }],
-        [form.data.phone],
+        () => [{ id: 0, name: 'Nuevo cliente', phone: form.data.phone ?? '', company_id: form.data.company_id ? Number(form.data.company_id) : null }],
+        [form.data.phone, form.data.company_id],
     );
 
     const handleSubmit: React.FormEventHandler<HTMLFormElement> = (event) => {
@@ -64,7 +67,7 @@ export default function CreateClient({ statuses, defaultStatus, services, prefil
         setContractProcessing(true);
         setContractErrors({});
         try {
-            const response = await axios.post(route('webapi.contracts.quick'), contractForm);
+            const response = await axios.post(route('webapi.contracts.quick'), { ...contractForm, company_id: form.data.company_id });
             const data = response.data as { id: number; name: string };
             setContracts((prev) => [{ id: data.id, name: data.name }, ...prev]);
             form.setData('contract_id', String(data.id));
@@ -91,6 +94,8 @@ export default function CreateClient({ statuses, defaultStatus, services, prefil
                             data={form.data}
                             errors={form.errors}
                             statuses={statuses}
+                            companies={companies}
+                            multiCompanyEnabled={multiCompanyEnabled}
                             processing={form.processing}
                             submitLabel="Guardar cliente"
                             onSubmit={handleSubmit}

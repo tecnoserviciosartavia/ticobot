@@ -2,6 +2,7 @@ import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, router } from '@inertiajs/react';
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
+import { formatDate } from '@/lib/utils';
 
 type Row = {
   contract: {
@@ -180,7 +181,7 @@ export default function CollectionsIndex() {
                         </div>
                         <div className="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
                           <div>Contrato: {row.contract.name || `#${row.contract.id}`}</div>
-                          <div>Vence: {row.contract.next_due_date || '—'}</div>
+                          <div>Vence: {row.contract.next_due_date ? formatDate(row.contract.next_due_date) : '—'}</div>
                         </div>
                         <button
                           type="button"
@@ -222,7 +223,7 @@ export default function CollectionsIndex() {
                               {row.client?.phone || row.client?.email || '—'}
                             </td>
                             <td className="px-3 py-2">{row.contract.name || `#${row.contract.id}`}</td>
-                            <td className="whitespace-nowrap px-3 py-2">{row.contract.next_due_date || '—'}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{row.contract.next_due_date ? formatDate(row.contract.next_due_date) : '—'}</td>
                             <td className="px-3 py-2 text-right font-mono text-gray-900 dark:text-gray-100">{fmtMoney(row.contract.amount, row.contract.currency)}</td>
                             <td className="whitespace-nowrap px-3 py-2 text-right">
                               <button
@@ -250,4 +251,3 @@ export default function CollectionsIndex() {
     </ResponsiveLayout>
   );
 }
-

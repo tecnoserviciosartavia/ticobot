@@ -79,6 +79,9 @@ class PaymentController extends Controller
             'reference' => ['nullable', 'string', 'max:100'],
             'paid_at' => ['nullable', 'date'],
             'billing_month' => ['nullable', 'date_format:Y-m'],
+            'covered_months' => ['nullable', 'array', 'max:36'],
+            'covered_months.*' => ['required', 'date_format:Y-m'],
+            'grace_months' => ['nullable', 'integer', 'min:0', 'max:12'],
             'metadata' => ['nullable', 'array'],
         ]);
 
@@ -89,7 +92,9 @@ class PaymentController extends Controller
         }
 
         $billingMonth = $data['billing_month'] ?? null;
-        unset($data['billing_month']);
+        $coveredMonths = array_values(array_unique($data['covered_months'] ?? []));
+        $graceMonths = (int) ($data['grace_months'] ?? 0);
+        unset($data['billing_month'], $data['covered_months'], $data['grace_months']);
 
         $contract = null;
 
@@ -134,11 +139,19 @@ class PaymentController extends Controller
         }
 
         $metadata = $data['metadata'] ?? [];
+        if ($coveredMonths !== []) {
+            sort($coveredMonths);
+            $metadata['covered_months'] = $coveredMonths;
+            $metadata['paid_for_month'] = $coveredMonths[0];
+            $metadata['billing_period_explicit'] = true;
+        }
         if ($billingMonth) {
-            $metadata['paid_for_month'] = $billingMonth;
+            $metadata['paid_for_month'] ??= $billingMonth;
+            $metadata['billing_period_explicit'] = true;
         } elseif (! isset($metadata['paid_for_month']) && ! empty($data['paid_at'])) {
             $metadata['paid_for_month'] = Carbon::parse($data['paid_at'])->format('Y-m');
         }
+        $metadata['grace_months'] = $graceMonths;
 
         $payment = Payment::create([
             'client_id' => $data['client_id'],

@@ -15,17 +15,21 @@ interface ClientResource {
     phone: string | null;
     status: string;
     notes: string | null;
+    company_id: number;
 }
 
 interface EditClientPageProps extends PageProps {
     client: ClientResource;
     statuses: string[];
+    companies: Array<{ id: number; name: string }>;
+    multiCompanyEnabled: boolean;
     services: Array<{ id: number; name: string; price: string; currency: string; account_email?: string | null; max_profiles?: number | null; profiles_used?: number }>;
 }
 
-export default function EditClient({ client, statuses, services }: EditClientPageProps) {
+export default function EditClient({ client, statuses, services, companies, multiCompanyEnabled }: EditClientPageProps) {
     const form = useForm({
         name: client.name ?? '',
+        company_id: String(client.company_id ?? ''),
         email: client.email ?? '',
         phone: client.phone ?? '',
         status: client.status ?? 'active',
@@ -53,7 +57,7 @@ export default function EditClient({ client, statuses, services }: EditClientPag
     const [contracts, setContracts] = useState<Array<{ id: number; name: string }>>([]);
 
     const clientsForContractForm = useMemo(
-        () => [{ id: client.id, name: client.name, phone: form.data.phone ?? '' }],
+        () => [{ id: client.id, name: client.name, phone: form.data.phone ?? '', company_id: client.company_id }],
         [client.id, client.name, form.data.phone],
     );
 
@@ -98,6 +102,8 @@ export default function EditClient({ client, statuses, services }: EditClientPag
                             data={form.data}
                             errors={form.errors}
                             statuses={statuses}
+                            companies={companies}
+                            multiCompanyEnabled={multiCompanyEnabled}
                             processing={form.processing}
                             submitLabel="Guardar cambios"
                             onSubmit={handleSubmit}

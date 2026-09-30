@@ -267,8 +267,8 @@ export default function Dashboard({ stats }: DashboardProps) {
           </div>
 
           {/* Period Selector */}
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex space-x-2">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin] sm:overflow-visible">
               {['7d', 'month', '30d', '90d', '1y'].map((period) => (
                 <Button
                   key={period}
@@ -276,6 +276,7 @@ export default function Dashboard({ stats }: DashboardProps) {
                   size="sm"
                   onClick={() => handlePeriodChange(period)}
                   disabled={isLoading}
+                  className="shrink-0"
                 >
                   {period === '7d' && '7 días'}
                   {period === 'month' && 'Mes actual'}
@@ -286,7 +287,7 @@ export default function Dashboard({ stats }: DashboardProps) {
               ))}
             </div>
             
-            <Button variant="outline" size="sm" onClick={handleExport}>
+            <Button variant="outline" size="sm" onClick={handleExport} className="shrink-0">
               <Calendar className="w-4 h-4 mr-2" />
               Exportar
             </Button>

@@ -19,9 +19,13 @@ class MobileChatController extends Controller
             fn (Client $client) => preg_replace('/\D+/', '', (string) $client->phone)
         );
 
-        // La app muestra el mismo historial completo que la web; la ventana de servicio
-        // limita las respuestas, no la visibilidad del chat.
+        // La app puede mostrar el nombre cuando existe, pero la conversación sigue
+        // centrada en el teléfono como clave estable del hilo.
         $conversations = WhatsappChatMessage::latestPerPhone(false)->map(function (array $item) use ($clients) {
+            if (str_starts_with((string) $item['phone'], 'bsuid:')) {
+                return array_merge($item, ['client_name' => null]);
+            }
+
             $phone = preg_replace('/\D+/', '', (string) $item['phone']);
             $client = $clients->get($phone) ?? $clients->first(
                 fn (Client $candidate, string $candidatePhone) => str_ends_with($candidatePhone, substr($phone, -8))
@@ -97,6 +101,14 @@ class MobileChatController extends Controller
             'built_in' => true,
         ];
 
+        $replies[] = [
+            'id' => 'service_reactivation',
+            'title' => 'Invitar a renovar',
+            'body' => "Lamentamos que no quisieras renovar con nosotros. Hemos eliminado los perfiles de las siguientes plataformas: [PLATAFORMAS].\n\nSi deseas renovar y volver a disfrutar de nuestros servicios, solamente escríbenos y activamos nuevamente tu perfil.",
+            'built_in' => true,
+            'template_name' => 'reactivacion_servicio_v1',
+        ];
+
         $custom = json_decode((string) Setting::get(self::QUICK_REPLIES_KEY, '[]'), true);
         if (is_array($custom)) {
             foreach ($custom as $index => $reply) {
@@ -128,38 +140,30 @@ class MobileChatController extends Controller
 
         return $this->quickReplies();
     }
-
-    public function show(string $phone): JsonResponse
+    public function show(Request $request, string $phone): JsonResponse
     {
-        $normalizedPhone = WhatsappChatMessage::normalizePhone($phone);
+        $normalizedPhone = WhatsappChatMessage::normalizeConversationKey($phone);
+        WhatsappChatMessage::query()->where('phone', $normalizedPhone)->where('direction', 'inbound')->where('status', 'received')->update(['status' => 'read']);
 
-        WhatsappChatMessage::query()
-            ->where('phone', $normalizedPhone)
-            ->where('direction', 'inbound')
-            ->where('status', 'received')
-            ->update(['status' => 'read']);
+        $afterId = max(0, (int) $request->integer('after_id', 0));
+        $query = WhatsappChatMessage::query()->where('phone', $normalizedPhone);
+        if ($afterId > 0) {
+            $messages = $query->where('id', '>', $afterId)->orderBy('id')->limit(100)->get();
+        } else {
+            $ids = $query->orderByDesc('id')->limit(100)->pluck('id');
+            $messages = WhatsappChatMessage::query()->whereIn('id', $ids)->orderBy('id')->get();
+        }
 
-        $messages = WhatsappChatMessage::query()
-            ->where('phone', $normalizedPhone)
-            ->orderByDesc('id')
-            ->limit(100)
-            ->get()
-            ->sortBy('id')
-            ->values()
-            ->map(fn (WhatsappChatMessage $message) => [
-                'id' => $message->id,
-                'direction' => $message->direction,
-                'body' => $message->body,
-                'status' => $message->status,
-                'whatsapp_message_id' => $message->whatsapp_message_id,
-                // La hora visible debe coincidir con la web. sent_at histórico
-                // puede contener una zona equivocada, por eso usamos created_at.
-                'sent_at' => $message->created_at?->toIso8601String(),
-                'media' => $message->metadata['media'] ?? null,
-                'reaction' => data_get($message->metadata, 'meta_payload.reaction'),
-            ]);
-
-        return response()->json(['data' => $messages]);
+        return response()->json(['data' => $messages->map(fn (WhatsappChatMessage $message) => [
+            'id' => $message->id,
+            'direction' => $message->direction,
+            'body' => $message->body,
+            'status' => $message->status,
+            'whatsapp_message_id' => $message->whatsapp_message_id,
+            'sent_at' => $message->created_at?->toIso8601String(),
+            'media' => $message->metadata['media'] ?? null,
+            'reaction' => data_get($message->metadata, 'meta_payload.reaction'),
+        ])->values()]);
     }
 
     public function store(Request $request, string $phone): JsonResponse
@@ -173,7 +177,7 @@ class MobileChatController extends Controller
             'file_mimetype' => ['nullable', 'required_with:file_data', 'string', 'in:application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
             'file_filename' => ['nullable', 'required_with:file_data', 'string', 'max:255'],
         ]);
-        $normalizedPhone = WhatsappChatMessage::normalizePhone($phone);
+        $normalizedPhone = WhatsappChatMessage::normalizeConversationKey($phone);
         $conversation = WhatsappChatMessage::conversationSummaryForPhone($normalizedPhone);
 
         abort_unless(
@@ -203,8 +207,12 @@ class MobileChatController extends Controller
             ]];
         }
 
+        $identityMessage = WhatsappChatMessage::query()->where('phone', $normalizedPhone)->latest('id')->first();
+
         $message = WhatsappChatMessage::create([
             'phone' => $normalizedPhone,
+            'identity_type' => $identityMessage?->identity_type ?? 'phone',
+            'whatsapp_user_id' => $identityMessage?->whatsapp_user_id,
             'direction' => 'outbound',
             'body' => $body !== '' ? $body : null,
             'status' => 'queued',
@@ -217,7 +225,7 @@ class MobileChatController extends Controller
 
     public function destroy(string $phone): JsonResponse
     {
-        $normalizedPhone = WhatsappChatMessage::normalizePhone($phone);
+        $normalizedPhone = WhatsappChatMessage::normalizeConversationKey($phone);
         $deleted = WhatsappChatMessage::query()->where('phone', $normalizedPhone)->delete();
 
         return response()->json(['ok' => true, 'deleted_messages' => $deleted]);

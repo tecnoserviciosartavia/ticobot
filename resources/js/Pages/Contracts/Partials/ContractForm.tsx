@@ -9,6 +9,7 @@ import type { ChangeEvent, FormEventHandler } from 'react';
 
 interface ClientOption {
     id: number;
+    company_id?: number | null;
     name: string;
     phone?: string | null;
 }
@@ -31,6 +32,7 @@ interface ContractFormData {
 
 interface ServiceOption {
     id: number;
+    company_id?: number | null;
     name: string;
     price: string;
     currency: string;
@@ -137,7 +139,8 @@ export default function ContractForm({
         }
     };
     const selectedIds = (data.service_ids ?? []) as number[];
-    const selectedServices = services.filter((s) => selectedIds.includes(s.id));
+    const availableServices = selectedClient?.company_id ? services.filter((s) => Number(s.company_id) === Number(selectedClient.company_id)) : services;
+    const selectedServices = availableServices.filter((s) => selectedIds.includes(s.id));
     const quantities = (data.service_quantities ?? {}) as Record<string, number>;
     const servicePins = (data.service_pins ?? {}) as Record<string, string>;
     const serviceAccountIds = (data.service_account_ids ?? {}) as Record<string, number>;
@@ -324,9 +327,9 @@ export default function ContractForm({
                         }}
                         className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
                         required
-                        size={Math.min(8, Math.max(4, services.length || 4))}
+                        size={Math.min(8, Math.max(4, availableServices.length || 4))}
                     >
-                        {services.map((s) => {
+                        {availableServices.map((s) => {
                             const isFull = s.max_profiles != null && (s.profiles_used ?? 0) >= s.max_profiles;
                             const accountIdentifiers = serviceAccountIdentifiers(s);
                             const slotLabel = s.max_profiles != null

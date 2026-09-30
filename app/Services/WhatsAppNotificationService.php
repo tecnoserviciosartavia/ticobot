@@ -15,9 +15,9 @@ class WhatsAppNotificationService
 
     public function __construct()
     {
-        $this->metaToken = trim((string) env('WHATSAPP_TOKEN', ''));
-        $this->metaPhoneNumberId = trim((string) env('WHATSAPP_PHONE_ID', ''));
-        $this->metaApiVersion = trim((string) env('WHATSAPP_VERSION', 'v18.0'));
+        $this->metaToken = trim((string) config('services.whatsapp.token', ''));
+        $this->metaPhoneNumberId = trim((string) config('services.whatsapp.phone_id', ''));
+        $this->metaApiVersion = trim((string) config('services.whatsapp.version', 'v18.0'));
     }
 
     /**
@@ -216,20 +216,6 @@ class WhatsAppNotificationService
         return $lastFour;
     }
 
-    private function normalizePhoneForMeta(string $phone): ?string
-    {
-        $digits = preg_replace('/\D+/', '', $phone);
-        if ($digits === '') {
-            return null;
-        }
-
-        if (str_starts_with($digits, '00')) {
-            $digits = substr($digits, 2) ?: '';
-        }
-
-        return $digits !== '' ? $digits : null;
-    }
-
     private function metaApiBaseUrl(): string
     {
         return 'https://graph.facebook.com/'.$this->metaApiVersion;
@@ -248,6 +234,22 @@ class WhatsAppNotificationService
         return $this->metaToken !== '' && $this->metaPhoneNumberId !== '';
     }
 
+    private function normalizeMetaRecipient(string $recipient): ?string
+    {
+        $recipient = trim($recipient);
+        if ($recipient === '') {
+            return null;
+        }
+
+        // Los BSUID pueden ser opacos. Los teléfonos existentes conservan su
+        // normalización histórica, incluidos espacios, + y guiones.
+        if (preg_match('/[A-Za-z]/', $recipient) === 1) {
+            return $recipient;
+        }
+
+        return WhatsappChatMessage::normalizePhone($recipient) ?: null;
+    }
+
     public function isMetaConfigured(): bool
     {
         return $this->metaConfigured();
@@ -255,7 +257,7 @@ class WhatsAppNotificationService
 
     public function sendMediaMessage(string $phone, string $base64Data, string $mimeType, ?string $filename = null, ?string $caption = null): bool
     {
-        $normalizedPhone = $this->normalizePhoneForMeta($phone);
+        $normalizedPhone = $this->normalizeMetaRecipient($phone);
         if (! $this->metaConfigured() || $normalizedPhone === null) return false;
         $mediaId = $this->uploadMetaMediaTemp($base64Data, $mimeType);
         if (! $mediaId) return false;
@@ -268,19 +270,19 @@ class WhatsAppNotificationService
         return $response->successful();
     }
 
-    private function sendViaMetaText(string $phone, string $message): bool
+    private function sendViaMetaText(string $phone, string $message): ?string
     {
         if (! $this->metaConfigured()) {
             Log::warning('Meta WhatsApp no configurado; no se pudo enviar texto', [
                 'phone' => $phone,
             ]);
-            return false;
+            return null;
         }
 
-        $normalizedPhone = $this->normalizePhoneForMeta($phone);
+        $normalizedPhone = $this->normalizeMetaRecipient($phone);
         if ($normalizedPhone === null) {
             Log::warning('Número inválido para Meta WhatsApp', ['phone' => $phone]);
-            return false;
+            return null;
         }
 
         $payload = [
@@ -298,7 +300,9 @@ class WhatsAppNotificationService
             ->post($this->metaApiBaseUrl().'/'.$this->metaPhoneNumberId.'/messages', $payload);
 
         if ($response->successful()) {
-            return true;
+            $data = $response->json();
+            $messageId = $data['messages'][0]['id'] ?? null;
+            return $messageId;
         }
 
         Log::warning('Error al enviar mensaje por Meta WhatsApp', [
@@ -307,7 +311,7 @@ class WhatsAppNotificationService
             'response' => $response->body(),
         ]);
 
-        return false;
+        return null;
     }
 
     private function uploadMetaMediaTemp(string $base64Data, string $mimeType): ?string
@@ -378,7 +382,7 @@ class WhatsAppNotificationService
             return false;
         }
 
-        $normalizedPhone = $this->normalizePhoneForMeta($phone);
+        $normalizedPhone = $this->normalizeMetaRecipient($phone);
         if ($normalizedPhone === null) {
             Log::warning('Número inválido para Meta WhatsApp', ['phone' => $phone]);
             return false;
@@ -439,11 +443,13 @@ class WhatsAppNotificationService
     ): bool
     {
         try {
-            if (! $this->sendViaMetaText($phone, $message)) {
+            $whatsappMessageId = $this->sendViaMetaText($phone, $message);
+            if (! $whatsappMessageId) {
                 return false;
             }
 
             if ($logHistory) {
+                $historyMetadata['whatsapp_message_id'] = $whatsappMessageId;
                 $this->logOutboundHistory($phone, $message, $historyMetadata);
             }
 
@@ -471,7 +477,7 @@ class WhatsAppNotificationService
         string $language = 'es',
         array $historyMetadata = []
     ): bool {
-        $normalizedPhone = $this->normalizePhoneForMeta($phone);
+        $normalizedPhone = $this->normalizeMetaRecipient($phone);
 
         if (! $this->metaConfigured() || $normalizedPhone === null) {
             return false;
@@ -533,6 +539,37 @@ class WhatsAppNotificationService
      */
     private function renderTemplateBodyForHistory(string $templateName, array $bodyParameters): string
     {
+        if ($templateName === 'aviso_ajuste_tarifas_facturacion_v1') {
+            [$clientName] = array_pad(array_values($bodyParameters), 1, 'cliente');
+
+            return "Hola, {$clientName}. Esperamos que se encuentre muy bien.\n\n"
+                .'Queremos informarle que, a partir de septiembre de 2026, se aplicará un ajuste en las tarifas de todos nuestros servicios de facturación. '
+                ."Este cambio nos permitirá continuar brindándole un servicio estable, atención oportuna y mejoras constantes.\n\n"
+                ."Agradecemos mucho su comprensión y la confianza depositada en nosotros. Si tiene alguna consulta, con gusto estamos para ayudarle.\n\n"
+                ."Saludos cordiales,\nEquipo TicoFac";
+        }
+
+        if ($templateName === 'reactivacion_servicio_v1') {
+            [$platforms] = array_pad(array_values($bodyParameters), 1, 'los servicios asignados');
+
+            return "Lamentamos que no quisieras renovar con nosotros. Hemos eliminado los perfiles de las siguientes plataformas: {$platforms}.\n\n"
+                .'Si deseas renovar y volver a disfrutar de nuestros servicios, solamente escríbenos y activamos nuevamente tu perfil.';
+        }
+
+        if ($templateName === 'recordatorio_vencimiento_multiempresa') {
+            [$clientName, $companyName, $dueDate, $amount, $paymentContact, $bankAccounts, $beneficiaryName] = array_pad(array_values($bodyParameters), 7, '');
+
+            return "Estimad@ cliente {$clientName}\n\n"
+                ."{$companyName} le informa que su suscripción de servicios ha vencido.\n\n"
+                ."Fecha de vencimiento: {$dueDate}\n"
+                ."Total: {$amount}\n\n"
+                ."Por favor realice el pago correspondiente y envíenos el comprobante.\n\n"
+                ."SINPE Móvil / contacto de pago: {$paymentContact}\n\n"
+                ."Cuentas para depósitos:\n{$bankAccounts}\n\n"
+                ."Beneficiario: {$beneficiaryName}\n\n"
+                ."Si ya realizó el pago, omita este mensaje.";
+        }
+
         if ($templateName !== 'recordatorio_vencimiento_v2') {
             return implode(' | ', array_map('strval', $bodyParameters));
         }
@@ -559,7 +596,7 @@ class WhatsAppNotificationService
 
     private function logOutboundHistory(string $phone, ?string $body, array $metadata = []): void
     {
-        $normalizedPhone = $this->normalizePhoneForMeta($phone);
+        $normalizedPhone = WhatsappChatMessage::normalizePhone($phone) ?: null;
         if ($normalizedPhone === null) {
             return;
         }

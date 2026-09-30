@@ -21,9 +21,51 @@ export default function Pagination({ links }: PaginationProps) {
         return null;
     }
 
+    const prev = links[0];
+    const next = links[links.length - 1];
+    const pageLinks = links.slice(1, -1);
+    const currentPage = pageLinks.findIndex((link) => link.active) + 1;
+    const totalPages = pageLinks.filter((link) => link.label !== '...').length;
+
     return (
-        <nav className="mt-6" aria-label="Pagination">
-            <ul className="flex flex-wrap gap-2">
+        <nav aria-label="Pagination">
+            {/* Mobile: solo anterior/siguiente + indicador de página */}
+            <div className="flex items-center justify-between gap-3 md:hidden">
+                {prev.url ? (
+                    <Link
+                        href={prev.url}
+                        preserveScroll
+                        className="inline-flex flex-1 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    >
+                        « Anterior
+                    </Link>
+                ) : (
+                    <span className="inline-flex flex-1 items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-300 dark:border-slate-800 dark:text-slate-700">
+                        « Anterior
+                    </span>
+                )}
+                {currentPage > 0 && totalPages > 0 && (
+                    <span className="shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        {currentPage} / {totalPages}
+                    </span>
+                )}
+                {next.url ? (
+                    <Link
+                        href={next.url}
+                        preserveScroll
+                        className="inline-flex flex-1 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    >
+                        Siguiente »
+                    </Link>
+                ) : (
+                    <span className="inline-flex flex-1 items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-300 dark:border-slate-800 dark:text-slate-700">
+                        Siguiente »
+                    </span>
+                )}
+            </div>
+
+            {/* Desktop: listado numerado completo */}
+            <ul className="hidden flex-wrap gap-2 md:flex">
                 {links.map((link, index) => (
                     <li key={`${link.label}-${index}`}>
                         {link.url ? (

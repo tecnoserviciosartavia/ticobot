@@ -13,6 +13,7 @@ class Client extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'company_id',
         'name',
         'email',
         'phone',
@@ -24,6 +25,11 @@ class Client extends Model
     protected $casts = [
         'metadata' => 'array',
     ];
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
 
     public function contracts()
     {

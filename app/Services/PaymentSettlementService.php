@@ -24,6 +24,8 @@ class PaymentSettlementService
         if (! $payment->client_id) {
             return;
         }
+        app(PayerAliasService::class)->learnFromVerifiedPayment($payment);
+
 
         $meta = is_array($payment->metadata) ? $payment->metadata : [];
         $effectiveContractId = $payment->contract_id
@@ -67,6 +69,8 @@ class PaymentSettlementService
         }
 
         $yearMonths = $this->resolveCoverageYearMonths($payment, $contract);
+        $paymentMetadata = is_array($payment->metadata) ? $payment->metadata : [];
+        $hasExplicitPeriod = (bool) ($paymentMetadata['billing_period_explicit'] ?? false);
         $this->maybeBackfillCoveredMonths($payment, $yearMonths);
 
         $baseQuery = Reminder::query()->where('client_id', $payment->client_id);
@@ -93,7 +97,10 @@ class PaymentSettlementService
                 ]);
         }
 
-        if ($bulkCount === 0) {
+        // Solo recurrir al próximo recordatorio cuando el pago realmente no trae
+        // un período. Si el usuario eligió julio, nunca se debe liquidar agosto,
+        // octubre u otro mes porque no exista un recordatorio abierto de julio.
+        if ($bulkCount === 0 && ! $hasExplicitPeriod) {
             $nextPending = (clone $baseQuery)
                 ->whereIn('status', ['pending', 'queued'])
                 ->orderBy('scheduled_for')
@@ -382,6 +389,9 @@ class PaymentSettlementService
             $newDueDate = $base->copy()->addMonthsNoOverflow($monthsPaid);
         }
 
+        if ($contract->next_due_date && Carbon::parse($contract->next_due_date, $tz)->startOfDay()->greaterThan($newDueDate->copy()->startOfDay())) {
+            return;
+        }
         $contract->update(['next_due_date' => $newDueDate]);
     }
 

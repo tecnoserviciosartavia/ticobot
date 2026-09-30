@@ -119,27 +119,6 @@ async function main(): Promise<void> {
     return ADMIN_PHONES.includes(user) || ADMIN_PHONES.includes(normalized);
   }
 
-  async function isAllowedForChatCleanup(phoneDigits: string): Promise<boolean> {
-    // Admins nunca se limpian
-    if (ADMIN_PHONES.includes(phoneDigits) || ADMIN_PHONES.includes(normalizeCR(phoneDigits))) return true;
-
-    // Si está pausado, igual es “conocido” (es un contacto gestionado), entonces lo dejamos
-    try {
-      const paused = await apiClient.checkPausedContact(phoneDigits);
-      if (paused) return true;
-    } catch {
-      // ignore
-    }
-
-    // Cliente existente
-    try {
-      const client = await apiClient.findCustomerByPhone(phoneDigits);
-      return Boolean(client);
-    } catch {
-      // Si backend no responde, no limpiamos por seguridad
-      return true;
-    }
-  }
 
   // Timeouts: default 10 minutes for bot menu inactivity
   const BOT_TIMEOUT_MS = Number(process.env.BOT_TIMEOUT_MS || 10 * 60 * 1000);
@@ -274,6 +253,32 @@ async function main(): Promise<void> {
       logger.info({ chatId, timeoutMs: timeout }, 'Chat timeout: estado limpiado por inactividad');
     }, timeout);
     chatTimers.set(chatId, timer);
+  }
+
+  function isMenuShown(chatId: string): boolean {
+    return linkedChatIds(chatId).some((id) => menuShown.get(id));
+  }
+
+  function getLastMenuItems(chatId: string): Array<any> | undefined {
+    for (const id of linkedChatIds(chatId)) {
+      const items = lastMenuItems.get(id);
+      if (Array.isArray(items)) return items;
+    }
+    return undefined;
+  }
+
+  function showMenuState(chatId: string, items: Array<any>) {
+    for (const id of linkedChatIds(chatId)) {
+      menuShown.set(id, true);
+      lastMenuItems.set(id, items);
+    }
+  }
+
+  function clearMenuState(chatId: string) {
+    for (const id of linkedChatIds(chatId)) {
+      menuShown.delete(id);
+      lastMenuItems.delete(id);
+    }
   }
 
   whatsappClient.registerOutboundFromMeHandler(async (message) => {
@@ -905,8 +910,7 @@ whatsappClient.registerInboundHandler(async (message) => {
       lines.push('Escribe "menu" para volver al inicio o "salir" para finalizar la conversación.');
 
       await message.reply(lines.join('\n'));
-      menuShown.set(chatId, true);
-      lastMenuItems.set(chatId, menuToUse);
+      showMenuState(chatId, menuToUse);
       scheduleMenuReminder(chatId);
       return true;
     };
@@ -999,7 +1003,7 @@ whatsappClient.registerInboundHandler(async (message) => {
         'El bot te tratará como un cliente normal (sigues siendo admin).',
         '',
         '• *menu* — probar menú y opciones',
-        '• Responde manualmente desde WhatsApp Web del negocio → el bot debe pausarse',
+        '• Responde manualmente desde la bandeja de conversaciones del sistema → el bot debe pausarse',
         '• *fintest* — salir del modo prueba',
         '• *adminmenu* — también sale del modo prueba',
       ].join('\n'));
@@ -1040,10 +1044,9 @@ whatsappClient.registerInboundHandler(async (message) => {
         '',
         '1️⃣5️⃣ Estado del bot',
         '1️⃣6️⃣ Pausar / reanudar contacto (silenciar bot)',
-        '1️⃣7️⃣ Limpiar chats no-clientes (borrar/limpiar)',
-        '1️⃣8️⃣ Listar clientes por plataforma',
-        '1️⃣9️⃣ Cambiar horario de atención',
-        '2️⃣0️⃣ Pausar / reanudar bot',
+        '1️⃣7️⃣ Listar clientes por plataforma',
+        '1️⃣8️⃣ Cambiar horario de atención',
+        '1️⃣9️⃣ Pausar / reanudar bot',
         '',
         '🧪 *testcliente* — simular cliente (probar pausa manual)',
         '🧪 *fintest* — salir del modo prueba',
@@ -1052,8 +1055,7 @@ whatsappClient.registerInboundHandler(async (message) => {
         '❌ Escribe salir para cancelar',
       ].join('\n');
       await send(adminMenuText);
-      menuShown.set(chatId, true);
-      lastMenuItems.set(chatId, [{ type: 'admin_menu' }]);
+      showMenuState(chatId, [{ type: 'admin_menu' }]);
       return;
     }
 
@@ -1108,10 +1110,8 @@ whatsappClient.registerInboundHandler(async (message) => {
       // best-effort: si falla el check, continuar normal
     }
 
-    // Bot paused check
-    if (botPaused && !isAdminUserEarly) {
-      return;
-    }
+    // Pausa global del bot desactivada: el bot debe responder siempre a los mensajes normales y al menú.
+    // Se conserva la compatibilidad con estado de contacto pausado, pero no se bloquea el flujo global.
 
     // Mantener timeout por chat y detectar admin.
     // Importante: cuando el chat está en modo agente, NO reiniciamos el timer
@@ -1136,7 +1136,7 @@ whatsappClient.registerInboundHandler(async (message) => {
   // Business hours check: admins and ongoing processes always bypass
   // Regular users can now use the menu and automatic options 24/7, but agent requests notify about off-hours
   try {
-    const isInActiveProcess = awaitingReceipt.get(chatId) || pendingConfirmReceipt.has(chatId) || awaitingMonths.has(chatId) || isChatInAgentMode(chatId) || menuShown.get(chatId);
+    const isInActiveProcess = awaitingReceipt.get(chatId) || pendingConfirmReceipt.has(chatId) || awaitingMonths.has(chatId) || isChatInAgentMode(chatId) || isMenuShown(chatId);
     const isMediaUpload = !!(message as any).hasMedia;
     logger.warn({ chatId, lc, isAdminUserEarly, isInActiveProcess, isMediaUpload, withinHours: _isWithinBusinessHours() }, 'DEBUG horario: punto de verificación de horario alcanzado');
     // No bloquear mensajes generales por horario: menú y opciones automáticas 24/7.
@@ -1203,7 +1203,7 @@ whatsappClient.registerInboundHandler(async (message) => {
         chatTimeoutMs.set(chatId, BOT_TIMEOUT_MS);
         try { touchTimer(chatId); } catch { /* ignore */ }
       } else {
-        const looksLikeMenuSelection = Boolean(menuShown.get(chatId)) && /^\d{1,2}$/.test(lc);
+        const looksLikeMenuSelection = Boolean(isMenuShown(chatId)) && /^\d{1,2}$/.test(lc);
         const looksLikeMenuCommand = (lc === 'menu' || lc === 'inicio' || lc === 'help');
         const looksLikeAgentCommand = (lc === 'agente' || lc === 'asesor');
         if (!(looksLikeMenuSelection || looksLikeMenuCommand || looksLikeAgentCommand)) {
@@ -1320,107 +1320,6 @@ whatsappClient.registerInboundHandler(async (message) => {
     if (isAdminUser && adminFlows.has(chatId) && !lc.startsWith('*')) {
       const flow = adminFlows.get(chatId);
       try {
-  // cleanup_chats flow (limpieza de chats no-clientes)
-        if (flow.type === 'cleanup_chats') {
-          if (flow.step === 1) {
-            const ans = (body || '').trim().toLowerCase();
-            if (ans === '1' || ans === 'simular' || ans === 'dry' || ans === 'dryrun') {
-              const summary = await whatsappClient.cleanupChats({
-                dryRun: true,
-                includeUnread: Boolean(flow.data?.includeUnread),
-                includeGroups: Boolean(flow.data?.includeGroups),
-                limit: 200,
-                isAllowedNumber: isAllowedForChatCleanup,
-              });
-
-              adminFlows.delete(chatId);
-              const lines: string[] = [];
-              lines.push('🧹 *Limpieza de chats (SIMULACIÓN)*');
-              lines.push('');
-              lines.push(`Chats revisados: ${summary.scanned}`);
-              lines.push(`Candidatos a limpiar (no-clientes): ${summary.candidates}`);
-              lines.push(`Saltados por no leídos: ${summary.skippedUnread}`);
-              lines.push(`Saltados por grupos: ${summary.skippedGroup}`);
-              lines.push(`Errores: ${summary.errors}`);
-              lines.push('');
-              if (summary.sample?.length) {
-                lines.push('*Muestra (hasta 20):*');
-                for (const s of summary.sample.slice(0, 20)) {
-                  const who = s.phone ? s.phone : s.chatId;
-                  lines.push(`• ${who}: ${s.action}${s.reason ? ` (${s.reason})` : ''}`);
-                }
-              }
-              lines.push('');
-              lines.push('Escribe *adminmenu* para volver');
-              await message.reply(lines.join('\n'));
-              return;
-            }
-
-            if (ans === '3') {
-              flow.data.includeUnread = !Boolean(flow.data?.includeUnread);
-              await message.reply(`✅ includeUnread ahora es: ${flow.data.includeUnread ? 'SI' : 'NO'}\n\nResponde 1 (simular) o 2 (ejecutar) o 4 (grupos).`);
-              return;
-            }
-
-            if (ans === '4') {
-              flow.data.includeGroups = !Boolean(flow.data?.includeGroups);
-              await message.reply(`✅ includeGroups ahora es: ${flow.data.includeGroups ? 'SI' : 'NO'}\n\nResponde 1 (simular) o 2 (ejecutar) o 3 (no leídos).`);
-              return;
-            }
-
-            if (ans === '2' || ans === 'ejecutar' || ans === 'run') {
-              flow.step = 2;
-              await message.reply([
-                '⚠️ *Confirmación requerida*',
-                '',
-                'Esto intentará *borrar el chat* (si WhatsApp Web lo permite).',
-                'Si no se puede borrar, hará fallback a *limpiar mensajes* (sin archivar automáticamente).',
-                `Configuración: includeUnread=${Boolean(flow.data?.includeUnread) ? 'SI' : 'NO'}, includeGroups=${Boolean(flow.data?.includeGroups) ? 'SI' : 'NO'}.`,
-                '',
-                'Responde *CONFIRMAR* para ejecutar, o *cancelar* para salir.'
-              ].join('\n'));
-              return;
-            }
-
-            await message.reply('Responde 1 (simular), 2 (ejecutar), 3 (toggle no leídos) o 4 (toggle grupos).');
-            return;
-          }
-
-          if (flow.step === 2) {
-            const ans = (body || '').trim().toLowerCase();
-            if (ans === 'cancelar' || ans === 'salir' || ans === 'no') {
-              adminFlows.delete(chatId);
-              await message.reply('Operación cancelada. Escribe *adminmenu* para volver');
-              return;
-            }
-
-            if (ans !== 'confirmar') {
-              await message.reply('Responde *CONFIRMAR* para ejecutar o *cancelar* para salir.');
-              return;
-            }
-
-            const summary = await whatsappClient.cleanupChats({
-              dryRun: false,
-              includeUnread: Boolean(flow.data?.includeUnread),
-              includeGroups: Boolean(flow.data?.includeGroups),
-              limit: 200,
-              isAllowedNumber: isAllowedForChatCleanup,
-            });
-
-            adminFlows.delete(chatId);
-            const lines: string[] = [];
-            lines.push('🧹 *Limpieza de chats (EJECUTADA)*');
-            lines.push('');
-            lines.push(`Chats revisados: ${summary.scanned}`);
-            lines.push(`Candidatos detectados: ${summary.candidates}`);
-            lines.push(`Acciones ejecutadas: ${summary.acted}`);
-            lines.push(`Errores: ${summary.errors}`);
-            lines.push('');
-            lines.push('Escribe *adminmenu* para volver');
-            await message.reply(lines.join('\n'));
-            return;
-          }
-        }
 
         // pause_contact flow (silenciar bot para un cliente)
         if (flow.type === 'pause_contact') {
@@ -1987,7 +1886,7 @@ whatsappClient.registerInboundHandler(async (message) => {
             }
           }
           if (flow.step === 2) {
-            const newStatus = body.trim() || 'verified';
+            const newStatus = body.trim().toLowerCase() || 'verified';
             if (!['verified', 'rejected', 'pending', 'unverified'].includes(newStatus)) {
               await message.reply('❌ Estado inválido. Usa: verified, rejected, pending o unverified');
               return;
@@ -2000,20 +1899,20 @@ whatsappClient.registerInboundHandler(async (message) => {
           if (flow.step === 3) {
             const notes = body.trim() || null;
             try {
+              const conciliationStatus = d.newStatus === 'verified'
               const d = flow.data;
-              // Update payment status
-              await apiClient.updatePayment(d.payment.id, { status: d.newStatus });
-              
-              // Create conciliation record
+                ? 'approved'
+                : d.newStatus === 'rejected'
+                  ? 'rejected'
+                  : 'in_review';
               const conciliationPayload = {
                 payment_id: d.payment.id,
-                status: d.newStatus,
-                notes: notes,
-                conciliated_by: fromNorm,
-                conciliated_at: new Date().toISOString()
+                status: conciliationStatus,
+                notes,
+                verified_at: conciliationStatus === 'approved' ? new Date().toISOString() : undefined,
               };
               await apiClient.createConciliation(conciliationPayload);
-              
+              await apiClient.createConciliation(conciliationPayload);
               await message.reply(`✅ Pago conciliado correctamente.\n\nID: ${d.payment.id}\nNuevo estado: ${d.newStatus}\n\nEscribe *adminmenu* para volver`);
             } catch (e: any) {
               logger.error({ e, paymentId: flow.data.payment?.id }, 'Error conciliando pago');
@@ -2318,7 +2217,7 @@ whatsappClient.registerInboundHandler(async (message) => {
     // (para evitar waits de backend en modo polling fallback). No duplicar aquí.
 
     // If admin menu is active, process numeric selections
-    if (isAdminUser && menuShown.get(chatId) && lastMenuItems.get(chatId)?.[0]?.type === 'admin_menu') {
+    if (isAdminUser && isMenuShown(chatId) && getLastMenuItems(chatId)?.[0]?.type === 'admin_menu') {
       const selection = (body || '').trim().replace(/\s+/g, '');
       
       if (selection === '1') {
@@ -2396,28 +2295,8 @@ whatsappClient.registerInboundHandler(async (message) => {
         return;
       }
 
+
       if (selection === '17') {
-        // Limpiar chats no-clientes
-  menuShown.delete(chatId);
-        lastMenuItems.delete(chatId);
-        adminFlows.set(chatId, { type: 'cleanup_chats', step: 1, data: { dryRun: true, includeUnread: false } });
-        await message.reply([
-          '🧹 Limpieza de chats (no-clientes)',
-          '',
-          'Esto revisa los chats del WhatsApp del BOT y limpia/archiva chats que NO sean clientes.',
-          'Por seguridad primero corre en modo simulación (dry-run).',
-          '',
-          'Selecciona una opción:',
-          '1) Simular (dry-run) y mostrar resumen',
-          '2) Ejecutar limpieza REAL (requiere confirmación)',
-          '3) Configurar: incluir chats con NO LEÍDOS (por defecto NO)',
-          '4) Configurar: incluir GRUPOS (por defecto NO)',
-          '',
-          'Escribe *adminmenu* para volver'
-        ].join('\n'));
-        return;
-      }
-      if (selection === '18') {
         menuShown.delete(chatId);
         lastMenuItems.delete(chatId);
         try {
@@ -2443,7 +2322,7 @@ whatsappClient.registerInboundHandler(async (message) => {
         return;
       }
       
-      if (selection === '19') {
+      if (selection === '18') {
         // Cambiar horario de atención
         menuShown.delete(chatId);
         lastMenuItems.delete(chatId);
@@ -2452,7 +2331,7 @@ whatsappClient.registerInboundHandler(async (message) => {
         return;
       }
       
-      if (selection === '20') {
+      if (selection === '19') {
         // Pausar / reanudar bot
         menuShown.delete(chatId);
         lastMenuItems.delete(chatId);
@@ -2689,7 +2568,7 @@ whatsappClient.registerInboundHandler(async (message) => {
           'El bot te tratará como un cliente normal (sigues siendo admin).',
           '',
           '• Escribe *menu* para probar el flujo',
-          '• Responde manualmente desde WhatsApp Web del negocio para probar la pausa',
+          '• Responde manualmente desde la bandeja de conversaciones del sistema para probar la pausa',
           '• Escribe *fintest* para salir',
         ].join('\n'));
         return;
@@ -3018,9 +2897,9 @@ whatsappClient.registerInboundHandler(async (message) => {
     }
 
     // If menu is active for this chat (awaiting selection), treat the incoming message as a menu selection
-    if (menuShown.get(chatId)) {
+    if (isMenuShown(chatId)) {
       try {
-        const menu = lastMenuItems.get(chatId) ?? (await resolveMenu());
+        const menu = getLastMenuItems(chatId) ?? (await resolveMenu());
 
         let matched = null;
 
@@ -3048,8 +2927,8 @@ whatsappClient.registerInboundHandler(async (message) => {
           if (matched.submenu && Array.isArray(matched.submenu) && matched.submenu.length) {
             await message.reply(matched.reply_message);
             // store submenu entries for the chat (expect letter like a/b/c)
-            lastMenuItems.set(chatId, matched.submenu.map((s: any) => ({ ...s, key: (s.key || s.key_text || '').toString().toLowerCase(), text: s.text || s.reply_message || '' })));
-            menuShown.set(chatId, true);
+            const submenuItems = matched.submenu.map((s: any) => ({ ...s, key: (s.key || s.key_text || '').toString().toLowerCase(), text: s.text || s.reply_message || '' }));
+            showMenuState(chatId, submenuItems);
             scheduleMenuReminder(chatId);
             return;
           }
@@ -3085,8 +2964,7 @@ whatsappClient.registerInboundHandler(async (message) => {
             activateChatAgentMode(chatId);
             chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
             try { touchTimer(chatId); } catch { /* ignore */ }
-            menuShown.delete(chatId);
-            lastMenuItems.delete(chatId);
+            clearMenuState(chatId);
             logger.info({ chatId }, 'Chat puesto en modo agente (opción 5)');
 
             return;
@@ -3234,8 +3112,7 @@ whatsappClient.registerInboundHandler(async (message) => {
               const client = await apiClient.findCustomerByPhone(fromUser);
               if (!client || !client.id) {
                 await message.reply('❌ No encontramos tu información en nuestro sistema. Por favor contacta con un asesor escribiendo "agente".');
-                menuShown.delete(chatId);
-                lastMenuItems.delete(chatId);
+                clearMenuState(chatId);
                 return;
               }
 
@@ -3248,8 +3125,7 @@ whatsappClient.registerInboundHandler(async (message) => {
               await message.reply('❌ ' + backendMessage);
             }
 
-            menuShown.delete(chatId);
-            lastMenuItems.delete(chatId);
+            clearMenuState(chatId);
             return;
           }
 
@@ -3277,8 +3153,7 @@ whatsappClient.registerInboundHandler(async (message) => {
             chatTimeoutMs.set(chatId, _AGENT_TIMEOUT_MS);
             try { touchTimer(chatId); } catch (e) { logger.debug({ e }, 'touchTimer fallo al activar agentMode'); }
             // clear menu state but keep agentMode active
-            menuShown.delete(chatId);
-            lastMenuItems.delete(chatId);
+            clearMenuState(chatId);
             logger.info({ chatId }, 'Chat puesto en modo agente');
             await notifyHelpRequest('transfer_heuristic');
 
@@ -3286,8 +3161,7 @@ whatsappClient.registerInboundHandler(async (message) => {
           }
 
           // otherwise behave normally: clear shown state so next message will show menu again
-          menuShown.delete(chatId);
-          lastMenuItems.delete(chatId);
+          clearMenuState(chatId);
           return;
         }
 
@@ -3461,87 +3335,6 @@ whatsappClient.registerInboundHandler(async (message) => {
 
   await whatsappClient.initialize();
 
-  // Inicializar procesador de admin queue (si existe)
-  try {
-  const DATA_DIR = path.join(process.cwd(), 'data');
-    const QUEUE_FILE = path.join(DATA_DIR, 'admin_queue.json');
-    const RESULTS_FILE = path.join(DATA_DIR, 'admin_results.json');
-    // asegurar carpeta
-    try { await fs.mkdir(DATA_DIR, { recursive: true }); } catch {}
-
-    async function loadJson<T = any>(file: string, fallback: T): Promise<T> {
-      try {
-        const raw = await fs.readFile(file, { encoding: 'utf8' });
-        return JSON.parse(raw || 'null') ?? fallback;
-      } catch {
-        return fallback;
-      }
-    }
-
-    async function saveJson(file: string, data: any) {
-      await fs.writeFile(file, JSON.stringify(data, null, 2), { encoding: 'utf8' });
-    }
-
-    let _adminQueueRunning = false;
-    async function processAdminQueueOnce() {
-      if (_adminQueueRunning) return;
-      _adminQueueRunning = true;
-      const q = await loadJson(QUEUE_FILE, { queue: [] } as any);
-      const results = await loadJson(RESULTS_FILE, {} as any);
-      const remaining: any[] = [];
-
-      for (const item of q.queue || []) {
-        if (!item || !item.id || !item.type) continue;
-        if (results[item.id]) continue;
-
-        if (item.type === 'ping') {
-          results[item.id] = { ok: true, time: new Date().toISOString(), uptimeSec: Math.floor(process.uptime()) };
-        } else if (item.type === 'sendText') {
-          try {
-            const chatId = normalizeToChatId(item.phone);
-            if (!chatId) throw new Error('phone inválido');
-            const text = String(item.text || '').trim() || 'Mensaje de prueba';
-            await whatsappClient.sendText(chatId, text);
-            results[item.id] = { ok: true, sent: true };
-          } catch (e: any) {
-            results[item.id] = { ok: false, error: String(e && e.message ? e.message : e) };
-          }
-        } else if (item.type === 'runScheduler') {
-          try {
-            await processor.runBatch();
-            results[item.id] = { ok: true, ran: true, time: new Date().toISOString() };
-          } catch (e: any) {
-            results[item.id] = { ok: false, error: String(e && e.message ? e.message : e) };
-          }
-        } else if (item.type === 'state') {
-          try {
-            const state = await whatsappClient.getState();
-            results[item.id] = { ok: true, ...state };
-          } catch (e: any) {
-            results[item.id] = { ok: false, error: String(e && e.message ? e.message : e) };
-          }
-        } else {
-          results[item.id] = { ok: false, error: 'tipo no soportado' };
-        }
-      }
-
-      // Guardar resultados e identificar pendientes
-      await saveJson(RESULTS_FILE, results);
-      for (const it of q.queue || []) {
-        if (!it || !it.id) continue;
-        if (!results[it.id]) remaining.push(it);
-      }
-      q.queue = remaining;
-      await saveJson(QUEUE_FILE, q);
-      _adminQueueRunning = false;
-    }
-
-    setInterval(() => {
-      processAdminQueueOnce().catch(e => logger.warn({ e }, 'Admin queue error'));
-    }, 2000);
-  } catch (e) {
-    logger.debug({ e }, 'No se pudo inicializar admin queue processor');
-  }
 
   // --- small webhook receiver so backend/admin can notify the bot about reconciled receipts
   function startWebhookServer() {
@@ -3576,31 +3369,6 @@ whatsappClient.registerInboundHandler(async (message) => {
         }
 
         // --- Debug endpoints (solo localhost) ---
-        if (req.method === 'GET' && pathname === '/debug/state') {
-          if (!isLocal) {
-            res.writeHead(403, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: 'forbidden' }));
-            return;
-          }
-
-          const state = await whatsappClient.getState();
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, ...state }));
-          return;
-        }
-
-        if (req.method === 'GET' && pathname === '/debug/chats') {
-          if (!isLocal) {
-            res.writeHead(403, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ ok: false, error: 'forbidden' }));
-            return;
-          }
-
-          const summary = await whatsappClient.debugGetChatsSummary();
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(summary));
-          return;
-        }
 
         if (req.method === 'POST' && pathname === '/debug/ping_admin') {
           if (!isLocal) {

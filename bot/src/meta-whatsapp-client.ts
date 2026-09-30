@@ -13,6 +13,12 @@ export class MetaWhatsAppClient {
   registerInboundHandler(handler: MessageHandler): void { this.inboundHandler = handler; }
   registerOutboundFromMeHandler(_handler: MessageHandler): void {}
 
+  private recipientId(value: string): string {
+    const raw = String(value ?? '').trim();
+    if (/[A-Za-z]/.test(raw) && !raw.endsWith('@c.us')) return raw;
+    return chatIdToPhoneDigits(raw);
+  }
+
   async injectInboundMessage(payload: { id?: string; from: string; body?: string; timestamp?: number; type?: string; hasMedia?: boolean; meta?: any }): Promise<void> {
     if (!this.inboundHandler) return;
     const phone = chatIdToPhoneDigits(payload.from);
@@ -28,13 +34,13 @@ export class MetaWhatsAppClient {
   }
 
   async sendText(chatId: string, text: string): Promise<void> {
-    const phone = chatIdToPhoneDigits(chatId);
+    const phone = this.recipientId(chatId);
     if (!phone || !(await apiClient.sendWhatsAppText(phone, text))) throw new Error('Meta Cloud API no pudo enviar el mensaje');
     this.recentBotSendByPhone.set(phone, Date.now());
   }
 
   async sendMedia(chatId: string, data: string, mimetype: string, filename?: string, caption?: string): Promise<void> {
-    const phone = chatIdToPhoneDigits(chatId);
+    const phone = this.recipientId(chatId);
     if (!phone || !(await apiClient.sendWhatsAppMedia(phone, data, mimetype, filename, caption))) throw new Error('Meta Cloud API no pudo enviar el archivo');
     this.recentBotSendByPhone.set(phone, Date.now());
   }
@@ -58,11 +64,21 @@ export class MetaWhatsAppClient {
     const formattedAmount = currency === 'USD'
       ? `$${amountNumber.toLocaleString('es-CR')}`
       : `₡${amountNumber.toLocaleString('es-CR')}`;
-    const sent = await apiClient.sendWhatsAppTemplate(phone, 'recordatorio_vencimiento_v2', [
-      reminder.client?.name ?? '',
-      dueDate,
-      formattedAmount,
-    ]);
+    const senderCompany = String(reminder.payload?.sender_company ?? 'ticocast').trim().toLowerCase();
+    const isTicoCast = senderCompany === '' || senderCompany === 'ticocast';
+    const templateName = isTicoCast ? 'recordatorio_vencimiento_v2' : 'recordatorio_vencimiento_multiempresa';
+    const parameters = isTicoCast
+      ? [reminder.client?.name ?? '', dueDate, formattedAmount]
+      : [
+          reminder.client?.name ?? '',
+          String(reminder.payload?.company_name ?? 'Empresa'),
+          dueDate,
+          formattedAmount,
+          String(reminder.payload?.payment_contact ?? ''),
+          String(reminder.payload?.bank_accounts ?? '').replace(/\s*\r?\n\s*/g, ' | ').replace(/\s{2,}/g, ' ').trim(),
+          String(reminder.payload?.beneficiary_name ?? ''),
+        ];
+    const sent = await apiClient.sendWhatsAppTemplate(phone, templateName, parameters);
     if (!sent) throw new Error('Meta Cloud API no pudo enviar la plantilla de recordatorio');
     this.recentBotSendByPhone.set(chatIdToPhoneDigits(phone), Date.now());
     for (const attachment of payload.attachments ?? []) {
@@ -72,8 +88,5 @@ export class MetaWhatsAppClient {
 
   async resolvePhoneDigitsFromChatId(chatId: string, _message?: any): Promise<string | null> { return chatIdToPhoneDigits(chatId) || null; }
   isRecentBotSendToPhone(phone: string): boolean { return Date.now() - (this.recentBotSendByPhone.get(chatIdToPhoneDigits(phone)) || 0) < 30_000; }
-  async getState(): Promise<{ state: string; info: any }> { return { state: 'META_API', info: { transport: 'meta-cloud-api' } }; }
-  async debugGetChatsSummary(): Promise<any> { return { transport: 'meta-cloud-api', chats: [] }; }
-  async cleanupChats(_options?: any): Promise<any> { return { transport: 'meta-cloud-api', candidates: 0, acted: 0, skippedUnread: 0, sample: [] }; }
   async shutdown(): Promise<void> { logger.info('Transporte Meta Cloud API detenido'); }
 }

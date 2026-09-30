@@ -86,6 +86,7 @@ class PushNotificationService
                         'token' => $token,
                         'android' => [
                             'priority' => 'high',
+                            'ttl' => '300s',
                         ],
                         'data' => $this->normalizeDataPayload([
                             ...$data,
@@ -230,9 +231,20 @@ class PushNotificationService
 
     private function accessToken(): string
     {
-        return Cache::remember('fcm_v1_access_token', 3000, function () {
+        try {
+            return (string) Cache::remember('fcm_v1_access_token', 3000, function () {
+                return $this->fetchAccessToken();
+            });
+        } catch (\Throwable $e) {
+            // Un caché de archivos con permisos incorrectos no debe bloquear el
+            // envío. Obtener el token directamente mantiene FCM operativo; el
+            // siguiente envío volverá a intentar aprovechar el caché normal.
+            Log::warning('FCM v1: caché no disponible; se obtiene un token directo.', [
+                'message' => $e->getMessage(),
+            ]);
+
             return $this->fetchAccessToken();
-        });
+        }
     }
 
     private function fetchAccessToken(): string

@@ -21,6 +21,15 @@ export default function Authenticated({
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
     const [pushBanner, setPushBanner] = useState<{ title: string; body: string; url: string; phone: string } | null>(null);
+    const [whatsappStatus, setWhatsappStatus] = useState<{ status: string; is_restricted: boolean; balance_due: number | null; currency: string | null; message: string | null } | null>(null);
+
+    const showWhatsappWarning = Boolean(
+        whatsappStatus && (
+            whatsappStatus.is_restricted ||
+            whatsappStatus.status === 'token_expired' ||
+            whatsappStatus.status === 'permission_required'
+        )
+    );
 
     useEffect(() => {
         const handler = (event: Event) => {
@@ -41,11 +50,75 @@ export default function Authenticated({
     }, []);
 
     useEffect(() => {
+        let ignore = false;
+
+        const loadStatus = async () => {
+            try {
+                const response = await fetch('/api/whatsapp/account-status', {
+                    headers: { Accept: 'application/json' },
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+                if (!ignore) {
+                    setWhatsappStatus({
+                        status: data.status ?? 'unknown',
+                        is_restricted: Boolean(data.is_restricted),
+                        balance_due: typeof data.balance_due === 'number' ? data.balance_due : null,
+                        currency: data.currency ?? null,
+                        message: data.message ?? null,
+                    });
+                }
+            } catch {
+                // Ignorar errores del uso del estado de Meta.
+            }
+        };
+
+        void loadStatus();
+        const interval = window.setInterval(() => { void loadStatus(); }, 120000);
+
+        return () => {
+            ignore = true;
+            window.clearInterval(interval);
+        };
+    }, []);
+
+    useEffect(() => {
         void registerPushDeviceForApp({ webPublicKey: webPushPublicKey });
     }, [webPushPublicKey]);
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900 dark:text-gray-100">
+            {showWhatsappWarning && whatsappStatus && (
+                <div className="border-b border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-900/15">
+                    <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-red-700 dark:text-red-300">
+                                {whatsappStatus.status === 'token_expired'
+                                    ? 'Token de Meta vencido'
+                                    : whatsappStatus.status === 'permission_required'
+                                        ? 'Faltan permisos de Meta'
+                                        : 'Cuenta de WhatsApp Business restringida'}
+                            </p>
+                            <p className="mt-1 text-sm text-red-800 dark:text-red-200">
+                                {whatsappStatus.status === 'token_expired'
+                                    ? 'El token de WhatsApp de Meta venció o quedó inválido. Renová la autenticación para volver a enviar mensajes.'
+                                    : whatsappStatus.status === 'permission_required'
+                                        ? 'La cuenta de WhatsApp no tiene los permisos necesarios del negocio para enviar mensajes. Revisa la configuración de Meta.'
+                                        : (whatsappStatus.message ?? 'No pudimos procesar el pago. Paga el saldo pendiente para volver a enviar mensajes.')}
+                            </p>
+                        </div>
+                        {whatsappStatus.balance_due !== null && whatsappStatus.currency && (
+                            <div className="rounded-xl border border-red-200 bg-white/80 px-3 py-2 text-sm font-semibold text-red-700 dark:border-red-900/40 dark:bg-gray-800/80 dark:text-red-300">
+                                {whatsappStatus.currency === 'USD' ? '$' : whatsappStatus.currency === 'CRC' ? '₡' : ''}{whatsappStatus.balance_due.toFixed(2)}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
             {pushBanner && (
                 <div className="fixed right-4 top-4 z-50 w-[min(92vw,26rem)] rounded-2xl border border-cyan-200 bg-white/95 p-4 shadow-2xl backdrop-blur dark:border-cyan-900 dark:bg-gray-900/95">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-600 dark:text-cyan-400">

@@ -227,6 +227,9 @@ class PaymentController extends Controller
         if ($isMonthlyContract && $coveredMonthsInput !== []) {
             $validated['metadata']['covered_months'] = $coveredMonthsInput;
             $validated['metadata']['paid_for_month'] = $coveredMonthsInput[0];
+            if ($request->filled('billing_month') || $request->has('covered_months')) {
+                $validated['metadata']['billing_period_explicit'] = true;
+            }
             $validated['billing_month'] = $coveredMonthsInput[0];
         } elseif ($paidForMonth !== null) {
             $validated['metadata']['paid_for_month'] = $paidForMonth;

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Client;
+use App\Models\Company;
 use App\Models\Contract;
 use App\Models\Reminder;
 use App\Models\User;
@@ -32,6 +33,7 @@ class EditClientAssignsContractCreatesReminderTest extends TestCase
         ]);
 
         $payload = [
+            'company_id' => Company::query()->where('slug', 'ticocast')->valueOrFail('id'),
             'name' => $client->name,
             'email' => $client->email,
             'phone' => $client->phone,

@@ -28,11 +28,28 @@ export const normalizeWhatsAppUserChatId = (raw: string): string | null => {
 export const normalizeChatIdForState = (rawChatId?: string | null): string => {
   const raw = String(rawChatId || '').trim();
   if (!raw) return raw;
-  if (raw.endsWith('@broadcast') || raw.endsWith('@g.us')) return raw;
-  // WhatsApp multi-device puede entregar chats @lid; hay que responder al mismo ID.
-  if (raw.endsWith('@lid')) return raw;
+  if (raw.endsWith('@broadcast')) return raw;
 
-  return normalizeWhatsAppUserChatId(raw) || raw;
+  const normalizedPhone = normalizeWhatsAppUserChatId(raw);
+  if (normalizedPhone) return normalizedPhone;
+
+  const digits = digitsOnly(raw);
+  if (!digits) return raw;
+  if (digits.length === 8) return `${config.defaultCountryCode}${digits}@c.us`;
+  if (digits.length >= 9) return `${digits}@c.us`;
+
+  return raw;
+};
+
+export const mergeChatAliasIds = (...values: Array<string | null | undefined>): Set<string> => {
+  const set = new Set<string>();
+  for (const v of values) {
+    const raw = String(v || '').trim();
+    if (!raw) continue;
+    const normalized = normalizeChatIdForState(raw);
+    if (normalized) set.add(normalized);
+  }
+  return set;
 };
 
 export const formatWhatsAppId = (rawPhone: string): string => {

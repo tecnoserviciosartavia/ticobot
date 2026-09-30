@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Service;
+use App\Models\Company;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,12 +25,15 @@ class ServiceController extends Controller
             ->map(fn ($v) => (int) $v)
             ->toArray();
 
-        $services = Service::query()
+        $services = Service::query()->with('company')
             ->with(['accounts' => fn ($query) => $query->orderBy('identifier')])
             ->orderBy('name')
             ->get()
             ->map(fn (Service $s) => [
                 'id' => $s->id,
+                'company_id' => $s->company_id,
+                'company_name' => $s->company?->name,
+                'company_slug' => $s->company?->slug,
                 'name' => $s->name,
                 'price' => (string) $s->price,
                 'cost' => (string) ($s->cost ?? '0.00'),
@@ -52,6 +56,7 @@ class ServiceController extends Controller
 
         return Inertia::render('Settings/Services/Index', [
             'services' => $services,
+            'companies' => Company::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'slug']),
         ]);
     }
 
@@ -78,6 +83,7 @@ class ServiceController extends Controller
     private function validated(Request $request, ?Service $service = null): array
     {
         $data = $request->validate([
+            'company_id' => ['required', 'integer', Rule::exists('companies', 'id')->where('is_active', true)],
             'name' => [
                 'required',
                 'string',
@@ -94,15 +100,18 @@ class ServiceController extends Controller
             'is_active' => ['nullable', 'boolean'],
         ]);
 
+        $company = Company::query()->findOrFail((int) $data['company_id']);
+        $ticocastOnly = $company->slug === 'ticocast';
         return [
+            'company_id' => (int) $data['company_id'],
             'name' => trim((string) $data['name']),
             'price' => $data['price'],
             'cost' => array_key_exists('cost', $data) ? $data['cost'] : 0,
-            'payment_day' => array_key_exists('payment_day', $data) ? $data['payment_day'] : null,
-            'account_email' => $data['account_email'] ?? null,
-            'password' => $data['password'] ?? null,
-            'pin' => $data['pin'] ?? null,
-            'max_profiles' => isset($data['max_profiles']) && $data['max_profiles'] !== '' ? (int) $data['max_profiles'] : null,
+            'payment_day' => $ticocastOnly && array_key_exists('payment_day', $data) ? $data['payment_day'] : null,
+            'account_email' => $ticocastOnly ? ($data['account_email'] ?? null) : null,
+            'password' => $ticocastOnly ? ($data['password'] ?? null) : null,
+            'pin' => $ticocastOnly ? ($data['pin'] ?? null) : null,
+            'max_profiles' => $ticocastOnly && isset($data['max_profiles']) && $data['max_profiles'] !== '' ? (int) $data['max_profiles'] : null,
             'currency' => strtoupper($data['currency']),
             'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : true,
         ];

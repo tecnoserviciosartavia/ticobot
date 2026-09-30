@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { Button } from './button';
 import { Card } from './card';
@@ -25,13 +25,13 @@ interface ResponsiveLayoutProps {
 }
 
 export default function ResponsiveLayout({ children, title, user }: ResponsiveLayoutProps) {
-  console.log('ResponsiveLayout rendering, title:', title);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [notifications, setNotifications] = useState(3);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any>(null);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
@@ -48,8 +48,6 @@ export default function ResponsiveLayout({ children, title, user }: ResponsiveLa
   }, []);
 
   const handleSearch = async (query: string) => {
-    console.log('Search triggered:', query);
-    setSearchQuery(query);
     
     if (query.length < 2) {
       setSearchResults(null);
@@ -60,20 +58,25 @@ export default function ResponsiveLayout({ children, title, user }: ResponsiveLa
     setSearchLoading(true);
     try {
       const url = `/search?q=${encodeURIComponent(query)}`;
-      console.log('Fetching from:', url);
       const response = await fetch(url);
-      console.log('Response status:', response.status);
       const data = await response.json();
-      console.log('Search results:', data);
       setSearchResults(data);
       setShowSearchResults(true);
     } catch (error) {
-      console.error('Search error:', error);
       setSearchResults(null);
     } finally {
       setSearchLoading(false);
     }
   };
+
+  useEffect(() => {
+    const term = searchQuery.trim();
+    const timer = window.setTimeout(() => {
+      void handleSearch(term);
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleResultClick = (type: string, id: number) => {
     setShowSearchResults(false);
@@ -174,23 +177,16 @@ export default function ResponsiveLayout({ children, title, user }: ResponsiveLa
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder="Buscar clientes, contratos, pagos..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={searchQuery}
                 onChange={(e) => {
-                  console.log('Input changed:', e.target.value);
                   setSearchQuery(e.target.value);
-                  handleSearch(e.target.value);
                 }}
                 onFocus={() => searchResults && setShowSearchResults(true)}
               />
-              {/* Test: Show typed text */}
-              {searchQuery && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-yellow-100 p-2 text-xs text-gray-700 z-50">
-                  Escribiendo: "{searchQuery}"
-                </div>
-              )}
               
               {/* Search Results Dropdown */}
               {showSearchResults && searchResults && (

@@ -24,6 +24,7 @@ class ContractController extends Controller
     public function quickStore(Request $request): JsonResponse
     {
         $data = $request->validate([
+            'company_id' => ['nullable', Rule::exists('companies', 'id')],
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
@@ -33,7 +34,7 @@ class ContractController extends Controller
             'notes' => ['nullable', 'string'],
             'status' => ['nullable', 'string', Rule::in(['active', 'paused', 'cancelled'])],
             'service_ids' => ['nullable', 'array'],
-            'service_ids.*' => ['integer', 'exists:services,id'],
+            'service_ids.*' => ['integer', Rule::exists('services', 'id')->where('company_id', Client::query()->whereKey($request->input('client_id'))->value('company_id') ?? $request->input('company_id'))],
             // Opcional: cantidades por servicio. Ej: { "12": 2, "15": 1 }
             'service_quantities' => ['nullable', 'array'],
             'service_pins' => ['nullable', 'array'],
@@ -113,6 +114,7 @@ class ContractController extends Controller
     public function storeForClient(Request $request, Client $client): RedirectResponse
     {
         $data = $request->validate([
+            'company_id' => ['nullable', Rule::exists('companies', 'id')],
             'amount' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', Rule::in(['CRC', 'USD'])],
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
@@ -122,7 +124,7 @@ class ContractController extends Controller
             'notes' => ['nullable', 'string'],
             'status' => ['nullable', 'string', Rule::in(['active', 'paused', 'cancelled'])],
             'service_ids' => ['nullable', 'array'],
-            'service_ids.*' => ['integer', 'exists:services,id'],
+            'service_ids.*' => ['integer', Rule::exists('services', 'id')->where('company_id', Client::query()->whereKey($request->input('client_id'))->value('company_id'))],
             // Opcional: cantidades por servicio. Ej: { "12": 2, "15": 1 }
             'service_quantities' => ['nullable', 'array'],
             'service_pins' => ['nullable', 'array'],
@@ -226,7 +228,7 @@ class ContractController extends Controller
 
         // Compatibilidad temporal: mantener lista de clientes para bundles frontend en cache.
         $clients = Client::query()
-            ->select('id', 'name', 'phone')
+            ->select('id', 'name', 'phone', 'company_id')
             ->orderBy('name')
             ->get();
 
@@ -253,7 +255,7 @@ class ContractController extends Controller
     public function create(): Response
     {
         $clients = Client::query()
-            ->select('id', 'name')
+            ->select('id', 'name', 'company_id')
             ->orderBy('name')
             ->get();
 
@@ -580,18 +582,24 @@ class ContractController extends Controller
                 'services' => $contract->services
                     ->sortBy('name')
                     ->values()
-                    ->map(fn (Service $s) => [
+                    ->map(function (Service $s) use ($serviceAccounts, $contract) {
+                        $assignedAccount = $serviceAccounts->get($s->pivot?->service_account_id);
+
+                        return [
                         'id' => $s->id,
+            'company_id' => $s->company_id,
                         'name' => $s->name,
                         'price' => (string) $s->price,
                         'currency' => $s->currency,
                         'service_account_id' => $s->pivot?->service_account_id,
-                        'service_account_identifier' => $serviceAccounts->get($s->pivot?->service_account_id)?->identifier ?? null,
-                        'account_email' => $serviceAccounts->get($s->pivot?->service_account_id)?->identifier ?? $s->account_email,
-                        'password' => $s->password,
+                        'service_account_name' => $assignedAccount?->name,
+                        'service_account_identifier' => $assignedAccount?->identifier,
+                        'account_email' => $assignedAccount?->identifier ?? $s->account_email,
+                        'password' => $assignedAccount?->password ?? $s->password,
                         'pin' => $s->pivot?->pin_override ?? $this->resolveAccessPin($s->name, $contract->client?->phone, null, $s->pin),
                         'quantity' => (int) ($s->pivot?->quantity ?? 1),
-                    ]),
+                        ];
+                    }),
                 'billing_cycle' => $contract->billing_cycle,
                 'status' => $contract->status ?? 'active',
                 'next_due_date' => $contract->next_due_date?->toDateString(),
@@ -608,7 +616,7 @@ class ContractController extends Controller
     public function edit(Contract $contract): Response
     {
         $clients = Client::query()
-            ->select('id', 'name', 'phone')
+            ->select('id', 'name', 'phone', 'company_id')
             ->orderBy('name')
             ->get();
 
@@ -722,12 +730,6 @@ class ContractController extends Controller
         $clientPhone = trim((string) ($contract->client?->phone ?? ''));
         $platformsLabel = trim($contract->servicesLabelForMessaging());
 
-        if ($contract->payments()->exists()) {
-            return redirect()
-                ->back()
-                ->with('error', 'No se puede eliminar el contrato porque tiene pagos asociados.');
-        }
-
         DB::transaction(function () use ($contract): void {
             // Soft-delete reminders first (so the client view stops counting them)
             $contract->reminders()->delete();
@@ -785,7 +787,7 @@ class ContractController extends Controller
             'notes' => ['nullable', 'string', 'max:65535'],
             'grace_period_days' => ['nullable', 'integer', 'min:0', 'max:60'],
             'service_ids' => ['required', 'array', 'min:1'],
-            'service_ids.*' => ['integer', Rule::exists('services', 'id')],
+            'service_ids.*' => ['integer', Rule::exists('services', 'id')->where('company_id', Client::query()->whereKey($request->input('client_id'))->value('company_id'))],
             // Cantidad por servicio (para permitir repetir el mismo servicio en un contrato)
             'service_quantities' => ['nullable', 'array'],
             'service_quantities.*' => ['nullable', 'integer', 'min:1'],
@@ -871,8 +873,14 @@ class ContractController extends Controller
 
     public function resendAccess(Request $request, Contract $contract): RedirectResponse
     {
+        $companyId = $contract->client()->value('company_id');
+
         $data = $request->validate([
-            'service_id' => ['nullable', 'integer', 'exists:services,id'],
+            'service_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('services', 'id')->where('company_id', $companyId),
+            ],
         ]);
 
         $sent = $this->sendAccessMessages($contract, app(WhatsAppNotificationService::class), $data['service_id'] ?? null);
@@ -898,13 +906,22 @@ class ContractController extends Controller
             $services = $services->filter(fn (Service $service) => $service->id === $serviceId);
         }
 
+        $serviceAccounts = ServiceAccount::query()
+            ->whereIn('id', $services->pluck('pivot.service_account_id')->filter()->unique()->values())
+            ->get()
+            ->keyBy('id');
+
         $servicesData = $services
-            ->map(fn (Service $s) => [
-                'name' => $s->name,
-                'account_email' => $s->account_email,
-                'password' => $s->password,
-                'pin' => $s->pivot?->pin_override ?? $this->resolveAccessPin($s->name, $phone, null, $s->pin),
-            ])
+            ->map(function (Service $s) use ($serviceAccounts, $phone) {
+                $assignedAccount = $serviceAccounts->get($s->pivot?->service_account_id);
+
+                return [
+                    'name' => $s->name,
+                    'account_email' => $assignedAccount?->identifier ?? $s->account_email,
+                    'password' => $assignedAccount?->password ?? $s->password,
+                    'pin' => $s->pivot?->pin_override ?? $this->resolveAccessPin($s->name, $phone, null, $s->pin),
+                ];
+            })
             ->values()
             ->all();
 
@@ -972,6 +989,7 @@ class ContractController extends Controller
     {
         return collect($services)->map(fn (Service $s) => [
             'id' => $s->id,
+            'company_id' => $s->company_id,
             'name' => $s->name,
             'price' => (string) $s->price,
             'currency' => $s->currency,

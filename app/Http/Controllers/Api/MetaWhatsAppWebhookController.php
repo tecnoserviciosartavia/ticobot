@@ -47,6 +47,8 @@ class MetaWhatsAppWebhookController extends Controller
 
                     foreach ($messages as $message) {
                         $from = (string) ($message['from'] ?? '');
+                        $identity = $this->resolveMessageIdentity($message, $value);
+                        $conversationKey = $identity['conversation_key'];
                         $messageId = (string) ($message['id'] ?? '');
                         $timestamp = isset($message['timestamp']) ? (int) $message['timestamp'] : null;
                         $type = (string) ($message['type'] ?? 'text');
@@ -81,11 +83,13 @@ class MetaWhatsAppWebhookController extends Controller
                             $metadata['media'] = $media;
                         }
 
-                        if ($from !== '' && $messageId !== '') {
+                        if ($conversationKey !== '' && $messageId !== '') {
                             $storedMessage = WhatsappChatMessage::firstOrCreate(
                                 ['whatsapp_message_id' => $messageId],
                                 [
-                                    'phone' => $from,
+                                    'phone' => $conversationKey,
+                                    'identity_type' => $identity['type'],
+                                    'whatsapp_user_id' => $identity['whatsapp_user_id'],
                                     'direction' => 'inbound',
                                     'body' => $body,
                                     'status' => 'received',
@@ -94,28 +98,38 @@ class MetaWhatsAppWebhookController extends Controller
                                 ]
                             );
 
+                            // El bot debe recibir el mensaje antes de ejecutar notificaciones
+                            // push, ya que FCM puede tardar o fallar por tokens vencidos.
+                            if ($identity['type'] === 'phone') {
+                                $this->forwardInboundMessageToBot([
+                                    'id' => $messageId,
+                                    'from' => $conversationKey,
+                                    'identity_type' => $identity['type'],
+                                    'whatsapp_user_id' => $identity['whatsapp_user_id'],
+                                    'body' => $body,
+                                    'timestamp' => $timestamp,
+                                    'type' => $type,
+                                    'hasMedia' => in_array($type, ['image', 'video', 'document', 'audio', 'sticker'], true),
+                                    'meta' => $metadata,
+                                ]);
+                            }
+
                             if ($storedMessage->wasRecentlyCreated) {
-                                $client = $this->resolveClientByPhone($from);
+                                $client = $identity['type'] === 'phone'
+                                    ? $this->resolveClientByPhone($conversationKey)
+                                    : null;
                                 $preview = $this->notificationPreview($body, $media);
                                 $push->sendToActiveUsersWithPreference('whatsapp_incoming_messages', 'Nuevo mensaje de '.($client?->name ?: $from), $preview, [
                                     'type' => 'whatsapp_inbound_message',
-                                    'phone' => $from,
+                                    'phone' => $conversationKey,
+                                    'identity_type' => $identity['type'],
+                                    'whatsapp_user_id' => $identity['whatsapp_user_id'],
                                     'message_id' => $messageId,
-                                    'url' => '/chats/'.rawurlencode($from),
+                                    'url' => '/chats/'.rawurlencode($conversationKey),
                                     'client_name' => (string) ($client?->name ?? ''),
                                     'message_kind' => (string) ($media['kind'] ?? ''),
                                 ]);
                             }
-
-                            $this->forwardInboundMessageToBot([
-                                'id' => $messageId,
-                                'from' => $from,
-                                'body' => $body,
-                                'timestamp' => $timestamp,
-                                'type' => $type,
-                                'hasMedia' => in_array($type, ['image', 'video', 'document', 'audio', 'sticker'], true),
-                                'meta' => $metadata,
-                            ]);
                         }
                     }
 
@@ -140,9 +154,45 @@ class MetaWhatsAppWebhookController extends Controller
                             continue;
                         }
 
-                        WhatsappChatMessage::where('whatsapp_message_id', $messageId)->update([
+                        $outboundMessage = WhatsappChatMessage::query()
+                            ->where('whatsapp_message_id', $messageId)
+                            ->first();
+
+                        if (! $outboundMessage) {
+                            Log::warning('Estado de Meta WhatsApp sin mensaje local asociado', [
+                                'whatsapp_message_id' => $messageId,
+                                'status' => $state,
+                            ]);
+                            continue;
+                        }
+
+                        $statusMetadata = array_filter([
+                            'status' => $state,
+                            'timestamp' => $status['timestamp'] ?? null,
+                            'recipient_id' => $status['recipient_id'] ?? null,
+                            'conversation' => $status['conversation'] ?? null,
+                            'pricing' => $status['pricing'] ?? null,
+                            'errors' => $status['errors'] ?? null,
+                        ], static fn ($value) => $value !== null);
+
+                        $metadata = is_array($outboundMessage->metadata)
+                            ? $outboundMessage->metadata
+                            : [];
+                        $metadata['meta_delivery'] = $statusMetadata;
+
+                        $outboundMessage->forceFill([
                             'status' => $mappedStatus,
-                        ]);
+                            'metadata' => $metadata,
+                        ])->save();
+
+                        if ($mappedStatus === 'failed') {
+                            Log::warning('Meta WhatsApp reportó un fallo de entrega', [
+                                'message_id' => $outboundMessage->id,
+                                'whatsapp_message_id' => $messageId,
+                                'phone' => $outboundMessage->phone,
+                                'errors' => $status['errors'] ?? null,
+                            ]);
+                        }
                     }
                 }
             }
@@ -153,6 +203,56 @@ class MetaWhatsAppWebhookController extends Controller
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Meta seguirá enviando teléfonos durante la transición. Cuando incluya un
+     * BSUID explícito lo conservamos por separado; si no hay teléfono, usamos
+     * una clave de conversación prefijada para que nunca colisione con uno.
+     *
+     * @return array{conversation_key:string,type:string,whatsapp_user_id:?string}
+     */
+    private function resolveMessageIdentity(array $message, array $value): array
+    {
+        $from = trim((string) ($message['from'] ?? ''));
+        $contact = is_array($value['contacts'][0] ?? null) ? $value['contacts'][0] : [];
+        $bsuid = collect([
+            $message['user_id'] ?? null,
+            $message['bsuid'] ?? null,
+            $message['business_scoped_user_id'] ?? null,
+            data_get($message, 'identity.bsuid'),
+            $contact['user_id'] ?? null,
+            $contact['bsuid'] ?? null,
+            $contact['business_scoped_user_id'] ?? null,
+            data_get($contact, 'identity.bsuid'),
+        ])->map(fn ($value) => trim((string) ($value ?? '')))->first(fn ($value) => $value !== '');
+
+        $phone = collect([
+            $message['phone'] ?? null,
+            $message['phone_number'] ?? null,
+            $message['sender_phone_number'] ?? null,
+            $contact['wa_id'] ?? null,
+        ])->map(fn ($value) => WhatsappChatMessage::normalizePhone((string) ($value ?? '')))
+            ->first(fn ($value) => $value !== '');
+
+        // El payload clásico solo trae `from`; conservar exactamente su flujo.
+        if (! $bsuid) {
+            return [
+                'conversation_key' => WhatsappChatMessage::normalizePhone($from),
+                'type' => 'phone',
+                'whatsapp_user_id' => null,
+            ];
+        }
+
+        if ($phone === null && $from !== '' && $from !== $bsuid) {
+            $phone = WhatsappChatMessage::normalizePhone($from) ?: null;
+        }
+
+        return [
+            'conversation_key' => $phone ?: 'bsuid:'.$bsuid,
+            'type' => $phone ? 'phone' : 'bsuid',
+            'whatsapp_user_id' => $bsuid,
+        ];
     }
 
     private function resolveClientByPhone(string $phone): ?Client
@@ -267,14 +367,34 @@ class MetaWhatsAppWebhookController extends Controller
     {
         $botWebhookUrl = rtrim((string) env('BOT_WEBHOOK_URL', ''), '/');
         if ($botWebhookUrl === '') {
+            Log::warning('Reenvío de Meta al bot omitido: BOT_WEBHOOK_URL no está configurado', [
+                'message_id' => $payload['id'] ?? null,
+                'phone' => $payload['from'] ?? null,
+            ]);
             return;
         }
 
         try {
-            Http::timeout(5)->post($botWebhookUrl . '/webhook/meta_inbound', $payload);
+            $response = Http::timeout(5)->post($botWebhookUrl . '/webhook/meta_inbound', $payload);
+            if ($response->failed()) {
+                Log::warning('El bot rechazó el mensaje entrante de Meta', [
+                    'message_id' => $payload['id'] ?? null,
+                    'phone' => $payload['from'] ?? null,
+                    'status' => $response->status(),
+                    'response' => $response->body(),
+                ]);
+                return;
+            }
+
+            Log::info('Mensaje entrante de Meta reenviado al bot', [
+                'message_id' => $payload['id'] ?? null,
+                'phone' => $payload['from'] ?? null,
+                'status' => $response->status(),
+            ]);
         } catch (\Throwable $e) {
             Log::warning('No se pudo reenviar el mensaje entrante de Meta al bot', [
                 'error' => $e->getMessage(),
+                'message_id' => $payload['id'] ?? null,
                 'phone' => $payload['from'] ?? null,
             ]);
         }

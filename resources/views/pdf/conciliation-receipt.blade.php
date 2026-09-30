@@ -128,7 +128,7 @@
                 <img src="data:image/png;base64,{{ $logo_data }}" alt="Logo" style="width: 100%; height: 100%;">
             </div>
         @endif
-        <div class="company-name">TicoCast</div>
+        <div class="company-name">{{ $company_name }}</div>
     </div>
 
     <div class="client-info">
@@ -181,7 +181,7 @@
     </table>
 
     <div class="footer">
-        TicoCast
+        {{ $company_name }}
     </div>
 </body>
 </html>

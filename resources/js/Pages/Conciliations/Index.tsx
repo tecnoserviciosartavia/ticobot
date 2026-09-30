@@ -4,7 +4,7 @@ import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import type { PageProps } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import { labelForStatus } from '@/lib/labels';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 import { Button } from '@/Components/button';
 import { CheckCircle, XCircle } from '@/Components/icons';
 
@@ -86,9 +86,20 @@ const formatAmount = (amount: string | number | null, currency: string | null | 
 };
 
 function ConciliationActions({ conciliation }: { conciliation: Conciliation }) {
+    const [skipReceiptNotification, setSkipReceiptNotification] = useState(false);
+
     if (conciliation.status === 'pending' || conciliation.status === 'in_review') {
         return (
-            <div className="flex flex-wrap justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                    <input
+                        type="checkbox"
+                        checked={skipReceiptNotification}
+                        onChange={(event) => setSkipReceiptNotification(event.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    No enviar comprobante ni mensaje
+                </label>
                 <Button
                     variant="outline"
                     size="sm"
@@ -96,6 +107,7 @@ function ConciliationActions({ conciliation }: { conciliation: Conciliation }) {
                         router.patch(`/conciliations/${conciliation.id}`, {
                             status: 'approved',
                             verified_at: new Date().toISOString(),
+                            skip_receipt_notification: skipReceiptNotification,
                         })
                     }
                 >

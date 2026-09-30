@@ -11,6 +11,10 @@ use App\Http\Controllers\Api\MetaWhatsAppWebhookController;
 use App\Http\Controllers\Api\MobileAuthController;
 use App\Http\Controllers\Api\MobileChatController;
 use App\Http\Controllers\Api\MobileFinanceController;
+use App\Http\Controllers\Api\MobileSinpeEmailController;
+use App\Http\Controllers\Api\MobileReminderController;
+use App\Http\Controllers\Api\MobileServiceController;
+use App\Http\Controllers\Api\MobileAccountingController;
 use App\Http\Controllers\Api\MobileSystemSettingsController;
 use App\Http\Controllers\Api\MobileUserController;
 use App\Http\Controllers\Api\PaymentController;
@@ -30,6 +34,7 @@ Route::post('mobile/login', [MobileAuthController::class, 'login'])->middleware(
 // Estado del transporte oficial Meta Cloud API (sin QR ni sesión Web)
 Route::prefix('whatsapp')->name('api.whatsapp.')->group(function (): void {
     Route::get('status', [WhatsAppStatusController::class, 'getStatus'])->name('status');
+    Route::get('account-status', [WhatsAppStatusController::class, 'getStatus'])->name('account-status');
 });
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -48,7 +53,30 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('mobile/users', [MobileUserController::class, 'index']);
         Route::put('mobile/users/{user}', [MobileUserController::class, 'update']);
         Route::get('mobile/system-settings', [MobileSystemSettingsController::class, 'show']);
+        Route::get('mobile/companies', [MobileSystemSettingsController::class, 'companies']);
+        Route::post('mobile/companies', [MobileSystemSettingsController::class, 'storeCompany']);
+        Route::put('mobile/companies/{company}', [MobileSystemSettingsController::class, 'updateCompany']);
+        Route::delete('mobile/companies/{company}', [MobileSystemSettingsController::class, 'destroyCompany']);
         Route::put('mobile/system-settings', [MobileSystemSettingsController::class, 'update']);
+        Route::get('mobile/sinpe-emails', [MobileSinpeEmailController::class, 'index']);
+        Route::post('mobile/sinpe-emails/sync', [MobileSinpeEmailController::class, 'sync']);
+        Route::patch('mobile/sinpe-emails/{id}/read', [MobileSinpeEmailController::class, 'markRead']);
+        Route::post('mobile/sinpe-emails/{id}/conciliate', [MobileSinpeEmailController::class, 'conciliate']);
+        Route::delete('mobile/sinpe-emails/{id}', [MobileSinpeEmailController::class, 'destroy']);
+        Route::get('mobile/collections', [\App\Http\Controllers\api\CollectionsDashboardController::class, 'overview']);
+        Route::post('mobile/collections/{contract}/send-payment-notice', [\App\Http\Controllers\api\CollectionsDashboardController::class, 'sendPaymentNotice']);
+        Route::post('mobile/reminders/{reminder}/retry', [MobileReminderController::class, 'retry']);
+        Route::post('mobile/reminders/{reminder}/send', [MobileReminderController::class, 'send']);
+        Route::get('mobile/services', [MobileServiceController::class, 'index']);
+        Route::post('mobile/services', [MobileServiceController::class, 'store']);
+        Route::put('mobile/services/{service}', [MobileServiceController::class, 'update']);
+        Route::delete('mobile/services/{service}', [MobileServiceController::class, 'destroy']);
+        Route::post('mobile/service-accounts', [MobileServiceController::class, 'storeAccount']);
+        Route::delete('mobile/service-accounts/{account}', [MobileServiceController::class, 'destroyAccount']);
+        Route::get('mobile/accounting/indicators', [MobileAccountingController::class, 'indicators']);
+        Route::get('mobile/accounting/service-clients', [MobileAccountingController::class, 'clients']);
+        Route::get('mobile/accounting/delinquencies', [MobileAccountingController::class, 'delinquencies']);
+        Route::post('mobile/accounting/delinquencies/{reminder}/dismiss', [MobileAccountingController::class, 'dismiss']);
     });
     Route::get('reminders/pending', [ReminderController::class, 'pending']);
     Route::get('reminders/sent-without-payment', [ReminderController::class, 'sentWithoutPayment']);
@@ -68,7 +96,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('push/web-subscription', [PushWebSubscriptionController::class, 'destroy']);
 
     Route::apiResource('clients', ClientController::class)->names('api.clients');
-    Route::post('clients/{client}/resend-access', [ClientController::class, 'resendAccess']);
+    Route::post('clients/{client}/resendAccess', [ClientController::class, 'resendAccess']);
     Route::apiResource('contracts', ContractController::class)->names('api.contracts');
     Route::get('services', [\App\Http\Controllers\Api\ServiceController::class, 'index']);
     Route::apiResource('reminders', ReminderController::class)->names('api.reminders');
@@ -78,14 +106,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     // Application settings (key/value)
     Route::get('settings', [\App\Http\Controllers\Api\SettingsController::class, 'index']);
+});
+
+// Bot menu GET endpoint (accessible with API token for bot)
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::get('whatsapp/menu', [BotMenuController::class, 'index'])->name('api.whatsapp.menu.index');
+});
+
+Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('settings/{key}', [\App\Http\Controllers\Api\SettingsController::class, 'show']);
     Route::post('settings', [\App\Http\Controllers\Api\SettingsController::class, 'store']);
     Route::put('settings/{key}', [\App\Http\Controllers\Api\SettingsController::class, 'update']);
     Route::delete('settings/{key}', [\App\Http\Controllers\Api\SettingsController::class, 'destroy']);
 
-    // Bot menu endpoints (require auth)
     Route::prefix('whatsapp')->name('api.whatsapp.')->group(function (): void {
-        Route::get('menu', [BotMenuController::class, 'index'])->name('menu.index');
         Route::post('menu', [BotMenuController::class, 'store'])->name('menu.store');
         Route::put('menu/{menu}', [BotMenuController::class, 'update'])->name('menu.update');
         Route::delete('menu/{menu}', [BotMenuController::class, 'destroy'])->name('menu.destroy');

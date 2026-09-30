@@ -9,7 +9,7 @@ import { config } from './config.js';
 const DEFAULT_OVERDUE_BALANCE_NOTICE =
   '⚠️ Buen día, le recordamos el saldo vencido en su cuenta de lo contrario se eliminará cualquier perfil contratado con nosotros.';
 
-const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
+export const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   const payload = reminder.payload ?? {};
   const lines: string[] = [];
 
@@ -83,9 +83,9 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
       due_date: String(payload.due_date ?? ''),
       services: '',
       company_name: '',
-      payment_contact: String(config.paymentContact ?? ''),
-      bank_accounts: Array.isArray(config.bankAccounts) ? config.bankAccounts.join('\n') : '',
-      beneficiary_name: String(config.beneficiaryName ?? ''),
+      payment_contact: String((payload as any).payment_contact ?? config.paymentContact ?? ''),
+      bank_accounts: String((payload as any).bank_accounts ?? (Array.isArray(config.bankAccounts) ? config.bankAccounts.join('\n') : '')),
+      beneficiary_name: String((payload as any).beneficiary_name ?? config.beneficiaryName ?? ''),
       ...vars,
     };
 
@@ -97,7 +97,11 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
 
   // Build a detailed subscription reminder similar to the provided template
   // Nombre de empresa: solo desde settings/UI (company_name). Si no existe, usar fallback mínimo.
-  const companyName = String((config as any).companyName ?? '').trim() || 'Empresa';
+  const senderCompany = String(payload.sender_company ?? 'ticocast').trim().toLowerCase();
+  const isIndependentCompany = senderCompany !== '' && senderCompany !== 'ticocast';
+  const companyName = String(payload.company_name ?? '').trim()
+    || (isIndependentCompany ? 'Empresa' : String((config as any).companyName ?? '').trim())
+    || 'Empresa';
   
   // Prioridad de fecha: payload.due_date -> reminder.scheduled_for -> contract.next_due_date.
   const formatDateForDisplay = (rawDate: unknown): string => {
@@ -106,14 +110,17 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
 
     // If backend returns a date-only string (YYYY-MM-DD), avoid JS Date() UTC shifting.
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-      const [y, m, d] = raw.split('-').map((v) => Number(v));
-      const local = new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0); // midday to avoid DST edge
-      return local.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
+      const [y, m, d] = raw.split('-');
+      return `${d}-${m}-${y}`;
     }
 
     const parsed = new Date(raw);
     if (Number.isNaN(parsed.getTime())) return '';
-    return parsed.toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const parts = new Intl.DateTimeFormat('es-CR', {
+      timeZone: 'America/Costa_Rica', day: '2-digit', month: '2-digit', year: 'numeric'
+    }).formatToParts(parsed);
+    const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '';
+    return `${get('day')}-${get('month')}-${get('year')}`;
   };
 
   let dueDate = formatDateForDisplay(payload.due_date);
@@ -136,7 +143,7 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
 
   const servicesLine = resolveServicesLine();
 
-  const configuredTemplate = String((config as any).reminderTemplate ?? '').trim();
+  const configuredTemplate = String((payload as any).company_reminder_template ?? (config as any).reminderTemplate ?? '').trim();
   const payloadMessage = String(payload.message ?? '').trim();
   const fallbackTemplate = payloadMessage || [
     'Hola {client_name}, te recordamos el pago pendiente de {contract_name}.',
@@ -148,7 +155,7 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   const template = configuredTemplate || fallbackTemplate;
   const payloadMessageConsumed = !configuredTemplate && Boolean(payloadMessage);
 
-  if (!configuredTemplate) {
+  if (!configuredTemplate && !isIndependentCompany) {
     logger.warn({ reminderId: reminder.id }, 'No hay reminder_template configurada; usando mensaje fallback para enviar recordatorio');
   }
 
@@ -159,9 +166,9 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
     amount_raw: String(amountNumberFmt),
     currency: String(currency),
     services: servicesLine,
-    payment_contact: String(config.paymentContact ?? '').trim(),
-    bank_accounts: Array.isArray(config.bankAccounts) ? config.bankAccounts.join('\n') : '',
-    beneficiary_name: String(config.beneficiaryName ?? '').trim(),
+    payment_contact: String((payload as any).payment_contact ?? config.paymentContact ?? '').trim(),
+    bank_accounts: String((payload as any).bank_accounts ?? (Array.isArray(config.bankAccounts) ? config.bankAccounts.join('\n') : '')),
+    beneficiary_name: String((payload as any).beneficiary_name ?? config.beneficiaryName ?? '').trim(),
     contract_name: reminder.contract?.name ?? '',
   });
   lines.push(rendered);
@@ -194,15 +201,17 @@ const buildMessage = (reminder: ReminderRecord): ReminderMessagePayload => {
   }
 
   // Mensaje institucional: aplica en recordatorios de cobro donde aún no hay pago conciliado/verificado.
-  lines.push('');
-  lines.push(
-    (
-      typeof config.overdueBalanceWhatsAppNotice === 'string' &&
-      config.overdueBalanceWhatsAppNotice.trim() !== ''
-        ? config.overdueBalanceWhatsAppNotice
-        : DEFAULT_OVERDUE_BALANCE_NOTICE
-    ).trim()
-  );
+  if (!isIndependentCompany) {
+    lines.push('');
+    lines.push(
+      (
+        typeof config.overdueBalanceWhatsAppNotice === 'string' &&
+        config.overdueBalanceWhatsAppNotice.trim() !== ''
+          ? config.overdueBalanceWhatsAppNotice
+          : DEFAULT_OVERDUE_BALANCE_NOTICE
+      ).trim()
+    );
+  }
 
   return {
     content: lines.join('\n'),

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Models\Company;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class MobileSystemSettingsController extends Controller
 {
@@ -23,6 +25,39 @@ class MobileSystemSettingsController extends Controller
         return response()->json(['data' => collect(self::ALLOWED_KEYS)->mapWithKeys(
             fn (string $key) => [$key => (string) Setting::get($key, '')]
         )]);
+    }
+
+    public function companies(): JsonResponse
+    {
+        return response()->json([
+            'data' => Company::query()->orderBy('name')->get(['id', 'name', 'slug', 'payment_contact', 'beneficiary_name', 'bank_accounts', 'is_active']),
+            'multi_company_enabled' => Setting::get('multi_company_enabled', '0') === '1',
+        ]);
+    }
+
+    public function storeCompany(Request $request): JsonResponse
+    {
+        $company = Company::create($this->validatedCompany($request));
+
+        return response()->json(['data' => $company], 201);
+    }
+
+    public function updateCompany(Request $request, Company $company): JsonResponse
+    {
+        $company->update($this->validatedCompany($request, $company));
+
+        return response()->json(['data' => $company->fresh()]);
+    }
+
+    public function destroyCompany(Company $company): JsonResponse
+    {
+        if ($company->clients()->exists() || $company->services()->exists()) {
+            return response()->json(['message' => 'No se puede eliminar una empresa con clientes o servicios asociados.'], 422);
+        }
+
+        $company->delete();
+
+        return response()->json(status: 204);
     }
 
     public function update(Request $request): JsonResponse
@@ -43,5 +78,17 @@ class MobileSystemSettingsController extends Controller
         }
 
         return $this->show();
+    }
+
+    private function validatedCompany(Request $request, ?Company $company = null): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'slug' => ['nullable', 'string', 'max:100', Rule::unique('companies')->ignore($company?->id)],
+            'payment_contact' => ['nullable', 'string', 'max:255'],
+            'bank_accounts' => ['nullable', 'string', 'max:2000'],
+            'beneficiary_name' => ['nullable', 'string', 'max:255'],
+            'is_active' => ['required', 'boolean'],
+        ]);
     }
 }

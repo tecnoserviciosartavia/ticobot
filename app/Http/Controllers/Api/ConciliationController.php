@@ -99,14 +99,6 @@ class ConciliationController extends Controller
 
         $conciliation->payment?->update(['status' => $paymentStatus]);
 
-        // If approved and payment contains 'months' metadata, materialize per-month payments
-        if ($conciliation->status === 'approved') {
-            try {
-                $this->applyMonthsToReminders($conciliation, $conciliation->payment);
-            } catch (\Throwable $e) {
-                Log::warning('applyMonthsToReminders failed: ' . $e->getMessage(), ['conciliation_id' => $conciliation->id]);
-            }
-        }
 
         $paymentSettle = $conciliation->payment?->fresh(['contract']);
         if ($paymentSettle && $paymentSettle->status === 'verified') {
@@ -173,101 +165,11 @@ class ConciliationController extends Controller
     }
 
     /**
-     * If the conciliated payment carries metadata.months, create per-month verified Payment
-     * records and associate them to the next N reminders (so those reminders are considered paid).
-     *
-     * Logic summary:
-     * - Read $conciliation->payment and metadata.months
-     * - Find next N reminders for the same contract/client ordered by scheduled_for
-     * - For each reminder without a verified payment, create a Payment with status 'verified'
-     *   linked to that reminder. Amount is computed as payment.amount / months when possible.
-     */
-    protected function applyMonthsToReminders(Conciliation $conciliation, ?Payment $payment): void
-    {
-        if (! $payment) return;
-
-        $meta = $payment->metadata ?? [];
-        $months = isset($meta['months']) ? (int) $meta['months'] : 0;
-        if ($months <= 0) return;
-
-        // Determine start date: prefer payment.paid_at, fallback to now
-        $startDate = $payment->paid_at ? Carbon::parse($payment->paid_at) : Carbon::now();
-
-        // Find candidate reminders for this client/contract from startDate onwards
-        $query = ReminderModel::query()
-            ->where('client_id', $payment->client_id);
-
-        if ($payment->contract_id) {
-            $query->where('contract_id', $payment->contract_id);
-        }
-
-        $reminders = $query
-            ->whereDate('scheduled_for', '>=', $startDate->toDateString())
-            ->orderBy('scheduled_for')
-            ->get();
-
-        if ($reminders->isEmpty()) return;
-
-        // Compute per-month amount if possible
-        $perMonth = null;
-        if ($payment->amount && $months > 0) {
-            try {
-                $perMonth = round((float) $payment->amount / $months, 2);
-            } catch (\Throwable $e) {
-                $perMonth = null;
-            }
-        }
-
-        // Create payments for the first N reminders that do not already have a verified payment
-        $toCreate = $reminders->filter(function ($r) use (&$months) {
-            if ($months <= 0) return false;
-            // if reminder already has a verified payment, skip
-            $hasVerified = $r->payments()->where('status', 'verified')->exists();
-            if ($hasVerified) return false;
-            // reserve one slot
-            $months--;
-            return true;
-        });
-
-        if ($toCreate->isEmpty()) return;
-
-        DB::transaction(function () use ($toCreate, $payment, $perMonth, $conciliation) {
-            foreach ($toCreate as $idx => $reminder) {
-                try {
-                    $payData = [
-                        'client_id' => $payment->client_id,
-                        'contract_id' => $payment->contract_id,
-                        'reminder_id' => $reminder->id,
-                        'amount' => $perMonth ?? ($payment->amount ?? 0),
-                        'currency' => $payment->currency ?? 'CRC',
-                        'status' => 'verified',
-                        'channel' => $payment->channel ?? 'conciliation',
-                        'reference' => 'conciliation:' . $conciliation->id,
-                        'paid_at' => $conciliation->verified_at ?? now(),
-                        'metadata' => array_merge($payment->metadata ?? [], [
-                            'source_payment_id' => $payment->id,
-                            'source_conciliation_id' => $conciliation->id,
-                            'month_index' => $idx + 1,
-                            'paid_for_month' => Carbon::parse($reminder->scheduled_for)->format('Y-m'),
-                        ]),
-                    ];
-
-                    Payment::create($payData);
-                } catch (\Throwable $e) {
-                    Log::warning('failed creating per-month payment', ['err' => $e->getMessage(), 'reminder_id' => $reminder->id, 'payment_id' => $payment->id]);
-                    // continue with next
-                }
-            }
-        });
-    }
-
-    /**
      * Remove the specified resource from storage.
      */
     public function destroy(Conciliation $conciliation): JsonResponse
     {
         $conciliation->delete();
-
         $conciliation->payment?->update(['status' => 'unverified']);
 
         return response()->json(status: 204);

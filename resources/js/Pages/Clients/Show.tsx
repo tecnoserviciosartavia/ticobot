@@ -1,9 +1,9 @@
-import StatusBadge from '@/Components/StatusBadge';
-import ResponsiveLayout from '@/Components/ResponsiveLayout';
-import PrimaryButton from '@/Components/PrimaryButton';
-import type { PageProps } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import { labelForBillingCycle, labelForStatus } from '@/lib/labels';
+import StatusBadge from "@/Components/StatusBadge";
+import ResponsiveLayout from "@/Components/ResponsiveLayout";
+import PrimaryButton from "@/Components/PrimaryButton";
+import type { PageProps } from "@/types";
+import { Head, Link, router, usePage } from "@inertiajs/react";
+import { labelForBillingCycle, labelForStatus } from "@/lib/labels";
 
 interface ClientResource {
     id: number;
@@ -63,32 +63,32 @@ interface ClientShowPageProps extends PageProps<{
 
 const formatDate = (value: string | null) => {
     if (!value) {
-        return '—';
+        return "—";
     }
 
-    return new Date(value).toLocaleDateString('es-CR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
+    return new Date(value).toLocaleDateString("es-CR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
     });
 };
 
 const formatDateTime = (value: string | null) => {
     if (!value) {
-        return '—';
+        return "—";
     }
 
     const d = new Date(value);
-    const date = d.toLocaleDateString('es-CR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        timeZone: 'America/Costa_Rica',
+    const date = d.toLocaleDateString("es-CR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        timeZone: "America/Costa_Rica",
     });
-    const time = d.toLocaleTimeString('es-CR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'America/Costa_Rica',
+    const time = d.toLocaleTimeString("es-CR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "America/Costa_Rica",
     });
 
     return `${date}, ${time}`;
@@ -99,41 +99,52 @@ const resolveCurrency = (value: string | null | undefined) => {
         return value.trim().toUpperCase();
     }
 
-    return 'CRC';
+    return "CRC";
 };
 
 const formatAmount = (amount: string, currency: string | null | undefined) =>
-    new Intl.NumberFormat('es-CR', {
-        style: 'currency',
+    new Intl.NumberFormat("es-CR", {
+        style: "currency",
         currency: resolveCurrency(currency),
         minimumFractionDigits: 2,
     }).format(Number.parseFloat(amount));
 
-export default function ClientShow({ client, stats, contracts, reminders, payments }: ClientShowPageProps) {
+export default function ClientShow({
+    client,
+    stats,
+    contracts,
+    reminders,
+    payments,
+}: ClientShowPageProps) {
     const page = usePage();
-    const flashSuccess = (page.props as any)?.flash?.success as string | undefined;
+    const flashSuccess = (page.props as any)?.flash?.success as
+        string | undefined;
     const flashError = (page.props as any)?.flash?.error as string | undefined;
 
     const viewContract = (contractId: number) => {
-        router.visit(route('contracts.show', contractId));
+        router.visit(route("contracts.show", contractId));
     };
 
     const removeContract = (contract: ContractSummary) => {
         const payCount = contract.payments_count ?? 0;
-        if (payCount > 0) {
-            alert(
-                `No se puede eliminar el contrato ${contract.name} porque tiene ${payCount} pago(s) registrado(s) asociados.\n\n` +
-                    'Desde la sección Pagos puedes revisar esos registros; el contrato solo se puede eliminar cuando no queden pagos vinculados.',
-            );
+        const platforms = (contract.services_label ?? "").trim();
+        const platformLine = platforms
+            ? `\n\nPlataformas en este contrato: ${platforms}`
+            : "";
+        const paymentsLine =
+            payCount > 0
+                ? `\n\nLos ${payCount} pago(s) registrado(s) se conservarán en el historial.`
+                : "";
+        if (
+            !confirm(
+                `¿Eliminar el contrato "${contract.name}"? Esta acción no se puede deshacer.${platformLine}${paymentsLine}\n\nSe enviará un mensaje de baja por WhatsApp al cliente si tiene teléfono registrado.`,
+            )
+        )
             return;
-        }
-        const platforms = (contract.services_label ?? '').trim();
-        const platformLine = platforms ? `\n\nPlataformas en este contrato: ${platforms}` : '';
-        if (!confirm(`¿Eliminar este contrato? Esta acción no se puede deshacer.${platformLine}\n\nSe enviará un mensaje de baja por WhatsApp al cliente si tiene teléfono registrado.`)) return;
-        router.delete(route('contracts.destroy', contract.id), {
+        router.delete(route("contracts.destroy", contract.id), {
             preserveScroll: true,
             onSuccess: () => {
-                router.reload({ only: ['contracts', 'stats'] });
+                router.reload({ only: ["contracts", "stats"] });
             },
         });
     };
@@ -156,63 +167,109 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                     )}
                     <section className="grid gap-6 md:grid-cols-3">
                         <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
-                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Contratos</h3>
-                            <p className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">{stats.contracts}</p>
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                Contratos
+                            </h3>
+                            <p className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                                {stats.contracts}
+                            </p>
                             <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                                Última actualización: {formatDate(client.updated_at)}
+                                Última actualización:{" "}
+                                {formatDate(client.updated_at)}
                             </p>
                         </article>
                         <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
-                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Recordatorios</h3>
-                            <p className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">{stats.reminders}</p>
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                Recordatorios
+                            </h3>
+                            <p className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                                {stats.reminders}
+                            </p>
                             <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                                Próximo recordatorio registrado en el listado inferior.
+                                Próximo recordatorio registrado en el listado
+                                inferior.
                             </p>
                         </article>
                         <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
-                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Pagos</h3>
-                            <p className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">{stats.payments}</p>
-                            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Incluye pagos pendientes de conciliación.</p>
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                Pagos
+                            </h3>
+                            <p className="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                                {stats.payments}
+                            </p>
+                            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                                Incluye pagos pendientes de conciliación.
+                            </p>
                         </article>
                     </section>
 
                     <section className="grid gap-6 lg:grid-cols-2">
                         <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Información de contacto</h3>
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                                Información de contacto
+                            </h3>
                             <dl className="mt-4 space-y-3 text-sm text-gray-700 dark:text-gray-300">
                                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                    <dt className="text-gray-500 dark:text-gray-400">Correo</dt>
-                                    <dd className="font-medium text-gray-900 dark:text-gray-100">{client.email ?? '—'}</dd>
+                                    <dt className="text-gray-500 dark:text-gray-400">
+                                        Correo
+                                    </dt>
+                                    <dd className="font-medium text-gray-900 dark:text-gray-100">
+                                        {client.email ?? "—"}
+                                    </dd>
                                 </div>
                                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                    <dt className="text-gray-500 dark:text-gray-400">Teléfono</dt>
-                                    <dd className="font-medium text-gray-900 dark:text-gray-100">{client.phone ?? '—'}</dd>
+                                    <dt className="text-gray-500 dark:text-gray-400">
+                                        Teléfono
+                                    </dt>
+                                    <dd className="font-medium text-gray-900 dark:text-gray-100">
+                                        {client.phone ?? "—"}
+                                    </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-gray-500 dark:text-gray-400">Notas</dt>
+                                    <dt className="text-gray-500 dark:text-gray-400">
+                                        Notas
+                                    </dt>
                                     <dd className="mt-1 whitespace-pre-line text-sm text-gray-900 dark:text-gray-100">
-                                        {client.notes ? client.notes : 'Sin notas registradas.'}
+                                        {client.notes
+                                            ? client.notes
+                                            : "Sin notas registradas."}
                                     </dd>
                                 </div>
                             </dl>
                         </article>
 
                         <article className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Resumen reciente</h3>
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                                Resumen reciente
+                            </h3>
                             <ul className="mt-4 space-y-4 text-sm text-gray-700 dark:text-gray-300">
                                 <li>
-                                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Próximos recordatorios</p>
+                                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        Próximos recordatorios
+                                    </p>
                                     <ul className="mt-2 space-y-2">
                                         {reminders.length ? (
                                             reminders.map((reminder) => (
-                                                <li key={reminder.id} className="flex flex-col gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
+                                                <li
+                                                    key={reminder.id}
+                                                    className="flex flex-col gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between"
+                                                >
                                                     <div>
                                                         <p className="font-medium text-gray-900 dark:text-gray-100">
-                                                            {reminder.contract?.name ?? 'Recordatorio general'}
+                                                            {reminder.contract
+                                                                ?.name ??
+                                                                "Recordatorio general"}
                                                         </p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Programado: {formatDateTime(reminder.scheduled_for)}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                            Programado:{" "}
+                                                            {formatDateTime(
+                                                                reminder.scheduled_for,
+                                                            )}
+                                                        </p>
                                                     </div>
-                                                    <StatusBadge status={reminder.status} />
+                                                    <StatusBadge
+                                                        status={reminder.status}
+                                                    />
                                                 </li>
                                             ))
                                         ) : (
@@ -224,23 +281,44 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                 </li>
 
                                 <li>
-                                    <p className="mt-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Pagos asociados</p>
+                                    <p className="mt-4 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        Pagos asociados
+                                    </p>
                                     <ul className="mt-2 space-y-2">
                                         {payments.length ? (
                                             payments.map((payment) => (
-                                                <li key={payment.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                                                <li
+                                                    key={payment.id}
+                                                    className="rounded-lg border border-gray-200 dark:border-gray-700 p-3"
+                                                >
                                                     <div className="flex items-center justify-between">
                                                         <p className="font-medium text-gray-900 dark:text-gray-100">
-                                                            {formatAmount(payment.amount, payment.currency)}
+                                                            {formatAmount(
+                                                                payment.amount,
+                                                                payment.currency,
+                                                            )}
                                                         </p>
-                                                        <StatusBadge status={payment.status} />
+                                                        <StatusBadge
+                                                            status={
+                                                                payment.status
+                                                            }
+                                                        />
                                                     </div>
                                                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                                        Pagado: {formatDate(payment.paid_at)} · Ref: {payment.reference ?? '—'}
+                                                        Pagado:{" "}
+                                                        {formatDate(
+                                                            payment.paid_at,
+                                                        )}{" "}
+                                                        · Ref:{" "}
+                                                        {payment.reference ??
+                                                            "—"}
                                                     </p>
                                                     {payment.conciliation_status && (
                                                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                                            Conciliación: {labelForStatus(payment.conciliation_status)}
+                                                            Conciliación:{" "}
+                                                            {labelForStatus(
+                                                                payment.conciliation_status,
+                                                            )}
                                                         </p>
                                                     )}
                                                 </li>
@@ -258,9 +336,13 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
 
                     <section className="rounded-xl bg-white dark:bg-gray-800 dark:bg-gray-800 p-6 shadow-lg dark:shadow-gray-900/50">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Contratos recientes</h3>
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                                Contratos recientes
+                            </h3>
                             <Link
-                                href={route('reminders.index', { client_id: client.id })}
+                                href={route("reminders.index", {
+                                    client_id: client.id,
+                                })}
                                 className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
                             >
                                 Ver recordatorios del cliente
@@ -269,41 +351,71 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                         <div className="mt-4 space-y-3 md:hidden">
                             {contracts.length ? (
                                 contracts.map((contract) => (
-                                    <div key={contract.id} className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                                    <div
+                                        key={contract.id}
+                                        className="rounded-lg border border-gray-200 p-4 dark:border-gray-700"
+                                    >
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
-                                                <div className="font-medium text-gray-900 dark:text-gray-100">{contract.name}</div>
-                                                <div className="text-sm text-gray-600 dark:text-gray-300">{formatAmount(contract.amount, contract.currency)}</div>
+                                                <div className="font-medium text-gray-900 dark:text-gray-100">
+                                                    {contract.name}
+                                                </div>
+                                                <div className="text-sm text-gray-600 dark:text-gray-300">
+                                                    {formatAmount(
+                                                        contract.amount,
+                                                        contract.currency,
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">{labelForBillingCycle(contract.billing_cycle)}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                {labelForBillingCycle(
+                                                    contract.billing_cycle,
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">Vence: {contract.next_due_date ? formatDate(contract.next_due_date) : '—'}</div>
+                                        <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                                            Vence:{" "}
+                                            {contract.next_due_date
+                                                ? formatDate(
+                                                      contract.next_due_date,
+                                                  )
+                                                : "—"}
+                                        </div>
                                         <div className="mt-4 flex flex-wrap gap-2">
                                             <button
                                                 type="button"
-                                                onClick={() => viewContract(contract.id)}
+                                                onClick={() =>
+                                                    viewContract(contract.id)
+                                                }
                                                 className="inline-flex items-center rounded-md bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
                                             >
                                                 Ver
                                             </button>
                                             <Link
-                                                href={route('contracts.edit', contract.id)}
+                                                href={route(
+                                                    "contracts.edit",
+                                                    contract.id,
+                                                )}
                                                 className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
                                             >
                                                 Editar
                                             </Link>
                                             <button
                                                 type="button"
-                                                onClick={() => removeContract(contract)}
+                                                onClick={() =>
+                                                    removeContract(contract)
+                                                }
                                                 title={
-                                                    (contract.payments_count ?? 0) > 0
-                                                        ? 'Tiene pagos asociados: la eliminación no está permitida hasta que no queden pagos en este contrato.'
-                                                        : 'Eliminar contrato'
+                                                    (contract.payments_count ??
+                                                        0) > 0
+                                                        ? "Eliminar contrato; los pagos registrados se conservarán."
+                                                        : "Eliminar contrato"
                                                 }
                                                 className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold ${
-                                                    (contract.payments_count ?? 0) > 0
-                                                        ? 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100'
-                                                        : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200'
+                                                    (contract.payments_count ??
+                                                        0) > 0
+                                                        ? "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100"
+                                                        : "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200"
                                                 }`}
                                             >
                                                 Eliminar
@@ -313,7 +425,8 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                 ))
                             ) : (
                                 <div className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-gray-400 dark:border-gray-700">
-                                    Aún no hay contratos registrados para este cliente.
+                                    Aún no hay contratos registrados para este
+                                    cliente.
                                 </div>
                             )}
                         </div>
@@ -321,50 +434,91 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                             <table className="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Contrato</th>
-                                        <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Monto</th>
-                                        <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Ciclo</th>
-                                        <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Próximo vencimiento</th>
-                                        <th className="px-4 py-2 text-right font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Acciones</th>
+                                        <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                            Contrato
+                                        </th>
+                                        <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                            Monto
+                                        </th>
+                                        <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                            Ciclo
+                                        </th>
+                                        <th className="px-4 py-2 text-left font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                            Próximo vencimiento
+                                        </th>
+                                        <th className="px-4 py-2 text-right font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                            Acciones
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {contracts.length ? (
                                         contracts.map((contract) => (
-                                            <tr key={contract.id} className="hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700">
-                                                <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{contract.name}</td>
-                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                                                    {formatAmount(contract.amount, contract.currency)}
+                                            <tr
+                                                key={contract.id}
+                                                className="hover:bg-gray-50 dark:bg-gray-700/50 dark:hover:bg-gray-700"
+                                            >
+                                                <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                                                    {contract.name}
                                                 </td>
-                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{labelForBillingCycle(contract.billing_cycle)}</td>
-                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{contract.next_due_date ? formatDate(contract.next_due_date) : '—'}</td>
+                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                                                    {formatAmount(
+                                                        contract.amount,
+                                                        contract.currency,
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                                                    {labelForBillingCycle(
+                                                        contract.billing_cycle,
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                                                    {contract.next_due_date
+                                                        ? formatDate(
+                                                              contract.next_due_date,
+                                                          )
+                                                        : "—"}
+                                                </td>
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex justify-end gap-2">
                                                         <button
                                                             type="button"
-                                                            onClick={() => viewContract(contract.id)}
+                                                            onClick={() =>
+                                                                viewContract(
+                                                                    contract.id,
+                                                                )
+                                                            }
                                                             className="inline-flex items-center rounded-md bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
                                                         >
                                                             Ver
                                                         </button>
                                                         <Link
-                                                            href={route('contracts.edit', contract.id)}
+                                                            href={route(
+                                                                "contracts.edit",
+                                                                contract.id,
+                                                            )}
                                                             className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
                                                         >
                                                             Editar
                                                         </Link>
                                                         <button
                                                             type="button"
-                                                            onClick={() => removeContract(contract)}
+                                                            onClick={() =>
+                                                                removeContract(
+                                                                    contract,
+                                                                )
+                                                            }
                                                             title={
-                                                                (contract.payments_count ?? 0) > 0
-                                                                    ? 'Tiene pagos asociados: la eliminación no está permitida hasta que no queden pagos en este contrato.'
-                                                                    : 'Eliminar contrato'
+                                                                (contract.payments_count ??
+                                                                    0) > 0
+                                                                    ? "Eliminar contrato; los pagos registrados se conservarán."
+                                                                    : "Eliminar contrato"
                                                             }
                                                             className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold ${
-                                                                (contract.payments_count ?? 0) > 0
-                                                                    ? 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100'
-                                                                    : 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200'
+                                                                (contract.payments_count ??
+                                                                    0) > 0
+                                                                    ? "border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100"
+                                                                    : "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200"
                                                             }`}
                                                         >
                                                             Eliminar
@@ -375,8 +529,12 @@ export default function ClientShow({ client, stats, contracts, reminders, paymen
                                         ))
                                     ) : (
                                         <tr>
-                                            <td className="px-4 py-6 text-center text-gray-400" colSpan={5}>
-                                                Aún no hay contratos registrados para este cliente.
+                                            <td
+                                                className="px-4 py-6 text-center text-gray-400"
+                                                colSpan={5}
+                                            >
+                                                Aún no hay contratos registrados
+                                                para este cliente.
                                             </td>
                                         </tr>
                                     )}

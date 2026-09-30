@@ -4,7 +4,7 @@ import Modal from '@/Components/Modal';
 import ResponsiveLayout from '@/Components/ResponsiveLayout';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { FormEventHandler, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, AlertCircle, CheckCircle, Clock, MessageSquare, ArrowUpRight, Phone, Send, Plus, Upload, X, Trash2 } from '@/Components/icons';
+import { ArrowLeft, AlertCircle, CheckCircle, Clock, MessageSquare, ArrowUpRight, Phone, Send, Plus, Upload, X, Trash2, Menu } from '@/Components/icons';
 
 interface ChatMessage {
     id: number;
@@ -22,6 +22,7 @@ interface ChatMessage {
         mimetype?: string | null;
         filename?: string | null;
         data?: string | null;
+        url?: string | null;
         size?: number | null;
         caption?: string | null;
     } | null;
@@ -166,6 +167,7 @@ const DEFAULT_QUICK_REPLIES = [
     'Ya revisé tu caso, te confirmo en un momento.',
     'Tu pago quedó en revisión, apenas se confirme te aviso.',
     'Gracias, quedó registrado.',
+    'Lamentamos que no quisieras renovar con nosotros. Hemos eliminado los perfiles de las siguientes plataformas: [PLATAFORMAS].\n\nSi deseas renovar y volver a disfrutar de nuestros servicios, solamente escríbenos y activamos nuevamente tu perfil.',
 ];
 
 const CHAT_EMOJIS = ['😀', '😂', '😊', '😍', '🥳', '😢', '🙏', '👍', '❤️', '✅', '🎉', '📌', '💳', '📄'];
@@ -173,7 +175,7 @@ const CHAT_EMOJIS = ['😀', '😂', '😊', '😍', '🥳', '😢', '🙏', '�
 export default function ChatsShow({
     phone,
     client,
-    messages,
+    messages: initialMessages,
     conversations,
 }: Props) {
     const { data, setData, post, delete: destroy, processing, reset, errors } = useForm<{ body: string; attachment: File | null }>({
@@ -182,7 +184,10 @@ export default function ChatsShow({
     });
     const bodyRef = useRef<HTMLTextAreaElement | null>(null);
     const attachmentRef = useRef<HTMLInputElement | null>(null);
+    const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const messagesViewportRef = useRef<HTMLDivElement | null>(null);
+    const desktopConversationsRef = useRef<HTMLDivElement | null>(null);
+    const mobileConversationsRef = useRef<HTMLDivElement | null>(null);
     const previousMessageCountRef = useRef(0);
     const previousPhoneRef = useRef<string | null>(null);
     const pinchStartDistanceRef = useRef<number | null>(null);
@@ -209,7 +214,9 @@ export default function ChatsShow({
                 .map((item) => (typeof item === 'string' ? item.trim() : ''))
                 .filter(Boolean);
 
-            return normalized.length > 0 ? Array.from(new Set(normalized)) : DEFAULT_QUICK_REPLIES;
+            return normalized.length > 0
+                ? Array.from(new Set([...DEFAULT_QUICK_REPLIES, ...normalized]))
+                : DEFAULT_QUICK_REPLIES;
         } catch {
             return DEFAULT_QUICK_REPLIES;
         }
@@ -218,6 +225,7 @@ export default function ChatsShow({
     const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false);
     const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
     const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
+    const [conversationFilter, setConversationFilter] = useState('');
     const reactionsByMessageId = useMemo(() => {
         const grouped = new Map<string, string[]>();
         messages.forEach((message) => {
@@ -235,6 +243,23 @@ export default function ChatsShow({
     useEffect(() => {
         setMobileConversationsOpen(false);
     }, [phone]);
+
+    const centerActiveConversation = (container: HTMLDivElement | null) => {
+        const active = container?.querySelector<HTMLElement>('[data-active-chat="true"]');
+        if (!container || !active) return;
+        const top = active.offsetTop - container.offsetTop - (container.clientHeight - active.offsetHeight) / 2;
+        container.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
+    };
+
+    useEffect(() => {
+        window.requestAnimationFrame(() => centerActiveConversation(desktopConversationsRef.current));
+    }, [phone, conversations.length]);
+
+    useEffect(() => {
+        if (mobileConversationsOpen) {
+            window.requestAnimationFrame(() => centerActiveConversation(mobileConversationsRef.current));
+        }
+    }, [mobileConversationsOpen, phone]);
 
     useEffect(() => {
         const viewport = messagesViewportRef.current;
@@ -254,21 +279,6 @@ export default function ChatsShow({
         previousPhoneRef.current = phone;
     }, [messages.length, phone]);
 
-    useEffect(() => {
-        const refresh = () => {
-            if (document.visibilityState === 'visible') {
-                router.reload({
-                    only: ['messages', 'conversations', 'replyAllowed', 'serviceWindowExpiresAt'],
-                });
-            }
-        };
-        const interval = window.setInterval(refresh, 3_000);
-        document.addEventListener('visibilitychange', refresh);
-        return () => {
-            window.clearInterval(interval);
-            document.removeEventListener('visibilitychange', refresh);
-        };
-    }, [phone]);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -281,6 +291,47 @@ export default function ChatsShow({
         });
     };
 
+    useEffect(() => {
+        setMessages(initialMessages);
+    }, [initialMessages, phone]);
+
+    useEffect(() => {
+        let active = true;
+        const refresh = async () => {
+            if (document.visibilityState !== 'visible') return;
+            const afterId = messages.at(-1)?.id ?? 0;
+            try {
+                const response = await fetch(`/chats/${encodeURIComponent(phone)}/updates?after_id=${afterId}`, { headers: { Accept: 'application/json' } });
+                if (!response.ok || !active) return;
+                const payload = await response.json();
+                const incoming = Array.isArray(payload.messages) ? payload.messages as ChatMessage[] : [];
+                const statusUpdates = Array.isArray(payload.status_updates)
+                    ? payload.status_updates as Pick<ChatMessage, 'id' | 'status' | 'whatsapp_message_id' | 'sent_at'>[]
+                    : [];
+
+                if (incoming.length || statusUpdates.length) {
+                    setMessages((current) => {
+                        const updatesById = new Map(statusUpdates.map((item) => [item.id, item]));
+                        const refreshed = current.map((message) => {
+                            const update = updatesById.get(message.id);
+                            return update ? { ...message, ...update } : message;
+                        });
+                        const knownIds = new Set(refreshed.map((message) => message.id));
+
+                        return [...refreshed, ...incoming.filter((item) => !knownIds.has(item.id))];
+                    });
+                }
+            } catch { /* El siguiente ciclo vuelve a intentar. */ }
+        };
+        const interval = window.setInterval(refresh, 2_000);
+        document.addEventListener('visibilitychange', refresh);
+        return () => { active = false; window.clearInterval(interval); document.removeEventListener('visibilitychange', refresh); };
+    }, [phone, messages]);
+
+    const normalizedConversationFilter = conversationFilter.trim().toLocaleLowerCase('es-CR');
+    const visibleConversations = normalizedConversationFilter
+        ? conversations.filter((conversation) => `${conversation.client_name ?? ''} ${conversation.phone} ${conversation.last_body ?? ''}`.toLocaleLowerCase('es-CR').includes(normalizedConversationFilter))
+        : conversations;
     const activeConversation = conversations.find((conversation) => conversation.phone === phone) ?? null;
     const totalUnread = conversations.reduce((sum, conversation) => sum + conversation.unread_count, 0);
     const displayName = client?.name ?? activeConversation?.client_name ?? phone;
@@ -472,13 +523,19 @@ export default function ChatsShow({
         setQuickReplyDraft('');
     };
 
+    const returnToChatOrigin = () => {
+        const stored = sessionStorage.getItem('ticobot:chats:return');
+        const destination = stored && stored.startsWith('/chats') ? stored : route('chats.index');
+        router.visit(destination, { preserveScroll: true });
+    };
+
     return (
         <ResponsiveLayout title={displayName}>
             <Head title={`Chat con ${displayName}`} />
 
             <div className="h-[calc(100svh-4.5rem)] min-h-[32rem] overflow-hidden py-1 sm:h-[calc(100svh-5.5rem)] sm:py-2">
                 <div className="mx-auto h-full max-w-7xl px-1 sm:px-4 lg:px-6">
-                    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[300px_minmax(0,1fr)]">
+                    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-[360px_minmax(0,1fr)]">
                         <aside className="hidden h-full min-h-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:flex lg:flex-col dark:border-gray-700 dark:bg-gray-800">
                             <div className="border-b border-slate-100 p-4 dark:border-gray-700">
                                 <div className="mb-4 flex items-center justify-between gap-3">
@@ -486,13 +543,14 @@ export default function ChatsShow({
                                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">Chats</p>
                                         <h2 className="mt-1 text-lg font-bold text-gray-900 dark:text-gray-100">Conversaciones</h2>
                                     </div>
-                                    <Link
-                                        href={route('chats.index')}
+                                    <button
+                                        type="button"
+                                        onClick={returnToChatOrigin}
                                         className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium text-cyan-600 transition hover:bg-cyan-50 hover:text-cyan-700 dark:text-cyan-400 dark:hover:bg-cyan-900/20 dark:hover:text-cyan-300"
                                     >
                                         <ArrowLeft className="h-4 w-4" />
                                         Bandeja
-                                    </Link>
+                                    </button>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -506,15 +564,25 @@ export default function ChatsShow({
                                     </div>
                                 </div>
                             </div>
+                                <label className="mt-3 block">
+                                    <span className="sr-only">Buscar conversación</span>
+                                    <input
+                                        value={conversationFilter}
+                                        onChange={(event) => setConversationFilter(event.target.value)}
+                                        placeholder="Buscar conversación o número"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-cyan-500 focus:bg-white focus:ring-2 focus:ring-cyan-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                                    />
+                                </label>
 
-                            <div className="flex-1 overflow-y-auto p-2">
+                            <div ref={desktopConversationsRef} className="flex-1 overflow-y-auto p-2">
                                 <div className="space-y-1">
-                                    {conversations.map((conversation) => {
+                                    {visibleConversations.map((conversation) => {
                                         const active = conversation.phone === phone;
 
                                         return (
                                             <Link
                                                 key={conversation.phone}
+                                                data-active-chat={active ? 'true' : undefined}
                                                 href={route('chats.show', conversation.phone)}
                                                 className={`flex items-start gap-3 rounded-2xl p-3 transition hover:bg-slate-50 dark:hover:bg-gray-700/60 ${
                                                     active ? 'bg-cyan-50 ring-1 ring-cyan-200 dark:bg-cyan-900/20 dark:ring-cyan-900/40' : ''
@@ -567,10 +635,10 @@ export default function ChatsShow({
                         <section className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                             <div className="shrink-0 border-b border-slate-100 px-3 py-2.5 dark:border-gray-700 sm:px-6 sm:py-3">
                                 <div className="mb-2 flex items-center justify-between gap-3 lg:hidden">
-                                    <Link href={route('chats.index')} className="inline-flex items-center gap-2 text-sm font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300">
+                                    <button type="button" onClick={returnToChatOrigin} className="inline-flex items-center gap-2 text-sm font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300">
                                         <ArrowLeft className="h-4 w-4" />
                                         Volver
-                                    </Link>
+                                    </button>
                                     <div className="flex items-center gap-2">
                                         <button
                                             type="button"
@@ -595,13 +663,14 @@ export default function ChatsShow({
                                                 {conversations.length}
                                             </span>
                                         </div>
-                                        <div className="max-h-[42svh] space-y-2 overflow-y-auto pr-1">
-                                            {conversations.map((conversation) => {
+                                        <div ref={mobileConversationsRef} className="max-h-[42svh] space-y-2 overflow-y-auto pr-1">
+                                            {visibleConversations.map((conversation) => {
                                                 const active = conversation.phone === phone;
 
                                                 return (
                                                     <Link
                                                         key={conversation.phone}
+                                                        data-active-chat={active ? 'true' : undefined}
                                                         href={route('chats.show', conversation.phone)}
                                                         onClick={() => setMobileConversationsOpen(false)}
                                                         className={`flex items-start gap-3 rounded-2xl p-3 transition hover:bg-slate-50 dark:hover:bg-gray-700/60 ${
@@ -663,36 +732,51 @@ export default function ChatsShow({
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-2 sm:flex-row">
-                                        {!client && (
-                                            <Link
-                                                href={route('clients.create', { phone: displayPhone, from_chat: 1 })}
-                                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-500"
+                                    <details className="relative shrink-0">
+                                        <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-slate-50 [&::-webkit-details-marker]:hidden dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700">
+                                            <Menu className="h-4 w-4" />
+                                            Acciones
+                                        </summary>
+                                        <div className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl dark:border-gray-600 dark:bg-gray-800">
+                                            <button
+                                                type="button"
+                                                onClick={() => bodyRef.current?.focus()}
+                                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-slate-50 dark:text-gray-200 dark:hover:bg-gray-700"
                                             >
-                                                <Plus className="h-4 w-4" />
-                                                Crear cliente
+                                                <Send className="h-4 w-4 text-cyan-600" />
+                                                Responder
+                                            </button>
+                                            <Link
+                                                href={route('chats.create', { phone: displayPhone })}
+                                                className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-slate-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                                            >
+                                                <Plus className="h-4 w-4 text-cyan-600" />
+                                                Nuevo mensaje
                                             </Link>
-                                        )}
-                                        <Link
-                                            href={route('chats.create', { phone: displayPhone })}
-                                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-200 bg-white px-4 py-2.5 text-sm font-semibold text-cyan-700 shadow-sm transition hover:bg-cyan-50 dark:border-cyan-900/50 dark:bg-gray-900 dark:text-cyan-300 dark:hover:bg-gray-700"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                            Nuevo mensaje
-                                        </Link>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (window.confirm('¿Eliminar esta conversación? Se borrará el historial del chat, pero no el cliente, contratos ni pagos.')) {
-                                                    destroy(route('chats.destroy', phone));
-                                                }
-                                            }}
-                                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50 dark:border-rose-900/50 dark:bg-gray-900 dark:text-rose-300 dark:hover:bg-gray-700"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                            Eliminar chat
-                                        </button>
-                                    </div>
+                                            {!client && (
+                                                <Link
+                                                    href={route('clients.create', { phone: displayPhone, from_chat: 1 })}
+                                                    className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-slate-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                                                >
+                                                    <Plus className="h-4 w-4 text-cyan-600" />
+                                                    Crear cliente
+                                                </Link>
+                                            )}
+                                            <div className="my-1 border-t border-slate-100 dark:border-gray-700" />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (window.confirm('¿Eliminar esta conversación? Se borrará el historial del chat, pero no el cliente, contratos ni pagos.')) {
+                                                        destroy(route('chats.destroy', phone));
+                                                    }
+                                                }}
+                                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-rose-700 transition hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-900/20"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                Eliminar chat
+                                            </button>
+                                        </div>
+                                    </details>
                                 </div>
                             </div>
 
@@ -723,7 +807,9 @@ export default function ChatsShow({
                                                 const bubbleStatus = statusLabel(message.status);
                                                 const media = message.media ?? null;
                                                 const mediaCaption = media?.caption ?? message.body ?? null;
-                                                const mediaUrl = media?.data && media?.mimetype ? `data:${media.mimetype};base64,${media.data}` : null;
+                                                const mediaUrl = media?.data && media?.mimetype
+                                                    ? `data:${media.mimetype};base64,${media.data}`
+                                                    : media?.url ?? null;
                                                 const reactions = message.whatsapp_message_id
                                                     ? reactionsByMessageId.get(message.whatsapp_message_id) ?? []
                                                     : [];
@@ -779,6 +865,25 @@ export default function ChatsShow({
                                                                             <source src={mediaUrl} type={media.mimetype ?? undefined} />
                                                                             Tu dispositivo no puede reproducir este audio.
                                                                         </audio>
+                                                                        {mediaCaption && (
+                                                                            <p className="whitespace-pre-wrap text-[13px] leading-6 sm:text-sm">{mediaCaption}</p>
+                                                                        )}
+                                                                    </div>
+                                                                ) : media && media.kind === 'document' && media.mimetype === 'application/pdf' && mediaUrl ? (
+                                                                    <div className="w-[min(72vw,360px)] space-y-2">
+                                                                        <iframe
+                                                                            src={mediaUrl}
+                                                                            title={media.filename ?? 'Comprobante PDF'}
+                                                                            className="h-64 w-full rounded-xl border border-current/20 bg-white"
+                                                                        />
+                                                                        <a
+                                                                            href={mediaUrl}
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className="block text-xs font-semibold underline underline-offset-2"
+                                                                        >
+                                                                            {media.filename ?? 'Abrir comprobante'}
+                                                                        </a>
                                                                         {mediaCaption && (
                                                                             <p className="whitespace-pre-wrap text-[13px] leading-6 sm:text-sm">{mediaCaption}</p>
                                                                         )}

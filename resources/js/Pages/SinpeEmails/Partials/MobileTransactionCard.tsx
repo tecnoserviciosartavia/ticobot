@@ -1,6 +1,7 @@
 import { formatDateTime, formatAmount, labelForEmailStatus, classForEmailStatus } from '../utils';
 
 interface SinpeEmailTransaction {
+    company: { id: number; name: string } | null;
     id: number;
     reference: string | null;
     origin_phone: string | null;

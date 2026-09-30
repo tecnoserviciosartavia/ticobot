@@ -10,6 +10,7 @@ use App\Models\Reminder;
 use App\Models\ReminderMessage;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -98,7 +99,7 @@ class ReminderController extends Controller
         ];
 
         $reminders = $query
-            ->orderByDesc('scheduled_for')
+            ->orderBy('scheduled_for')
             ->paginate(perPage: 15)
             ->withQueryString()
             ->through(fn (Reminder $reminder) => [
@@ -338,36 +339,45 @@ class ReminderController extends Controller
                 'amount' => $payload['amount'] ?? '',
                 'due_date' => $payload['due_date'] ?? '',
                 'recurrence' => $payload['recurrence'] ?? null,
+                'sender_company' => $payload['sender_company'] ?? 'ticocast',
             ],
             'clients' => $clients,
             'channels' => Reminder::query()->select('channel')->distinct()->pluck('channel')->filter()->values(),
         ]);
     }
 
-    public function sendManually(Reminder $reminder, WhatsAppNotificationService $whatsApp): RedirectResponse
+    public function sendManually(Reminder $reminder, WhatsAppNotificationService $whatsApp): RedirectResponse|JsonResponse
     {
-        if (! in_array($reminder->status, ['pending', 'failed'], true)) {
-            return back()->with('error', 'Solo puedes enviar manualmente recordatorios pendientes o fallidos.');
+        if (! in_array($reminder->status, ['pending', 'failed', 'sent'], true)) {
+            return request()->expectsJson()
+                ? response()->json(['message' => 'Este recordatorio no está disponible para envío manual.'], 422)
+                : back()->with('error', 'Este recordatorio no está disponible para envío manual.');
         }
 
         if ($reminder->channel !== 'whatsapp') {
-            return back()->with('error', 'El envío manual solo está disponible para recordatorios de WhatsApp.');
+            return request()->expectsJson()
+                ? response()->json(['message' => 'El envío manual solo está disponible para recordatorios de WhatsApp.'], 422)
+                : back()->with('error', 'El envío manual solo está disponible para recordatorios de WhatsApp.');
         }
 
         $reminder->loadMissing(['client:id,name,phone', 'contract.contractType']);
         $phone = trim((string) ($reminder->client?->phone ?? ''));
         if ($phone === '') {
-            return back()->with('error', 'Este recordatorio no tiene un teléfono de cliente válido.');
+            return request()->expectsJson()
+                ? response()->json(['message' => 'Este recordatorio no tiene un teléfono de cliente válido.'], 422)
+                : back()->with('error', 'Este recordatorio no tiene un teléfono de cliente válido.');
         }
 
-        $message = $this->buildManualReminderMessage($reminder);
-        if ($message === '') {
-            return back()->with('error', 'No se pudo construir el mensaje del recordatorio.');
-        }
-
-        $sent = $whatsApp->sendTextMessage($phone, $message);
+        [$templateName, $templateParameters, $message] = $this->buildManualReminderTemplate($reminder);
+        $sent = $whatsApp->sendTemplateMessage($phone, $templateName, $templateParameters, 'es', [
+            'source' => 'manual_reminder_template',
+            'reminder_id' => $reminder->id,
+            'sent_by_user_id' => auth()->id(),
+        ]);
         if (! $sent) {
-            return back()->with('error', 'No se pudo enviar el recordatorio manual por WhatsApp.');
+            return request()->expectsJson()
+                ? response()->json(['message' => 'No se pudo enviar el recordatorio manual por WhatsApp.'], 502)
+                : back()->with('error', 'No se pudo enviar el recordatorio manual por WhatsApp.');
         }
 
         $now = now(config('app.timezone'));
@@ -397,48 +407,55 @@ class ReminderController extends Controller
             'sent_at' => $now,
         ]);
 
-        return back()->with('success', 'Recordatorio enviado manualmente por WhatsApp.');
+        return request()->expectsJson()
+            ? response()->json(['success' => true, 'reminder_id' => $reminder->id])
+            : back()->with('success', 'Recordatorio enviado manualmente por WhatsApp.');
     }
 
-    private function buildManualReminderMessage(Reminder $reminder): string
+    /** @return array{0: string, 1: list<string>, 2: string} */
+    private function buildManualReminderTemplate(Reminder $reminder): array
     {
         $payload = is_array($reminder->payload) ? $reminder->payload : [];
-        $customMessage = trim((string) ($payload['message'] ?? ''));
-        if ($customMessage !== '') {
-            return $customMessage;
-        }
-
-        $clientName = trim((string) ($reminder->client?->name ?? '')) ?: 'cliente';
-        $contractName = trim((string) ($reminder->contract?->name ?? '')) ?: 'su contrato';
-        $amount = trim((string) ($payload['amount'] ?? $reminder->contract?->amount ?? ''));
+        $clientName = trim((string) ($reminder->client?->name ?? ''));
+        $rawAmount = (float) ($reminder->contract?->amount ?? $payload['amount'] ?? 0);
+        $currency = strtoupper(trim((string) ($reminder->contract?->currency ?? 'CRC')));
+        $amount = ($currency === 'USD' ? '$' : '₡').number_format($rawAmount, 0, ',', '.');
         $dueDate = trim((string) ($payload['due_date'] ?? ($reminder->contract?->next_due_date?->toDateString() ?? '')));
-
-        $template = $reminder->contract?->contractType?->default_message;
-        if (is_string($template) && trim($template) !== '') {
-            return strtr($template, [
-                '{client_name}' => $clientName,
-                '{contract_name}' => $contractName,
-                '{amount}' => $amount,
-                '{due_date}' => $dueDate,
-                '{services}' => '',
-            ]);
-        }
-
-        $parts = [
-            "Hola {$clientName}, te compartimos un recordatorio pendiente de {$contractName}.",
-        ];
-
-        if ($amount !== '') {
-            $parts[] = "Monto: {$amount}.";
-        }
-
         if ($dueDate !== '') {
-            $parts[] = "Fecha de vencimiento: {$dueDate}.";
+            try {
+                $dueDate = Carbon::parse($dueDate, config('app.timezone'))->locale('es')->translatedFormat('d \d\e F \d\e Y');
+            } catch (\Throwable) {
+                // Conserva el texto original cuando no sea una fecha reconocible.
+            }
         }
 
-        $parts[] = 'Si ya realizaste el pago, por favor envíanos el comprobante.';
+        $senderCompany = strtolower(trim((string) ($payload['sender_company'] ?? 'ticocast')));
+        if ($senderCompany === '' || $senderCompany === 'ticocast') {
+            $parameters = [$clientName, $dueDate, $amount];
+            $message = "Estimad@ cliente {$clientName}\n\n"
+                ."TicoCast le informa que su suscripción de servicios de entretenimiento ha vencido.\n\n"
+                ."Fecha de vencimiento: {$dueDate}\nTotal: {$amount}\n\n"
+                ."En caso de no recibir respuesta, nos veremos en la necesidad de liberar el perfil de su suscripción.\n\n"
+                ."Si desea volver a disfrutar de nuestros servicios, realice el pago correspondiente y envíenos el comprobante.\n\n"
+                ."SINPE Móvil: 88525881\n\nCuentas para depósitos:\n"
+                ."BCR: CR21015202001214583670\nBAC: CR48010200009692963181\nPOPULAR: CR54016111152151714031\n"
+                ."BCT: CR56010730101104454585\nCOOPENAE: CR84081400011024939855\nMUTUAL ALAJUELA: CR98080348100999887871\n\n"
+                ."Titular: Fabián Artavia Serrano\n\nSi ya realizó el pago, omita este mensaje.";
 
-        return implode(' ', $parts);
+            return ['recordatorio_vencimiento_v2', $parameters, $message];
+        }
+
+        $companyName = trim((string) ($payload['company_name'] ?? 'Empresa'));
+        $paymentContact = trim((string) ($payload['payment_contact'] ?? ''));
+        $bankAccounts = preg_replace('/\s*\r?\n\s*/', ' | ', trim((string) ($payload['bank_accounts'] ?? ''))) ?? '';
+        $beneficiaryName = trim((string) ($payload['beneficiary_name'] ?? ''));
+        $parameters = [$clientName, $companyName, $dueDate, $amount, $paymentContact, $bankAccounts, $beneficiaryName];
+        $message = "Estimad@ cliente {$clientName}\n\n{$companyName} le informa que su suscripción de servicios ha vencido.\n\n"
+            ."Fecha de vencimiento: {$dueDate}\nTotal: {$amount}\n\nPor favor realice el pago correspondiente y envíenos el comprobante.\n\n"
+            ."SINPE Móvil / contacto de pago: {$paymentContact}\n\nCuentas para depósitos:\n{$bankAccounts}\n\n"
+            ."Beneficiario: {$beneficiaryName}\n\nSi ya realizó el pago, omita este mensaje.";
+
+        return ['recordatorio_vencimiento_multiempresa', $parameters, $message];
     }
 
     public function retry(Reminder $reminder): RedirectResponse
@@ -507,14 +524,17 @@ class ReminderController extends Controller
             'scheduled_for' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
             'recurrence' => ['nullable', 'string', Rule::in(['weekly', 'biweekly', 'monthly', 'one_time'])],
             'message' => ['nullable', 'string'],
+            'sender_company' => ['nullable', 'string'],
             'amount' => ['nullable', 'string'],
             'due_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:2000-01-01'],
         ]);
 
+        $company = Client::query()->with('company')->findOrFail((int) $data['client_id'])->company;
         $payload = array_filter([
             'message' => $data['message'] ?? null,
             'amount' => $data['amount'] ?? null,
             'due_date' => isset($data['due_date']) ? Carbon::parse($data['due_date'])->toDateString() : null,
+            ...($company?->reminderPayload() ?? []),
         ], fn ($value) => $value !== null && $value !== '');
 
         // The UI submits a calendar date. The backend owns the delivery hour,

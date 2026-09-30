@@ -9,6 +9,7 @@ class SinpeEmailTransaction extends Model
     protected $table = 'sinpe_email_transactions';
 
     protected $fillable = [
+        'company_id',
         'reference',
         'origin_phone',
         'origin_name',
@@ -31,6 +32,11 @@ class SinpeEmailTransaction extends Model
         'performed_at' => 'datetime',
         'is_read'      => 'boolean',
     ];
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
 
     public function client()
     {

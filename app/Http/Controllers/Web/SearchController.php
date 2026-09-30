@@ -3,78 +3,51 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Client;
 use App\Models\Contract;
 use App\Models\Payment;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class SearchController extends Controller
 {
     public function global(Request $request)
     {
-        $query = $request->get('q', '');
-        $limit = min($request->get('limit', 10), 50);
-        
-        Log::info('Search request', ['query' => $query, 'limit' => $limit]);
-        
-        if (strlen($query) < 2) {
-            Log::info('Query too short');
-            return response()->json([
-                'clients' => [],
-                'contracts' => [],
-                'payments' => [],
-            ]);
+        $query = trim((string) $request->get('q', ''));
+        $limit = min(max((int) $request->get('limit', 10), 1), 50);
+
+        if (mb_strlen($query) < 2) {
+            return response()->json(['clients' => [], 'contracts' => [], 'payments' => []]);
         }
 
-        try {
-            // Buscar clientes
-            $clients = Client::where('name', 'like', "%{$query}%")
-                ->orWhere('email', 'like', "%{$query}%")
-                ->orWhere('phone', 'like', "%{$query}%")
-                ->select('id', 'name', 'email', 'phone', 'status')
-                ->limit($limit)
-                ->get();
+        $clients = Client::query()
+            ->where(function ($clientQuery) use ($query): void {
+                $clientQuery->where('name', 'like', "%{$query}%")
+                    ->orWhere('email', 'like', "%{$query}%")
+                    ->orWhere('phone', 'like', "%{$query}%")
+                    ->orWhereHas('contracts.services', fn ($serviceQuery) => $serviceQuery->where('account_email', 'like', "%{$query}%"));
+            })
+            ->select('id', 'name', 'email', 'phone', 'status')
+            ->limit($limit)
+            ->get();
 
-            Log::info('Clients found', ['count' => $clients->count()]);
+        $contracts = Contract::query()
+            ->where('name', 'like', "%{$query}%")
+            ->orWhereHas('client', fn ($clientQuery) => $clientQuery->where('name', 'like', "%{$query}%"))
+            ->orWhereHas('services', fn ($serviceQuery) => $serviceQuery->where('account_email', 'like', "%{$query}%"))
+            ->with('client:id,name')
+            ->select('id', 'name', 'client_id', 'amount', 'currency', 'next_due_date')
+            ->limit($limit)
+            ->get();
 
-            // Buscar contratos (usar name en lugar de contract_number)
-            $contracts = Contract::where('name', 'like', "%{$query}%")
-                ->orWhereHas('client', function ($q) use ($query) {
-                    $q->where('name', 'like', "%{$query}%");
-                })
-                ->with('client:id,name')
-                ->select('id', 'name', 'client_id', 'amount', 'currency', 'next_due_date')
-                ->limit($limit)
-                ->get();
+        $payments = Payment::query()
+            ->where('reference', 'like', "%{$query}%")
+            ->orWhereHas('contract.client', fn ($clientQuery) => $clientQuery->where('name', 'like', "%{$query}%"))
+            ->with('contract.client:id,name')
+            ->select('id', 'reference', 'contract_id', 'amount', 'status', 'paid_at')
+            ->limit($limit)
+            ->get();
 
-            Log::info('Contracts found', ['count' => $contracts->count()]);
-
-            // Buscar pagos (usar reference en lugar de payment_number)
-            $payments = Payment::where('reference', 'like', "%{$query}%")
-                ->orWhereHas('contract.client', function ($q) use ($query) {
-                    $q->where('name', 'like', "%{$query}%");
-                })
-                ->with('contract.client:id,name')
-                ->select('id', 'reference', 'contract_id', 'amount', 'status', 'paid_at')
-                ->limit($limit)
-                ->get();
-
-            Log::info('Payments found', ['count' => $payments->count()]);
-
-            return response()->json([
-                'clients' => $clients,
-                'contracts' => $contracts,
-                'payments' => $payments,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Search error', ['error' => $e->getMessage()]);
-            return response()->json([
-                'error' => $e->getMessage(),
-                'clients' => [],
-                'contracts' => [],
-                'payments' => [],
-            ], 500);
-        }
+        return response()->json(compact('clients', 'contracts', 'payments'));
     }
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ticobot-pwa-v3';
+const CACHE_NAME = 'ticobot-pwa-v10';
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const RUNTIME_CACHE = `${CACHE_NAME}-runtime`;
 const PRECACHE_URLS = [

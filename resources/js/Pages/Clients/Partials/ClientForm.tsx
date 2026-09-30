@@ -2,6 +2,7 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import PhoneNumberInput from '@/Components/PhoneNumberInput';
 import { Link } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
 import { labelForStatus } from '@/lib/labels';
@@ -12,6 +13,7 @@ interface ContractOption {
 }
 
 interface ClientFormData {
+    company_id: string;
     name: string;
     email: string;
     phone: string;
@@ -24,6 +26,8 @@ interface ClientFormProps {
     data: ClientFormData;
     errors: Record<string, string | undefined>;
     statuses: string[];
+    companies: Array<{ id: number; name: string }>;
+    multiCompanyEnabled: boolean;
     contracts?: ContractOption[];
     onCreateContract?: () => void;
     processing: boolean;
@@ -37,6 +41,8 @@ export default function ClientForm({
     data,
     errors,
     statuses,
+    companies,
+    multiCompanyEnabled,
     contracts,
     onCreateContract,
     processing,
@@ -50,6 +56,16 @@ export default function ClientForm({
     return (
         <form onSubmit={onSubmit} className="space-y-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {multiCompanyEnabled && <div>
+                    <InputLabel htmlFor="company_id" value="Empresa" />
+                    <select id="company_id" name="company_id" value={data.company_id} onChange={(event) => onChange('company_id', event.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
+                        <option value="">Seleccione una empresa</option>
+                        {companies.map((company) => <option key={company.id} value={String(company.id)}>{company.name}</option>)}
+                    </select>
+                    <InputError message={errors.company_id} className="mt-2" />
+                    {multiCompanyEnabled && <p className="mt-1 text-xs text-gray-500">Define los servicios y mensajes disponibles para este cliente.</p>}
+                </div>}
+
                 <div>
                     <InputLabel htmlFor="name" value="Nombre" />
                     <TextInput
@@ -66,6 +82,7 @@ export default function ClientForm({
 
                 {/* Removed legal_id field as requested */}
 
+
                 <div>
                     <InputLabel htmlFor="email" value="Correo electrónico" />
                     <TextInput
@@ -80,16 +97,9 @@ export default function ClientForm({
                     <InputError message={errors.email} className="mt-2" />
                 </div>
 
+
                 <div>
-                    <InputLabel htmlFor="phone" value="Teléfono" />
-                    <TextInput
-                        id="phone"
-                        name="phone"
-                        value={data.phone}
-                        onChange={(event) => onChange('phone', event.target.value)}
-                        className="mt-1 block w-full"
-                        placeholder="Ej: 8888-8888"
-                    />
+                    <PhoneNumberInput value={data.phone} onChange={(value) => onChange('phone', value)} />
                     <InputError message={errors.phone} className="mt-2" />
                 </div>
 

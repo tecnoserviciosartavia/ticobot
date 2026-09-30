@@ -372,144 +372,11 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                                     </div>
                                 </div>
 
-                                <form onSubmit={submit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre de la empresa</label>
-                                <input
-                                    value={form.data.company_name}
-                                    onChange={(e) => form.setData('company_name', e.target.value)}
-                                    placeholder="Ej: TecnoServicios Artavia"
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                                />
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Este nombre se usará como remitente en los recordatorios enviados por WhatsApp.
-                                </p>
-                            </div>
-
-                            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                                <div className="mb-2">
-                                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Enviar recordatorio de prueba</h4>
-                                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                        Encola un recordatorio inmediato usando la <strong>plantilla global</strong> actual. Útil para probar sin usar tinker.
-                                    </p>
+                                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-6 dark:border-indigo-900/50 dark:bg-indigo-900/20">
+                                    <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">La configuración de recordatorios ahora es por empresa</h4>
+                                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">El nombre del remitente, plantilla, SINPE móvil, cuentas bancarias, beneficiario y los envíos de prueba se administran independientemente para cada empresa.</p>
+                                    <a href={route('settings.companies.index')} className="mt-4 inline-flex rounded-md bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500">Administrar empresas</a>
                                 </div>
-
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                    <input
-                                        value={testForm.data.phone}
-                                        onChange={(e) => testForm.setData('phone', e.target.value)}
-                                        placeholder="Ej: 61784023 o 50661784023"
-                                        className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={sendTest}
-                                        disabled={testSending}
-                                        className={`inline-flex items-center justify-center rounded-md px-4 py-2 text-white font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                                            testSending ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400'
-                                        }`}
-                                    >
-                                        {testSending ? 'Enviando…' : 'Enviar prueba'}
-                                    </button>
-                                </div>
-
-                                {testResult && (
-                                    <div
-                                        className={`mt-3 rounded-md px-3 py-2 text-sm ${
-                                            testResult.type === 'success'
-                                                ? 'bg-cyan-50 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-200'
-                                                : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-200'
-                                        }`}
-                                    >
-                                        {testResult.message}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Plantilla global de recordatorio</label>
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Personalizá el mensaje completo. Usá las variables para insertar datos como nombre del cliente, fecha y monto.
-                                </p>
-
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                    {[
-                                        { label: 'Cliente', key: '{client_name}' },
-                                        { label: 'Empresa', key: '{company_name}' },
-                                        { label: 'Vence', key: '{due_date}' },
-                                        { label: 'Monto', key: '{amount}' },
-                                        { label: 'Servicios', key: '{services}' },
-                                        { label: 'Contrato', key: '{contract_name}' },
-                                        { label: 'Sinpe', key: '{payment_contact}' },
-                                        { label: 'Cuentas', key: '{bank_accounts}' },
-                                        { label: 'Beneficiario', key: '{beneficiary_name}' },
-                                    ].map((p) => (
-                                        <button
-                                            key={p.key}
-                                            type="button"
-                                            onClick={() => insertPlaceholder(p.key)}
-                                            className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
-                                        >
-                                            + {p.label}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <textarea
-                                    ref={templateRef}
-                                    value={form.data.reminder_template}
-                                    onChange={(e) => form.setData('reminder_template', e.target.value)}
-                                    rows={10}
-                                    placeholder={
-                                        'Ejemplo:\n\n' +
-                                        '{company_name}, le informa a {client_name} que:\n' +
-                                        'Ha vencido el {due_date}\n' +
-                                        'Servicios: {services}\n' +
-                                        'Total: ₡{amount}\n\n' +
-                                        'Sinpemóvil: {payment_contact}\n' +
-                                        '{bank_accounts}\n' +
-                                        'Todas a nombre de {beneficiary_name}\n\n' +
-                                        'Si ya canceló, omita el mensaje'
-                                    }
-                                    className="mt-2 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                                />
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    La plantilla es obligatoria: si está vacía, el bot no enviará recordatorios.
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sinpemóvil / Contacto de pago</label>
-                                <input
-                                    value={form.data.payment_contact}
-                                    onChange={(e) => form.setData('payment_contact', e.target.value)}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Beneficiario (nombre)</label>
-                                <input
-                                    value={form.data.beneficiary_name}
-                                    onChange={(e) => form.setData('beneficiary_name', e.target.value)}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Cuentas bancarias (separadas por nueva línea o ;) </label>
-                                <textarea
-                                    value={form.data.bank_accounts}
-                                    onChange={(e) => form.setData('bank_accounts', e.target.value)}
-                                    rows={6}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-end gap-3">
-                                <button type="submit" className="inline-flex items-center rounded-md bg-indigo-600 hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400 px-4 py-2 text-white font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Guardar</button>
-                            </div>
-                                </form>
                             </div>
                         )}
 
@@ -608,12 +475,10 @@ export default function SettingsIndex({ settings, services, logSources, logDefau
                                         <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Servicios</h3>
                                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Servicios disponibles para seleccionar en contratos.</p>
                                     </div>
-                                    <a
-                                        href={route('settings.services.index')}
-                                        className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200"
-                                    >
-                                        Administrar servicios
-                                    </a>
+                                    <div className="flex gap-2">
+                                        <a href={route('settings.companies.index')} className="inline-flex items-center rounded-md bg-cyan-50 px-3 py-2 text-sm font-medium text-cyan-700 hover:bg-cyan-100">Administrar empresas</a>
+                                        <a href={route('settings.services.index')} className="inline-flex items-center rounded-md bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100">Administrar servicios</a>
+                                    </div>
                                 </div>
 
                                 <div className="overflow-x-auto">

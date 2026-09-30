@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Client;
+use App\Models\Company;
 use App\Models\Conciliation;
 use App\Models\Contract;
 use App\Models\Payment;
@@ -16,6 +17,7 @@ class SinpeBcrEmailConciliationService
     public function __construct(
         private readonly SinpeBcrEmailParser $parser,
         private readonly PushNotificationService $push,
+        private readonly PayerAliasService $payerAliases,
     )
     {
     }
@@ -41,36 +43,29 @@ class SinpeBcrEmailConciliationService
      */
     private function scanMailbox(string $criteria, bool $markSeen): array
     {
-        $stats = [
-            'checked' => 0,
-            'parsed' => 0,
-            'conciliated' => 0,
-            'skipped' => 0,
-            'errors' => 0,
-        ];
-
-        if (! $this->isEnabled()) {
-            return $stats;
-        }
-
+        $stats = ['checked' => 0, 'parsed' => 0, 'conciliated' => 0, 'skipped' => 0, 'errors' => 0];
+        if (! $this->isEnabled()) return $stats;
         if (! function_exists('imap_open')) {
             Log::warning('SINPE IMAP: extensión IMAP no disponible en PHP');
             $stats['errors']++;
             return $stats;
         }
 
-        $config = $this->loadConfig();
-        if (! $config['valid']) {
-            Log::warning('SINPE IMAP: configuración incompleta, no se ejecuta conciliación automática');
-            $stats['errors']++;
-            return $stats;
+        foreach ($this->loadMailboxConfigs() as $mailboxConfig) {
+            $current = $this->scanConfiguredMailbox($criteria, $markSeen, $mailboxConfig);
+            foreach ($stats as $key => $value) $stats[$key] += $current[$key];
         }
 
-        $mailbox = $this->openMailboxImap($config['imap']);
-        if (! $mailbox) {
-            $stats['errors']++;
-            return $stats;
-        }
+        return $stats;
+    }
+
+    /** @param array<string,mixed> $mailboxConfig @return array<string,int> */
+    private function scanConfiguredMailbox(string $criteria, bool $markSeen, array $mailboxConfig): array
+    {
+        $stats = ['checked' => 0, 'parsed' => 0, 'conciliated' => 0, 'skipped' => 0, 'errors' => 0];
+        $mailbox = $this->openMailboxImap($mailboxConfig['imap']);
+        if (! $mailbox) { $stats['errors']++; return $stats; }
+        $companyId = (int) $mailboxConfig['company_id'];
 
         try {
             $emails = imap_search($mailbox, $criteria) ?: [];
@@ -80,46 +75,57 @@ class SinpeBcrEmailConciliationService
                 $overview = $this->fetchOverviewImap($mailbox, (int) $msgNo);
                 $mailSubject = $overview['subject'] ?? null;
                 $isRead = (bool) ($overview['is_read'] ?? false);
-
                 try {
                     $body = $this->fetchBodyImap($mailbox, (int) $msgNo, ! $markSeen);
                     $parsed = $this->parser->parse($body);
-
                     if (! $parsed) {
                         $stats['skipped']++;
-                        if ($markSeen) {
-                            $this->markSeenImap($mailbox, $msgNo);
-                        }
                         continue;
                     }
-
                     $stats['parsed']++;
-
-                    $result = $this->processParsedMessage($parsed, $messageUid, $mailSubject, $isRead);
-                    if ($result) {
-                        $stats['conciliated']++;
-                    } else {
-                        $stats['skipped']++;
-                    }
+                    $this->processParsedMessage($parsed, $messageUid, $mailSubject, $isRead, $companyId)
+                        ? $stats['conciliated']++ : $stats['skipped']++;
                 } catch (\Throwable $e) {
                     $stats['errors']++;
-                    Log::error('SINPE IMAP: error procesando correo', [
-                        'message_no' => $msgNo,
-                        'error' => $e->getMessage(),
-                    ]);
+                    Log::error('SINPE IMAP: error procesando correo', ['company_id' => $companyId, 'message_no' => $msgNo, 'error' => $e->getMessage()]);
                 } finally {
-                    if ($markSeen) {
-                        $this->markSeenImap($mailbox, $msgNo);
-                    }
+                    if ($markSeen) $this->markSeenImap($mailbox, $msgNo);
                 }
             }
         } finally {
             @imap_close($mailbox);
         }
-
         return $stats;
     }
 
+    /** @return list<array<string,mixed>> */
+    private function loadMailboxConfigs(): array
+    {
+        $configs = [];
+        $companies = Company::query()->where('is_active', true)->where('sinpe_email_enabled', true)->get();
+        foreach ($companies as $company) {
+            $imap = [
+                'host' => trim((string) $company->sinpe_imap_host),
+                'port' => (int) $company->sinpe_imap_port,
+                'encryption' => in_array($company->sinpe_imap_encryption, ['ssl', 'tls', 'none'], true) ? $company->sinpe_imap_encryption : 'ssl',
+                'folder' => trim((string) $company->sinpe_imap_folder),
+                'username' => trim((string) $company->sinpe_imap_username),
+                'password' => (string) $company->sinpe_imap_password,
+            ];
+            if ($imap['host'] && $imap['port'] > 0 && $imap['folder'] && $imap['username'] && $imap['password']) {
+                $configs[] = ['company_id' => $company->id, 'company_name' => $company->name, 'imap' => $imap];
+            } else {
+                Log::warning('SINPE IMAP: empresa activa con configuración incompleta', ['company_id' => $company->id]);
+            }
+        }
+
+        $ticoCast = Company::query()->where('slug', 'ticocast')->first();
+        if ($ticoCast && ! $companies->contains('id', $ticoCast->id)) {
+            $legacy = $this->loadConfig();
+            if ($legacy['valid']) $configs[] = ['company_id' => $ticoCast->id, 'company_name' => $ticoCast->name, 'imap' => $legacy['imap']];
+        }
+        return $configs;
+    }
     private function isEnabled(): bool
     {
         $raw = strtolower(trim((string) Setting::get('sinpe_auto_conciliation_enabled', '0')));
@@ -229,7 +235,7 @@ class SinpeBcrEmailConciliationService
     /**
      * @param array<string,mixed> $parsed
      */
-    private function processParsedMessage(array $parsed, string $messageUid, ?string $mailSubject, bool $isRead): bool
+    private function processParsedMessage(array $parsed, string $messageUid, ?string $mailSubject, bool $isRead, int $companyId): bool
     {
         $reference = (string) ($parsed['reference'] ?? '');
         if ($reference === '') {
@@ -244,6 +250,7 @@ class SinpeBcrEmailConciliationService
                     'message_uid' => $messageUid,
                     'mail_subject' => $mailSubject,
                     'is_read' => $isRead,
+                    'company_id' => $existing->company_id ?: $companyId,
                     'raw_excerpt' => (string) ($parsed['raw_excerpt'] ?? ''),
                     'updated_at' => now(),
                 ]);
@@ -253,31 +260,31 @@ class SinpeBcrEmailConciliationService
 
         $amount = (float) ($parsed['amount'] ?? 0);
         if ($amount <= 0) {
-            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'skipped', null, null, null, 'Monto no válido');
+            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'skipped', null, null, null, 'Monto no válido', $companyId);
             return false;
         }
 
-        $client = $this->matchClient($parsed);
+        $client = $this->matchClient($parsed, $companyId);
         if (! $client) {
-            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'skipped', null, null, null, 'No se encontró cliente por origen/motivo');
+            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'skipped', null, null, null, 'No se encontró cliente por origen/motivo', $companyId);
             return false;
         }
 
         $contract = $this->matchContractByAmount((int) $client->id, $amount);
         if (! $contract) {
-            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'skipped', (int) $client->id, null, null, 'Monto no coincide con contrato del cliente');
+            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'skipped', (int) $client->id, null, null, 'Monto no coincide con contrato del cliente', $companyId);
             return false;
         }
 
         $payment = $this->findOrCreatePaymentForManualReview($client, $contract, $parsed, $amount);
         if (! $payment) {
-            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'error', (int) $client->id, (int) $contract->id, null, 'No se pudo crear/actualizar pago');
+            $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'error', (int) $client->id, (int) $contract->id, null, 'No se pudo crear/actualizar pago', $companyId);
             return false;
         }
 
         $this->ensureConciliationInReview($payment);
 
-        $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'in_review', (int) $client->id, (int) $contract->id, (int) $payment->id, 'Detectado por correo y enviado a revisión manual');
+        $this->storeTransaction($parsed, $messageUid, $mailSubject, $isRead, 'in_review', (int) $client->id, (int) $contract->id, (int) $payment->id, 'Detectado por correo y enviado a revisión manual', $companyId);
 
         return true;
     }
@@ -285,12 +292,23 @@ class SinpeBcrEmailConciliationService
     /**
      * @param array<string,mixed> $parsed
      */
-    private function matchClient(array $parsed): ?Client
+
+    private function matchClient(array $parsed, int $companyId): ?Client
     {
+        $learnedClient = $this->payerAliases->matchClient(
+            (string) ($parsed['origin_name'] ?? ''),
+            (string) ($parsed['origin_phone'] ?? ''),
+            (float) ($parsed['amount'] ?? 0),
+            $companyId,
+        );
+        if ($learnedClient) {
+            return $learnedClient;
+        }
+
         $originPhone = $this->digits((string) ($parsed['origin_phone'] ?? ''));
         $motive = $this->normalizeText((string) ($parsed['motive'] ?? ''));
 
-        $clients = Client::query()->select('id', 'name', 'phone')->whereNull('deleted_at')->get();
+        $clients = Client::query()->select('id', 'name', 'phone')->where('company_id', $companyId)->whereNull('deleted_at')->get();
         $best = null;
         $bestScore = -1;
         $secondScore = -1;
@@ -363,6 +381,7 @@ class SinpeBcrEmailConciliationService
     {
         $reference = (string) ($parsed['reference'] ?? '');
         $performedAt = ! empty($parsed['performed_at']) ? $parsed['performed_at'] : now();
+        $paidForMonth = $this->paymentMonthFromPerformedAt($performedAt);
 
         // Evitar duplicados entre canales: si ya existe un pago con la misma referencia,
         // reutilizarlo y solo enriquecer metadata del correo.
@@ -386,6 +405,7 @@ class SinpeBcrEmailConciliationService
             $metadata['sinpe_email_origin_phone'] = $parsed['origin_phone'] ?? null;
             $metadata['sinpe_email_motive'] = $parsed['motive'] ?? null;
             $metadata['sinpe_email_detected_at'] = now()->toIso8601String();
+            $this->setEmailPaymentPeriod($metadata, $paidForMonth);
 
             $update = [
                 'metadata' => $metadata,
@@ -411,6 +431,7 @@ class SinpeBcrEmailConciliationService
             $metadata['sinpe_email_origin_phone'] = $parsed['origin_phone'] ?? null;
             $metadata['sinpe_email_motive'] = $parsed['motive'] ?? null;
             $metadata['sinpe_email_detected_at'] = now()->toIso8601String();
+            $this->setEmailPaymentPeriod($metadata, $paidForMonth);
             $metadata['sinpe_email_linked_existing_payment_without_reference'] = true;
 
             $openPaymentWithoutReference->forceFill([
@@ -448,6 +469,7 @@ class SinpeBcrEmailConciliationService
             $metadata['sinpe_email_origin_name'] = $parsed['origin_name'] ?? null;
             $metadata['sinpe_email_origin_phone'] = $parsed['origin_phone'] ?? null;
             $metadata['sinpe_email_motive'] = $parsed['motive'] ?? null;
+            $this->setEmailPaymentPeriod($metadata, $paidForMonth);
 
             $payment->forceFill([
                 'status' => 'in_review',
@@ -475,10 +497,37 @@ class SinpeBcrEmailConciliationService
                 'sinpe_email_origin_name' => $parsed['origin_name'] ?? null,
                 'sinpe_email_origin_phone' => $parsed['origin_phone'] ?? null,
                 'sinpe_email_motive' => $parsed['motive'] ?? null,
+                'paid_for_month' => $paidForMonth,
+                'covered_months' => [$paidForMonth],
+                'billing_period_explicit' => true,
             ],
         ]);
     }
 
+    /** @param array<string,mixed> $metadata */
+    private function setEmailPaymentPeriod(array &$metadata, string $paidForMonth): void
+    {
+        if (($metadata['billing_period_explicit'] ?? false) || ! empty($metadata['covered_months'])) {
+            return;
+        }
+
+        $metadata['paid_for_month'] = $paidForMonth;
+        $metadata['covered_months'] = [$paidForMonth];
+        $metadata['billing_period_explicit'] = true;
+    }
+
+    private function paymentMonthFromPerformedAt(mixed $performedAt): string
+    {
+        $tz = config('app.timezone');
+
+        try {
+            return ($performedAt instanceof Carbon ? $performedAt : Carbon::parse((string) $performedAt, $tz))
+                ->timezone($tz)
+                ->format('Y-m');
+        } catch (\Throwable) {
+            return Carbon::now($tz)->format('Y-m');
+        }
+    }
     private function findOpenPaymentWithoutReference(Client $client, Contract $contract, float $amount, mixed $performedAt): ?Payment
     {
         $query = Payment::query()
@@ -538,9 +587,13 @@ class SinpeBcrEmailConciliationService
         ?int $clientId,
         ?int $contractId,
         ?int $paymentId,
-        ?string $notes
+        ?string $notes,
+        ?int $mailboxCompanyId = null
     ): void {
+        $companyId = $mailboxCompanyId ?: ($clientId ? Client::query()->whereKey($clientId)->value("company_id") : null);
+
         $inserted = DB::table("sinpe_email_transactions")->insertOrIgnore([
+            "company_id" => $companyId,
             "reference" => (string) ($parsed["reference"] ?? ""),
             "origin_phone" => (string) ($parsed["origin_phone"] ?? ""),
             "origin_name" => (string) ($parsed["origin_name"] ?? ""),
@@ -564,6 +617,10 @@ class SinpeBcrEmailConciliationService
             return;
         }
 
+        if (! $this->shouldSendPaymentEmailPush($parsed)) {
+            return;
+        }
+
         $reference = (string) ($parsed["reference"] ?? "");
         $origin = trim((string) ($parsed["origin_name"] ?? "")) ?: "Remitente sin identificar";
         $amount = number_format((float) ($parsed["amount"] ?? 0), 2, ".", ",");
@@ -581,6 +638,24 @@ class SinpeBcrEmailConciliationService
                 "tag" => "payment-email-{$reference}",
             ],
         );
+    }
+
+    /** @param array<string,mixed> $parsed */
+    private function shouldSendPaymentEmailPush(array $parsed): bool
+    {
+        $performedAt = $parsed['performed_at'] ?? null;
+        if (! $performedAt) {
+            return true;
+        }
+
+        try {
+            $timezone = (string) config('app.timezone', 'America/Costa_Rica');
+
+            return Carbon::parse((string) $performedAt, $timezone)
+                ->greaterThanOrEqualTo(now($timezone)->subDay());
+        } catch (\Throwable) {
+            return true;
+        }
     }
 
     private function decodePart(string $raw, int $encoding): string

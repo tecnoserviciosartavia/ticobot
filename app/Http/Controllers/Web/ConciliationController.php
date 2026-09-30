@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Conciliation;
 use App\Services\ConciliationPdfService;
+use App\Services\ConciliationReversalService;
 use App\Services\PaymentSettlementService;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Http\Request;
@@ -94,7 +95,11 @@ class ConciliationController extends Controller
             'months' => ['nullable', 'integer', 'min:1'],
             'calculated_amount' => ['nullable', 'numeric', 'min:0'],
             'billing_month' => ['nullable', 'date_format:Y-m'],
+            'skip_receipt_notification' => ['nullable', 'boolean'],
         ]);
+
+        $skipReceiptNotification = (bool) ($data['skip_receipt_notification'] ?? false);
+        unset($data['skip_receipt_notification']);
 
         $existing = Conciliation::query()->where('payment_id', $data['payment_id'])->first();
 
@@ -121,10 +126,11 @@ class ConciliationController extends Controller
         $payment = $conciliation->payment;
         $payment?->update(['status' => $paymentStatus]);
 
-        // Actualizar el metadata del pago con los meses y contrato si se proporcionaron
-        if ($payment && isset($data['months'])) {
+        // El período elegido en el formulario es la fuente de verdad.
+        if ($payment && (isset($data['months']) || isset($data['billing_month']))) {
             $metadata = $payment->metadata ?? [];
-            $metadata['months'] = (int) $data['months'];
+            $months = max(1, (int) ($data['months'] ?? 1));
+            $metadata['months'] = $months;
             
             if (isset($data['contract_id'])) {
                 $metadata['conciliation_contract_id'] = $data['contract_id'];
@@ -137,9 +143,18 @@ class ConciliationController extends Controller
             // Guardar el período pagado solo para contratos mensuales.
             if (isset($data['contract_id'])) {
                 $contract = \App\Models\Contract::query()->find($data['contract_id']);
-                if ($contract && $contract->billing_cycle === 'monthly') {
-                    $metadata['paid_for_month'] = $data['billing_month']
-                        ?? \Carbon\Carbon::parse($payment->paid_at ?? now(), config('app.timezone'))->format('Y-m');
+                if ($contract && in_array(strtolower((string) $contract->billing_cycle), ['monthly', 'mensual'], true)) {
+                    $billingMonth = $data['billing_month'] ?? ($metadata['paid_for_month'] ?? null);
+                    if (is_string($billingMonth) && preg_match('/^\d{4}-\d{2}$/', $billingMonth) === 1) {
+                        $start = \Carbon\Carbon::createFromFormat('Y-m-d', $billingMonth.'-01', config('app.timezone'));
+                        $coveredMonths = [];
+                        for ($i = 0; $i < $months; $i++) {
+                            $coveredMonths[] = $start->copy()->addMonths($i)->format('Y-m');
+                        }
+                        $metadata['paid_for_month'] = $billingMonth;
+                        $metadata['covered_months'] = $coveredMonths;
+                        $metadata['billing_period_explicit'] = true;
+                    }
                 }
             }
             
@@ -147,8 +162,16 @@ class ConciliationController extends Controller
             $payment->save();
         }
 
+        if ($payment && $skipReceiptNotification) {
+            $metadata = is_array($payment->metadata) ? $payment->metadata : [];
+            $metadata['receipt_notification_skipped_at'] = now()->toIso8601String();
+            $metadata['receipt_notification_skipped_by'] = Auth::id();
+            $payment->metadata = $metadata;
+            $payment->save();
+        }
+
         // Si la conciliación fue aprobada, ajustar monto (si falta), generar y enviar el PDF
-        if ($conciliation->status === 'approved' && $payment) {
+        if ($conciliation->status === 'approved' && $payment && ! $skipReceiptNotification) {
             try {
                 // Recargar el pago con todas las relaciones necesarias
                 $payment->load(['client', 'contract']);
@@ -234,7 +257,11 @@ class ConciliationController extends Controller
             'status' => ['required', 'in:pending,in_review,approved,rejected'],
             'verified_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
+            'skip_receipt_notification' => ['nullable', 'boolean'],
         ]);
+
+        $skipReceiptNotification = (bool) ($data['skip_receipt_notification'] ?? false);
+        unset($data['skip_receipt_notification']);
 
         $previousConciliationStatus = $conciliation->status;
 
@@ -251,8 +278,16 @@ class ConciliationController extends Controller
         $payment = $conciliation->payment;
         $payment?->update(['status' => $paymentStatus]);
 
+        if ($payment && $skipReceiptNotification) {
+            $metadata = is_array($payment->metadata) ? $payment->metadata : [];
+            $metadata['receipt_notification_skipped_at'] = now()->toIso8601String();
+            $metadata['receipt_notification_skipped_by'] = Auth::id();
+            $payment->metadata = $metadata;
+            $payment->save();
+        }
+
         // If approved, generate PDF and send notification
-        if ($data['status'] === 'approved' && $payment) {
+        if ($data['status'] === 'approved' && $payment && ! $skipReceiptNotification) {
             try {
                 $payment->load(['client', 'contract']);
                 
@@ -308,5 +343,12 @@ class ConciliationController extends Controller
         }
 
         return redirect()->route('conciliations.index')->with('success', 'Conciliación actualizada exitosamente.');
+    }
+
+    public function destroy(Conciliation $conciliation, ConciliationReversalService $reversal): RedirectResponse
+    {
+        $reversal->reverse($conciliation, Auth::id());
+
+        return back()->with('success', 'Conciliación rota. El pago quedó sin verificar y los períodos fueron reabiertos.');
     }
 }

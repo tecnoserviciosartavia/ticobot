@@ -295,8 +295,58 @@ export default function PendingPayments({}: PageProps) {
                             </div>
                         </div>
 
+                        {/* Mobile card list */}
+                        <div className="space-y-3 p-4 md:hidden">
+                            {loading ? (
+                                <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">Cargando...</p>
+                            ) : clients.length === 0 ? (
+                                <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">No hay clientes con pagos pendientes</p>
+                            ) : (
+                                clients.map((client) => (
+                                    <div
+                                        key={client.id}
+                                        className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <Link href={route('clients.show', client.id)} className="font-medium text-blue-600 hover:text-blue-800">
+                                                {client.name}
+                                            </Link>
+                                            <span className="shrink-0 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900/20 dark:text-red-300">
+                                                {client.pending_payments_count} pendiente{client.pending_payments_count !== 1 ? 's' : ''}
+                                            </span>
+                                        </div>
+                                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            {client.phone || '-'} {client.email ? `· ${client.email}` : ''}
+                                        </div>
+                                        <div className="mt-3 flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                Registrado: {formatDate(client.created_at)}
+                                            </span>
+                                            <span className="font-semibold text-red-600">
+                                                {formatCurrency(client.pending_amount, client.currency)}
+                                            </span>
+                                        </div>
+                                        <div className="mt-3 flex gap-2">
+                                            <Link
+                                                href={route('clients.show', client.id)}
+                                                className="flex-1 rounded-md bg-blue-50 px-3 py-2 text-center text-xs font-medium text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300"
+                                            >
+                                                Ver detalles
+                                            </Link>
+                                            <button
+                                                onClick={() => sendReminder(client.id)}
+                                                className="flex-1 rounded-md bg-yellow-50 px-3 py-2 text-xs font-medium text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-300"
+                                            >
+                                                Enviar recordatorio
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
                         {/* Table */}
-                        <div className="overflow-x-auto overscroll-x-contain">
+                        <div className="hidden overflow-x-auto overscroll-x-contain md:block">
                             <table className="w-full min-w-[860px] divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>

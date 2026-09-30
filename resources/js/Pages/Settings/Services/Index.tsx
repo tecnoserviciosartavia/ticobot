@@ -9,6 +9,9 @@ import { Settings, ArrowLeft, Plus, Edit, Trash2, DollarSign, Users, Eye, EyeOff
 
 type ServiceAccountItem = {
     id: number;
+    company_id: number;
+    company_name?: string | null;
+    company_slug?: string | null;
     name?: string | null;
     identifier: string;
     password?: string | null;
@@ -17,6 +20,9 @@ type ServiceAccountItem = {
 
 type ServiceItem = {
     id: number;
+    company_id: number;
+    company_name?: string | null;
+    company_slug?: string | null;
     name: string;
     price: string;
     cost?: string;
@@ -32,7 +38,7 @@ type ServiceItem = {
     accounts?: ServiceAccountItem[];
 };
 
-type Props = PageProps<{ services: ServiceItem[] }>;
+type Props = PageProps<{ services: ServiceItem[]; companies: Array<{ id:number; name:string; slug:string }> }>;
 
 const currencySymbol = (currency: string) => {
     switch (currency) {
@@ -53,8 +59,9 @@ const formatDate = (value?: string | null) => {
     });
 };
 
-export default function ServicesSettingsIndex({ services = [] }: Props) {
+export default function ServicesSettingsIndex({ services = [], companies = [] }: Props) {
     const createForm = useForm({
+        company_id: '',
         name: '',
         price: '0',
         cost: '0',
@@ -69,6 +76,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
 
     const [editingId, setEditingId] = useState<number | null>(null);
     const editForm = useForm({
+        company_id: '',
         name: '',
         price: '0',
         cost: '0',
@@ -92,6 +100,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
     const startEdit = (s: ServiceItem) => {
         setEditingId(s.id);
         editForm.setData({
+            company_id: String(s.company_id),
             name: s.name,
             price: String(s.price ?? '0'),
             cost: String(s.cost ?? '0'),
@@ -133,6 +142,14 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
         if (!confirm('¿Eliminar este servicio?')) return;
         router.delete(route('settings.services.destroy', id), { preserveScroll: true });
     };
+    const selectedCompany = companies.find((company) => String(company.id) === String(createForm.data.company_id));
+    const isTicoCast = selectedCompany?.slug === 'ticocast';
+    const visibleServices = createForm.data.company_id ? services.filter((service) => String(service.company_id) === String(createForm.data.company_id)) : services;
+    const showTicoCastColumns = visibleServices.some((service) => service.company_slug === 'ticocast');
+    const changeCompany = (companyId: string) => {
+        const company = companies.find((item) => String(item.id) === companyId);
+        createForm.setData((current) => ({ ...current, company_id: companyId, ...(company?.slug === 'ticocast' ? {} : { payment_day: '', account_email: '', password: '', pin: '', max_profiles: '' }) }));
+    };
 
     return (
         <ResponsiveLayout title="Configuración de Servicios">
@@ -161,6 +178,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                     </div>
 
                     <div className="space-y-8">
+                                <div><label className="block text-sm font-medium">Empresa</label><select value={createForm.data.company_id} onChange={(e)=>changeCompany(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300"><option value="">Seleccione</option>{companies.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>{createForm.errors.company_id&&<div className="text-sm text-red-600">{createForm.errors.company_id}</div>}</div>
                         <Card className="p-6">
                             <h3 className="text-lg font-semibold">Agregar servicio</h3>
                             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -204,6 +222,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                 />
                                 {createForm.errors.cost && <div className="mt-1 text-sm text-red-600">{createForm.errors.cost}</div>}
                             </div>
+                            {isTicoCast && <>
                             <div>
                                 <label className="block text-sm font-medium">Día de pago del costo mensual</label>
                                 <input
@@ -264,6 +283,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                 />
                                 {createForm.errors.max_profiles && <div className="mt-1 text-sm text-red-600">{createForm.errors.max_profiles}</div>}
                             </div>
+                            </>}
                             <div className="flex gap-3 items-center justify-between">
                                 <div className="flex-1">
                                     <label className="block text-sm font-medium">Moneda</label>
@@ -310,7 +330,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                         </div>
 
                         <div className="mt-4 overflow-x-auto pb-2">
-                            <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <table className={showTicoCastColumns ? "w-full divide-y divide-gray-200 dark:divide-gray-700" : "w-full divide-y divide-gray-200 dark:divide-gray-700 [&_th:nth-child(5)]:hidden [&_td:nth-child(5)]:hidden [&_th:nth-child(6)]:hidden [&_td:nth-child(6)]:hidden [&_th:nth-child(7)]:hidden [&_td:nth-child(7)]:hidden [&_th:nth-child(9)]:hidden [&_td:nth-child(9)]:hidden [&_th:nth-child(10)]:hidden [&_td:nth-child(10)]:hidden [&_th:nth-child(11)]:hidden [&_td:nth-child(11)]:hidden [&_th:nth-child(12)]:hidden [&_td:nth-child(12)]:hidden"}>
                                 <thead>
                                     <tr className="text-left text-sm text-gray-600 dark:text-gray-300">
                                         <th className="py-2 pr-4 min-w-[180px]">Nombre</th>
@@ -330,14 +350,14 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {services.length === 0 ? (
+                                    {visibleServices.length === 0 ? (
                                         <tr>
                                             <td colSpan={13} className="py-6 text-sm text-gray-500">
                                                 No hay servicios.
                                             </td>
                                         </tr>
                                     ) : (
-                                        services.map((s) => {
+                                        visibleServices.map((s) => {
                                             const isEditing = editingId === s.id;
                                             return (
                                                 <tr key={s.id} className="text-sm">
@@ -575,6 +595,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                         </div>
                     </Card>
 
+                    {isTicoCast && (
                     <Card className="p-6">
                         <div className="flex items-baseline justify-between">
                             <h3 className="text-lg font-semibold">Subcuentas por servicio</h3>
@@ -707,6 +728,7 @@ export default function ServicesSettingsIndex({ services = [] }: Props) {
                             </table>
                         </div>
                     </Card>
+                    )}
                     </div>
                 </div>
             </div>

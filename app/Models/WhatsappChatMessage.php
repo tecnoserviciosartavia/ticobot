@@ -13,6 +13,8 @@ class WhatsappChatMessage extends Model
 
     protected $fillable = [
         'phone',
+        'identity_type',
+        'whatsapp_user_id',
         'direction',
         'body',
         'status',
@@ -31,6 +33,10 @@ class WhatsappChatMessage extends Model
     {
         $digits = preg_replace('/\D+/', '', $phone) ?: '';
 
+        if (str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2) ?: '';
+        }
+
         // Los números nacionales de Costa Rica tienen 8 dígitos. Guardarlos
         // siempre con 506 evita dividir un mismo hilo entre dos conversaciones.
         return strlen($digits) === 8 ? '506'.$digits : $digits;
@@ -38,7 +44,17 @@ class WhatsappChatMessage extends Model
 
     public function setPhoneAttribute(mixed $value): void
     {
-        $this->attributes['phone'] = static::normalizePhone((string) $value);
+        $value = trim((string) $value);
+        $this->attributes['phone'] = str_starts_with($value, 'bsuid:')
+            ? $value
+            : static::normalizePhone($value);
+    }
+
+    public static function normalizeConversationKey(string $value): string
+    {
+        $value = trim($value);
+
+        return str_starts_with($value, 'bsuid:') ? $value : static::normalizePhone($value);
     }
 
     public function sentByUser(): BelongsTo
@@ -149,7 +165,7 @@ class WhatsappChatMessage extends Model
         $since = Carbon::now('UTC')->subHours(self::SERVICE_WINDOW_HOURS);
 
         return static::query()
-            ->where('phone', preg_replace('/\D+/', '', $phone))
+            ->where('phone', static::normalizeConversationKey($phone))
             ->where('direction', 'outbound')
             ->where(fn ($query) => $query
                 ->where('created_at', '>=', $since)
@@ -163,7 +179,7 @@ class WhatsappChatMessage extends Model
         $since = Carbon::now('UTC')->subHours(self::SERVICE_WINDOW_HOURS);
 
         return static::query()
-            ->where('phone', preg_replace('/\D+/', '', $phone))
+            ->where('phone', static::normalizeConversationKey($phone))
             ->where(fn ($query) => $query
                 ->whereNotNull('sent_by_user_id')
                 ->orWhereNotNull('metadata'))

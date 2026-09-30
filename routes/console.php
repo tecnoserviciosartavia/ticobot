@@ -12,7 +12,10 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Artisan::command('billing:resend-missed-month {month? : Mes objetivo YYYY-MM} {--dry-run : No aplica cambios, solo muestra el plan}', function (?string $month = null) {
+Artisan::command('billing:resend-missed-month
+    {month? : Mes objetivo YYYY-MM}
+    {--exclude-client=* : ID de cliente que no debe reprogramarse}
+    {--dry-run : No aplica cambios, solo muestra el plan}', function (?string $month = null) {
     $tz = config('app.timezone', 'America/Costa_Rica');
     $month = $month ?: Carbon::now($tz)->format('Y-m');
 
@@ -28,6 +31,12 @@ Artisan::command('billing:resend-missed-month {month? : Mes objetivo YYYY-MM} {-
 
     $this->info(sprintf('Revisando recordatorios de contratos mensuales para %s...', $target->format('F Y')));
 
+    $excludedClientIds = collect($this->option('exclude-client'))
+        ->filter(fn ($id) => is_numeric($id))
+        ->map(fn ($id) => (int) $id)
+        ->unique()
+        ->values();
+
     $contracts = Contract::query()
         ->where(function ($query) {
             $query->whereNull('billing_cycle')
@@ -35,6 +44,7 @@ Artisan::command('billing:resend-missed-month {month? : Mes objetivo YYYY-MM} {-
                 ->orWhereIn('billing_cycle', ['monthly', 'mensual']);
         })
         ->whereBetween('next_due_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+        ->when($excludedClientIds->isNotEmpty(), fn ($query) => $query->whereNotIn('client_id', $excludedClientIds))
         ->get();
 
     if ($contracts->isEmpty()) {
@@ -69,24 +79,39 @@ Artisan::command('billing:resend-missed-month {month? : Mes objetivo YYYY-MM} {-
         $existing = Reminder::query()
             ->where('contract_id', $contract->id)
             ->whereBetween('scheduled_for', [$monthStart->copy()->setTime(0, 0, 0), $monthEnd->copy()->setTime(23, 59, 59)])
-            ->whereIn('status', ['pending', 'queued', 'failed', 'sent'])
+            ->whereIn('status', ['pending', 'queued', 'failed', 'sent', 'deferred'])
             ->get();
 
         if ($existing->isNotEmpty()) {
-            foreach ($existing as $reminder) {
-                if ($reminder->status !== 'pending') {
-                    $this->line(sprintf('  - Contrato %s: reprogramando recordatorio %d (%s) a pending', $contract->name, $reminder->id, $reminder->status));
-                    if (! $dryRun) {
-                        $reminder->forceFill([
-                            'status' => 'pending',
-                            'queued_at' => null,
-                            'sent_at' => null,
-                            'last_attempt_at' => null,
-                            'last_resend_at' => Carbon::now($tz)->toDateTimeString(),
-                        ])->save();
-                    }
-                } else {
-                    $this->line(sprintf('  - Contrato %s: recordatorio %d ya está pendiente', $contract->name, $reminder->id));
+            $reminder = $existing
+                ->sortByDesc(fn (Reminder $item) => [$item->status === 'pending' ? 1 : 0, $item->id])
+                ->first();
+            $duplicates = $existing->where('id', '!=', $reminder->id);
+
+            $this->line(sprintf(
+                '  - Contrato %s: recordatorio %d %s%s',
+                $contract->name,
+                $reminder->id,
+                $reminder->status === 'pending' ? 'ya está pendiente' : "({$reminder->status}) → pending",
+                $duplicates->isNotEmpty() ? sprintf('; %d duplicado(s) archivado(s)', $duplicates->count()) : '',
+            ));
+
+            if (! $dryRun) {
+                $reminder->forceFill([
+                    'status' => 'pending',
+                    'scheduled_for' => $scheduledFor,
+                    'queued_at' => null,
+                    'sent_at' => null,
+                    'acknowledged_at' => null,
+                    'last_attempt_at' => null,
+                    'last_resend_at' => Carbon::now($tz)->toDateTimeString(),
+                ])->save();
+
+                foreach ($duplicates as $duplicate) {
+                    $duplicate->forceFill([
+                        'status' => 'duplicate',
+                        'acknowledged_at' => Carbon::now($tz),
+                    ])->save();
                 }
             }
         } else {
@@ -122,3 +147,9 @@ Artisan::command('billing:resend-missed-month {month? : Mes objetivo YYYY-MM} {-
 
 Schedule::command('services:notify-platform-payments')->hourly();
 Schedule::command('emails:reconcile-sinpe-bcr')->everyFiveMinutes();
+Schedule::command('whatsapp:monitor-reactivation-template')
+    ->everyMinute()
+    ->withoutOverlapping(10);
+Schedule::command('whatsapp:monitor-billing-price-notice')
+    ->everyMinute()
+    ->withoutOverlapping(10);

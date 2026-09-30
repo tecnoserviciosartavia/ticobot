@@ -307,7 +307,7 @@ class ChatMessageController extends Controller
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         $data = $request->validate([
-            'status'              => ['required', 'in:sent,failed'],
+            'status'              => ['required', 'in:queued,sent,failed'],
             'whatsapp_message_id' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -329,18 +329,33 @@ class ChatMessageController extends Controller
     {
         $limit = (int) $request->query('limit', 20);
         $limit = max(1, min($limit, 100));
+        $todayStart = now('UTC')->startOfDay();
 
         $messages = WhatsappChatMessage::query()
             ->where('direction', 'outbound')
-            ->where('status', 'queued')
+            ->where(function ($query) use ($todayStart) {
+                $query->where('status', 'queued')
+                    ->orWhere(function ($failedQuery) use ($todayStart) {
+                        $failedQuery->where('status', 'failed')
+                            ->where(function ($timeQuery) use ($todayStart) {
+                                $timeQuery->where('created_at', '>=', $todayStart)
+                                    ->orWhere('sent_at', '>=', $todayStart);
+                            });
+                    });
+            })
             ->orderBy('id')
             ->limit($limit)
-            ->get(['id', 'phone', 'body', 'metadata']);
+            ->get(['id', 'phone', 'whatsapp_user_id', 'identity_type', 'body', 'metadata']);
 
         return response()->json([
             'messages' => $messages->map(fn (WhatsappChatMessage $message) => [
                 'id' => $message->id,
-                'phone' => $message->phone,
+                // Meta puede incluir un BSUID junto al teléfono. Solo se usa
+                // como destino cuando no hay teléfono disponible en el hilo.
+                'phone' => $message->identity_type === 'bsuid' && $message->whatsapp_user_id
+                    ? $message->whatsapp_user_id
+                    : $message->phone,
+                'identity_type' => $message->identity_type,
                 'body' => $message->body ?? '',
                 'media' => is_array($message->metadata) ? ($message->metadata['media'] ?? null) : null,
             ])->values(),

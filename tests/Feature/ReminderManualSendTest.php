@@ -28,6 +28,8 @@ class ReminderManualSendTest extends TestCase
         ]);
         $contract = Contract::factory()->create([
             'client_id' => $client->id,
+            'amount' => 15000,
+            'currency' => 'CRC',
             'next_due_date' => '2026-07-10',
         ]);
         $reminder = Reminder::create([
@@ -45,9 +47,15 @@ class ReminderManualSendTest extends TestCase
         ]);
 
         $this->mock(WhatsAppNotificationService::class, function (MockInterface $mock) use ($client) {
-            $mock->shouldReceive('sendTextMessage')
+            $mock->shouldReceive('sendTemplateMessage')
                 ->once()
-                ->with($client->phone, 'Recordatorio de pago pendiente')
+                ->withArgs(fn ($phone, $template, $parameters, $language, $metadata) =>
+                    $phone === $client->phone
+                    && $template === 'recordatorio_vencimiento_v2'
+                    && $parameters === [$client->name, '10 de julio de 2026', '₡15.000']
+                    && $language === 'es'
+                    && $metadata['source'] === 'manual_reminder_template'
+                )
                 ->andReturn(true);
         });
 
@@ -69,7 +77,8 @@ class ReminderManualSendTest extends TestCase
         $message = ReminderMessage::query()->where('reminder_id', $reminder->id)->firstOrFail();
         $this->assertSame('outbound', $message->direction);
         $this->assertSame('text', $message->message_type);
-        $this->assertSame('Recordatorio de pago pendiente', $message->content);
+        $this->assertStringContainsString('Cuentas para depósitos:', $message->content);
+        $this->assertStringContainsString('SINPE Móvil: 88525881', $message->content);
         $this->assertSame($client->id, $message->client_id);
 
         Carbon::setTestNow();

@@ -96,6 +96,7 @@ export default function ChatsIndex({ conversations = [] }: { conversations?: Con
             return;
         }
 
+        sessionStorage.setItem('ticobot:chats:return', `${window.location.pathname}${window.location.search}`);
         router.visit(route('chats.show', phone));
     };
 

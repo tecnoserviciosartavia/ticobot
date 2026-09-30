@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,11 +18,15 @@ class ChatController extends Controller
 {
     private function normalizePhone(string $phone): string
     {
-        return WhatsappChatMessage::normalizePhone($phone);
+        return WhatsappChatMessage::normalizeConversationKey($phone);
     }
 
     private function phoneLookupKeys(string $phone): array
     {
+        if (str_starts_with($phone, 'bsuid:')) {
+            return [];
+        }
+
         $digits = $this->normalizePhone($phone);
         if ($digits === '') {
             return [];
@@ -91,10 +96,17 @@ class ChatController extends Controller
         });
     }
 
-    public function index(): Response
+    public function index(): Response|RedirectResponse
     {
+        $conversations = $this->conversations()->values();
+        $latestConversation = $conversations->first();
+
+        if ($latestConversation !== null) {
+            return redirect()->route('chats.show', $latestConversation['phone']);
+        }
+
         return Inertia::render('Chats/Index', [
-            'conversations' => $this->conversations()->values(),
+            'conversations' => $conversations,
         ]);
     }
 
@@ -180,7 +192,7 @@ class ChatController extends Controller
                 'sent_at' => $message->sent_at?->toIso8601String(),
                 'created_at' => $message->created_at?->toIso8601String(),
                 'metadata' => $message->metadata ?? [],
-                'media' => $this->normalizeMedia($message->metadata ?? []),
+                'media' => $this->normalizeMedia($message),
                 // La UI móvil necesita un valor estable para no dejar el hilo en estado nulo.
                 'visibility' => 'visible',
                 'is_visible' => true,
@@ -207,9 +219,77 @@ class ChatController extends Controller
         ]);
     }
 
-
-    private function normalizeMedia(array $metadata): ?array
+    public function updates(Request $request, string $phone)
     {
+        $phone = $this->normalizePhone($phone);
+        $afterId = max(0, (int) $request->integer('after_id', 0));
+
+        $messages = WhatsappChatMessage::query()
+            ->where('phone', $phone)
+            ->where('id', '>', $afterId)
+            ->orderBy('id')
+            ->limit(100)
+            ->get(['id', 'phone', 'direction', 'body', 'status', 'whatsapp_message_id', 'sent_by_user_id', 'sent_at', 'created_at', 'metadata'])
+            ->map(fn (WhatsappChatMessage $message) => [
+                'id' => $message->id,
+                'phone' => $message->phone,
+                'direction' => $message->direction,
+                'body' => $message->body,
+                'status' => $message->status,
+                'whatsapp_message_id' => $message->whatsapp_message_id,
+                'sent_by_user_id' => $message->sent_by_user_id,
+                'sent_at' => $message->sent_at?->toIso8601String(),
+                'created_at' => $message->created_at?->toIso8601String(),
+                'metadata' => $message->metadata ?? [],
+                'media' => $this->normalizeMedia($message),
+                'visibility' => 'visible',
+                'is_visible' => true,
+            ]);
+
+        $statusUpdates = WhatsappChatMessage::query()
+            ->where('phone', $phone)
+            ->where('direction', 'outbound')
+            ->where('id', '<=', $afterId)
+            ->orderBy('id')
+            ->get(['id', 'status', 'whatsapp_message_id', 'sent_at'])
+            ->map(fn (WhatsappChatMessage $message) => [
+                'id' => $message->id,
+                'status' => $message->status,
+                'whatsapp_message_id' => $message->whatsapp_message_id,
+                'sent_at' => $message->sent_at?->toIso8601String(),
+            ]);
+
+        return response()->json([
+            'messages' => $messages->values(),
+            'status_updates' => $statusUpdates->values(),
+        ]);
+    }
+
+    public function media(string $phone, WhatsappChatMessage $message)
+    {
+        $phone = $this->normalizePhone($phone);
+
+        abort_unless($message->phone === $phone, 404);
+
+        $metadata = is_array($message->metadata) ? $message->metadata : [];
+        $media = $metadata['media'] ?? null;
+        $filename = is_array($media) ? trim((string) ($media['filename'] ?? '')) : '';
+        $mimetype = is_array($media) ? trim((string) ($media['mimetype'] ?? '')) : '';
+
+        abort_unless($mimetype === 'application/pdf' && $filename !== '', 404);
+
+        $path = 'conciliations/'.basename($filename);
+        abort_unless(Storage::disk('public')->exists($path), 404);
+
+        return Storage::disk('public')->response($path, basename($filename), [
+            'Content-Type' => $mimetype,
+            'Content-Disposition' => 'inline; filename="'.basename($filename).'"',
+        ]);
+    }
+
+    private function normalizeMedia(WhatsappChatMessage $message): ?array
+    {
+        $metadata = is_array($message->metadata) ? $message->metadata : [];
         $media = $metadata['media'] ?? null;
 
         if (! is_array($media)) {
@@ -220,7 +300,7 @@ class ChatController extends Controller
         $filename = isset($media['filename']) ? trim((string) $media['filename']) : '';
         $data = isset($media['data']) ? trim((string) $media['data']) : '';
 
-        if ($mimetype === '' || $data === '') {
+        if ($mimetype === '') {
             return null;
         }
 
@@ -229,11 +309,27 @@ class ChatController extends Controller
             $kind = str_starts_with($mimetype, 'image/') ? 'image' : (str_starts_with($mimetype, 'video/') ? 'video' : (str_starts_with($mimetype, 'audio/') ? 'audio' : 'document'));
         }
 
+        $url = null;
+        if ($data === '' && $kind === 'document' && $filename !== '') {
+            $path = 'conciliations/'.basename($filename);
+            if (Storage::disk('public')->exists($path)) {
+                $url = route('chats.media', [
+                    'phone' => $message->phone,
+                    'message' => $message->id,
+                ]);
+            }
+        }
+
+        if ($data === '' && $url === null) {
+            return null;
+        }
+
         return [
             'kind' => $kind,
             'mimetype' => $mimetype,
             'filename' => $filename !== '' ? $filename : null,
-            'data' => $data,
+            'data' => $data !== '' ? $data : null,
+            'url' => $url,
             'size' => isset($media['size']) && is_numeric($media['size']) ? (int) $media['size'] : null,
             'caption' => isset($media['caption']) ? trim((string) $media['caption']) : null,
         ];
@@ -243,7 +339,7 @@ class ChatController extends Controller
     {
         $data = $request->validate([
             'phones' => ['required', 'array', 'min:1'],
-            'phones.*' => ['required', 'string', 'max:20'],
+            'phones.*' => ['required', 'string', 'max:191'],
         ]);
 
         $phones = array_values(array_unique($data['phones']));
@@ -275,10 +371,10 @@ class ChatController extends Controller
         ]);
 
         $conversation = WhatsappChatMessage::conversationSummaryForPhone($phone);
-        if (! $conversation || ! ($conversation['is_service_window_open'] ?? false)) {
-            throw ValidationException::withMessages([
-                'body' => 'La ventana de WhatsApp de 24 horas ya expiró. Esperá un nuevo mensaje del cliente para responder sin plantilla.',
-            ]);
+        if ($conversation && ! ($conversation['is_service_window_open'] ?? false)) {
+            // El chat web debe permitir enviar aunque la ventana de 24h haya expirado.
+            // La restricción sigue aplicando para la API móvil y quick replies,
+            // pero el agente manual puede responder igual si lo necesita.
         }
 
         $body = trim((string) ($data['body'] ?? ''));
@@ -308,8 +404,12 @@ class ChatController extends Controller
             ];
         }
 
+        $identityMessage = WhatsappChatMessage::query()->where('phone', $phone)->latest('id')->first();
+
         WhatsappChatMessage::create([
             'phone' => $phone,
+            'identity_type' => $identityMessage?->identity_type ?? 'phone',
+            'whatsapp_user_id' => $identityMessage?->whatsapp_user_id,
             'direction' => 'outbound',
             'body' => $body !== '' ? $body : null,
             'status' => 'queued',

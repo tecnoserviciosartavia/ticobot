@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Models\Company;
 use App\Services\ContractNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -78,7 +79,17 @@ class ClientController extends Controller
             'status' => ['required', 'string', 'max:50'],
             'metadata' => ['nullable', 'array'],
             'notes' => ['nullable', 'string'],
+            'company_id' => ['nullable', 'integer', 'exists:companies,id'],
         ]);
+
+        // Mobile clients must belong to the same company context used by the
+        // web application; otherwise they are absent from company-scoped flows.
+        if (empty($data['company_id'])) {
+            $data['company_id'] = Company::query()
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->value('id');
+        }
 
         $client = Client::create($data);
 

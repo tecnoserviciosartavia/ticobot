@@ -15,6 +15,13 @@ import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
 import java.util.Map;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.Executors;
+
+import org.json.JSONObject;
 
 public class TicoBotMessagingService extends FirebaseMessagingService {
     public static final String CHANNEL_ID = "ticobot-chat-messages";
@@ -85,6 +92,31 @@ public class TicoBotMessagingService extends FirebaseMessagingService {
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
         getSharedPreferences("ticobot_mobile", MODE_PRIVATE).edit().putString("pending_push_token", token).apply();
+        String apiToken = getSharedPreferences("ticobot_mobile", MODE_PRIVATE).getString("api_token", null);
+        if (apiToken == null || apiToken.trim().isEmpty()) return;
+
+        Executors.newSingleThreadExecutor().execute(() -> {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(BuildConfig.API_BASE_URL + "push/device-token").openConnection();
+                connection.setRequestMethod("POST");
+                connection.setConnectTimeout(10_000);
+                connection.setReadTimeout(10_000);
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Authorization", "Bearer " + apiToken);
+                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setRequestProperty("Accept", "application/json");
+                byte[] payload = new JSONObject().put("token", token).put("platform", "android").toString().getBytes(StandardCharsets.UTF_8);
+                try (OutputStream output = connection.getOutputStream()) { output.write(payload); }
+                if (connection.getResponseCode() >= 200 && connection.getResponseCode() < 300) {
+                    getSharedPreferences("ticobot_mobile", MODE_PRIVATE).edit().remove("pending_push_token").apply();
+                }
+            } catch (Exception ignored) {
+                // El token queda pendiente y se vuelve a registrar al abrir la app.
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        });
     }
 
     private void createChannel() {

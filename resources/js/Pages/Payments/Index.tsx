@@ -239,7 +239,79 @@ export default function PaymentsIndex() {
 
                     {/* Payments Table */}
                     <Card className="min-w-0 overflow-hidden">
-                        <div className="overflow-x-auto overscroll-x-contain -mx-px">
+                        {/* Mobile card list */}
+                        <div className="space-y-3 p-4 md:hidden">
+                            {filteredPayments.map((payment) => (
+                                <div
+                                    key={payment.id}
+                                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <FileText className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                                            <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                                {payment.reference || 'N/A'}
+                                            </span>
+                                        </div>
+                                        <Badge className={getStatusColor(payment.status)}>
+                                            {payment.status === 'verified' ? 'Verificado' : payment.status === 'failed' ? 'Fallido' : 'Pendiente'}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="mt-2 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                                        <Users className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
+                                        {payment.client?.name || 'N/A'}
+                                    </div>
+
+                                    <div className="mt-3 flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 dark:bg-slate-950/60">
+                                        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                            {formatCurrency(payment.amount, payment.currency)}
+                                        </div>
+                                        <Badge variant="outline">{payment.channel.replace('_', ' ').toUpperCase()}</Badge>
+                                    </div>
+
+                                    <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                        {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('es-CR') : 'Sin fecha'}
+                                    </div>
+
+                                    {(!payment.has_conciliation) && (
+                                        <div className="mt-3 flex gap-2">
+                                            {payment.status !== 'verified' && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="flex-1"
+                                                    onClick={() => {
+                                                        router.post(route('conciliations.store'), {
+                                                            payment_id: payment.id,
+                                                            status: 'pending',
+                                                        });
+                                                    }}
+                                                >
+                                                    <CheckCircle className="mr-1 h-4 w-4" />
+                                                    Conciliar
+                                                </Button>
+                                            )}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1 text-red-600 hover:text-red-700"
+                                                onClick={() => handleDelete(payment)}
+                                                disabled={deletingId === payment.id}
+                                            >
+                                                <Trash2 className="mr-1 h-4 w-4" />
+                                                Eliminar
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {filteredPayments.length === 0 && (
+                                <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">No se encontraron pagos.</p>
+                            )}
+                        </div>
+
+                        <div className="hidden overflow-x-auto overscroll-x-contain -mx-px md:block">
                             <table className="w-full min-w-[720px] divide-y divide-slate-200 dark:divide-slate-800">
                                 <thead className="bg-slate-50 dark:bg-slate-950">
                                     <tr>

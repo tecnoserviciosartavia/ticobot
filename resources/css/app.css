@@ -6,6 +6,8 @@ html,
 body,
 #app {
     height: 100%;
+    overflow-x: hidden;
+    max-width: 100vw;
 }
 
 /* Force dark visuals for accounting sections regardless of the global theme toggle. */

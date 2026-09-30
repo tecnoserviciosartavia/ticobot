@@ -382,12 +382,12 @@ Notas:
 
 ### Estabilidad reciente del bot WhatsApp
 
-Se aplicaron varios ajustes para reducir silencios del bot y mejorar la operación con WhatsApp Web:
+El bot usa exclusivamente Meta Cloud API para recibir y enviar mensajes:
 
-- Soporte operativo para chats tipo `@lid` en recepción, manteniendo fallback para envíos.
-- Promoción de estado `CONNECTED` a listo cuando `ready` no llega pero el cliente ya es usable.
-- Fallback de envío para intentar múltiples targets cuando WhatsApp Web no resuelve el chat a la primera.
-- El cierre del bot libera únicamente el transporte HTTP de Meta Cloud API.
+- Los mensajes entrantes llegan mediante el webhook oficial de Meta.
+- El estado operativo depende de la configuración y disponibilidad de Meta Graph API.
+- Los envíos se realizan al número internacional normalizado.
+- No se utiliza navegador, sesión local ni código QR.
 
 Importante:
 
@@ -707,15 +707,9 @@ sudo systemctl start ticobot-bot
 sudo systemctl status ticobot-bot
 ```
 
-### Paso 10: Vincular WhatsApp
+### Paso 10: Configurar Meta WhatsApp
 
-1. Accede a tu aplicación: `https://ticocast.com`
-2. Inicia sesión con las credenciales del administrador
-3. Ve a **Configuración** o **Perfil**
-4. El sistema generará automáticamente un código QR
-5. Abre WhatsApp en tu teléfono → **Menú (⋮)** → **Dispositivos vinculados**
-6. Escanea el código QR
-7. El estado cambiará a **"Conectado"** ✅
+Configura `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_VERSION` y `META_WHATSAPP_VERIFY_TOKEN`. En Meta Developers, registra `/api/meta/whatsapp/webhook` como webhook de WhatsApp. No se requiere navegador ni vinculación QR.
 
 ---
 
@@ -910,9 +904,8 @@ ticobot/
 │   ├── src/
 │   │   ├── index.ts              # Punto de entrada
 │   │   ├── api-client.ts         # Cliente API Laravel
-│   │   ├── whatsapp-client.ts    # Cliente WhatsApp
+│   │   ├── meta-whatsapp-client.ts # Cliente Meta Cloud API
 │   │   └── reminder-processor.ts # Procesador de recordatorios
-│   ├── storage/                  # Sesión de WhatsApp
 │   ├── package.json
 │   └── tsconfig.json
 ├── config/                       # Configuración Laravel
@@ -1332,29 +1325,15 @@ php artisan optimize:clear
 php artisan config:cache
 ```
 
-### 2. Bot WhatsApp No Genera QR
+### 2. Meta WhatsApp no envía o recibe
 
 **Diagnóstico:**
 ```bash
-# Ver logs del bot
-pm2 logs ticobot-bot
-
-# Verificar permisos de storage
-ls -la bot/storage/
+pm2 logs ticobot --lines 100
+php artisan route:list --path=meta/whatsapp
 ```
 
-**Soluciones:**
-```bash
-# Limpiar sesión de WhatsApp
-cd bot
-php artisan optimize:clear
-
-# Dar permisos
-chmod -R 755 storage
-
-# Reiniciar bot
-pm2 restart ticobot-bot
-```
+Verifica el token, el identificador del número, la URL pública del webhook y su token de verificación en Meta Developers.
 
 ### 3. Assets (CSS/JS) No Cargan / Error 404
 

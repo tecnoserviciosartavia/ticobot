@@ -560,11 +560,142 @@ export default function RemindersIndex() {
                                     <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Listado</h2>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">
                                         {reminders.meta?.total ?? stats?.total ?? reminders.data.length} registro
-                                        {(reminders.meta?.total ?? 0) !== 1 ? 's' : ''} · orden por más recientes
+                                        {(reminders.meta?.total ?? 0) !== 1 ? 's' : ''} · próximos primero
                                     </p>
                                 </div>
                             </div>
-                            <div className="overflow-x-auto">
+                            {/* Mobile card list */}
+                            <div className="space-y-3 p-4 md:hidden">
+                                {reminders.data.map((reminder) => {
+                                    const scheduledStatus = getScheduledStatus(reminder.scheduled_for, reminder.sent_at);
+                                    const rel = relativeScheduleLabel(reminder.scheduled_for);
+                                    return (
+                                        <div
+                                            key={reminder.id}
+                                            className={`rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 ${rowAccentClass(reminder.status)}`}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600 ring-1 ring-cyan-100 dark:bg-cyan-950/40 dark:text-cyan-300 dark:ring-cyan-900">
+                                                        <Bell className="h-4 w-4" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                                            {reminder.client?.name || 'Sin cliente'}
+                                                        </div>
+                                                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                                                            #{reminder.id} · {reminder.client?.phone || 'Sin teléfono'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <StatusBadge status={reminder.status} />
+                                            </div>
+
+                                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                                                <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
+                                                <span className="font-medium text-slate-900 dark:text-slate-100">
+                                                    {reminder.contract?.name || '—'}
+                                                </span>
+                                                {reminder.contract && (
+                                                    <span>
+                                                        {reminder.contract.amount} {reminder.contract.currency}
+                                                    </span>
+                                                )}
+                                                <Badge variant="outline" className="font-normal">
+                                                    {labelForChannel(reminder.channel)}
+                                                </Badge>
+                                                {reminder.recurrence && (
+                                                    <span className="text-slate-500 dark:text-slate-400">
+                                                        {labelForBillingCycle(reminder.recurrence)}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="mt-3 flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 dark:bg-slate-950/60">
+                                                <div>
+                                                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                                                        {formatDateTime(reminder.scheduled_for)}
+                                                    </div>
+                                                    {rel && !reminder.sent_at && (
+                                                        <div className="text-xs font-medium text-slate-600 dark:text-slate-300">{rel}</div>
+                                                    )}
+                                                </div>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={`text-xs font-medium ${
+                                                        scheduledStatus.color === 'red'
+                                                            ? 'border-rose-200 text-rose-700'
+                                                            : scheduledStatus.color === 'orange'
+                                                              ? 'border-orange-200 text-orange-700'
+                                                              : scheduledStatus.color === 'yellow'
+                                                                ? 'border-amber-200 text-amber-800'
+                                                                : scheduledStatus.color === 'cyan'
+                                                                  ? 'border-cyan-200 text-cyan-700'
+                                                                  : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
+                                                    }`}
+                                                >
+                                                    {scheduledStatus.text}
+                                                </Badge>
+                                            </div>
+
+                                            <div className="mt-3 grid grid-cols-4 gap-1.5">
+                                                {['queued', 'failed'].includes(reminder.status) ? (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleRetry(reminder.id)}
+                                                        disabled={retryingId === reminder.id}
+                                                        title="Reintentar"
+                                                        className="w-full"
+                                                    >
+                                                        <RefreshCw className="h-4 w-4" />
+                                                    </Button>
+                                                ) : (
+                                                    <div />
+                                                )}
+                                                {reminder.channel === 'whatsapp' && ['pending', 'failed'].includes(reminder.status) ? (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleManualSend(reminder.id)}
+                                                        disabled={sendingId === reminder.id}
+                                                        title="Enviar por WhatsApp"
+                                                        className="w-full text-cyan-700 hover:text-cyan-800"
+                                                    >
+                                                        <Send className="h-4 w-4" />
+                                                    </Button>
+                                                ) : (
+                                                    <div />
+                                                )}
+                                                <Link href={route('reminders.show', reminder.id)} className="w-full">
+                                                    <Button variant="outline" size="sm" title="Ver detalle" className="w-full">
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                </Link>
+                                                <Link href={route('reminders.edit', reminder.id)} className="w-full">
+                                                    <Button variant="outline" size="sm" title="Editar" className="w-full">
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                </Link>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleDelete(reminder.id, reminder.client?.name || `#${reminder.id}`)}
+                                                disabled={deletingId === reminder.id}
+                                                className="mt-1.5 w-full text-rose-600 hover:text-rose-700"
+                                                title="Eliminar"
+                                            >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Eliminar
+                                            </Button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Desktop table */}
+                            <div className="hidden overflow-x-auto md:block">
                                 <table className="min-w-[920px] divide-y divide-slate-200 dark:divide-slate-800">
                                     <thead>
                                         <tr className="bg-slate-50 dark:bg-slate-950/90 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
